@@ -82,8 +82,28 @@ DATABASES = {
         'PASSWORD': os.environ.get('DB_PASSWORD', ''),
         'HOST': os.environ.get('DB_HOST', 'localhost'),
         'PORT': os.environ.get('DB_PORT', '5432'),
-    }
+    },
+    # Read-only connection to the Odoo PMS database (source of truth for hotel
+    # operations: rooms, reservations, room blocks). Never migrate/write here.
+    'odoo': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('ODOO_DB_NAME', 'odoo'),
+        'USER': os.environ.get('ODOO_DB_USER', ''),
+        'PASSWORD': os.environ.get('ODOO_DB_PASSWORD', ''),
+        'HOST': os.environ.get('ODOO_DB_HOST', ''),
+        'PORT': os.environ.get('ODOO_DB_PORT', '5432'),
+        'OPTIONS': {
+            'sslmode': os.environ.get('ODOO_DB_SSLMODE', 'require'),
+            'options': '-c client_encoding=UTF8',
+        },
+        # Nunca crear/migrar una base de test contra la producción de Odoo.
+        'TEST': {'MIRROR': 'default'},
+    },
 }
+
+# 'odoo' has no Django models of its own (unmanaged raw SQL access to a
+# third-party schema) — keep migrations off it and never route writes there.
+DATABASE_ROUTERS = ['core.db_routers.OdooReadOnlyRouter']
 
 
 # Password validation
