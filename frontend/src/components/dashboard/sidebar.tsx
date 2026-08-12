@@ -3,23 +3,24 @@ import {
   Target, Building2, TrendingUp, Bell, Settings, Coffee, Sparkles, Ban,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth-context";
 
-const navLive = [
-  { to: "/bloqueos", label: "Bloqueos", icon: Ban },
-] as const;
-
-// Todavía sobre datos de ejemplo, se conectarán más adelante.
-const navProximamente = [
-  { label: "¿Dónde actuar hoy?", icon: Target },
-  { label: "Oportunidades", icon: Sparkles },
-  { label: "Hoteles", icon: Building2 },
-  { label: "Tendencias", icon: TrendingUp },
-  { label: "Alertas", icon: Bell },
-  { label: "Ajustes", icon: Settings },
+const NAV = [
+  { to: "/", label: "¿Dónde actuar hoy?", icon: Target, dashboard: "donde_actuar" },
+  { to: "/bloqueos", label: "Bloqueos", icon: Ban, dashboard: "bloqueos" },
+  { to: "/desayunos", label: "Desayunos", icon: Coffee, dashboard: "desayunos" },
+  { to: "/oportunidades", label: "Oportunidades", icon: Sparkles, dashboard: "oportunidades" },
+  { to: "/hoteles", label: "Hoteles", icon: Building2, dashboard: "hoteles" },
+  { to: "/tendencias", label: "Tendencias", icon: TrendingUp, dashboard: "tendencias" },
+  { to: "/alertas", label: "Alertas", icon: Bell, dashboard: "alertas" },
+  { to: "/ajustes", label: "Ajustes", icon: Settings, dashboard: "ajustes" },
 ] as const;
 
 export function Sidebar() {
   const { pathname } = useLocation();
+  const { usuario } = useAuth();
+  const nav = NAV.filter((n) => usuario?.dashboards.includes(n.dashboard));
+
   return (
     <aside className="hidden lg:flex w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
       <div className="flex items-center gap-2 px-5 h-16 border-b border-sidebar-border">
@@ -31,8 +32,8 @@ export function Sidebar() {
         </div>
       </div>
       <nav className="p-3 flex-1 space-y-0.5">
-        {navLive.map((n) => {
-          const active = pathname === "/" || pathname.startsWith(n.to);
+        {nav.map((n) => {
+          const active = n.to === "/" ? pathname === "/" : pathname.startsWith(n.to);
           const Icon = n.icon;
           return (
             <Link
@@ -47,20 +48,6 @@ export function Sidebar() {
               <Icon className="h-4 w-4" />
               {n.label}
             </Link>
-          );
-        })}
-
-        <div className="pt-4 pb-1 px-3 text-[10px] uppercase tracking-wide text-muted-foreground/70">Próximamente</div>
-        {navProximamente.map((n) => {
-          const Icon = n.icon;
-          return (
-            <div
-              key={n.label}
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/35 cursor-not-allowed select-none"
-            >
-              <Icon className="h-4 w-4" />
-              {n.label}
-            </div>
           );
         })}
       </nav>

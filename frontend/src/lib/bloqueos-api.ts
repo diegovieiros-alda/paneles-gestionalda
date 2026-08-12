@@ -59,3 +59,20 @@ export async function fetchBloqueos(desde: string, hasta: string): Promise<Bloqu
   }
   return res.json();
 }
+
+export type HotelBloqueosReport = {
+  fechaInicio: string;
+  fechaFin: string;
+  diasEnRango: number;
+  hotel: BloqueoHotel | null;
+};
+
+export async function fetchHotelBloqueos(hotelId: number | string, desde: string, hasta: string): Promise<HotelBloqueosReport> {
+  const params = new URLSearchParams({ desde, hasta });
+  const res = await fetch(`/api/hoteles/${hotelId}/bloqueos/?${params}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error || `No se pudo cargar los bloqueos del hotel (${res.status})`);
+  }
+  return res.json();
+}

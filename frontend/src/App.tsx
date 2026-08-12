@@ -4,9 +4,14 @@ import OportunidadesPage from "@/pages/oportunidades";
 import HotelesIndex from "@/pages/hoteles";
 import HotelDetail from "@/pages/hotel-detail";
 import BloqueosPage from "@/pages/bloqueos";
+import DesayunosPage from "@/pages/desayunos";
 import TendenciasPage from "@/pages/tendencias";
 import AlertasPage from "@/pages/alertas";
 import AjustesPage from "@/pages/ajustes";
+import RegistroPage from "@/pages/registro";
+import LoginPage from "@/pages/login";
+import { AuthProvider } from "@/lib/auth-context";
+import { ProtectedRoute } from "@/components/dashboard/protected-route";
 
 function NotFound() {
   return (
@@ -33,21 +38,26 @@ function NotFound() {
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        {/* Bloqueos es la única sección conectada a datos reales por ahora,
-            así que es la portada. El resto (mock) sigue accesible por URL
-            directa para cuando se activen. */}
-        <Route path="/" element={<BloqueosPage />} />
-        <Route path="/bloqueos" element={<BloqueosPage />} />
-        <Route path="/donde-actuar" element={<DashboardHome />} />
-        <Route path="/oportunidades" element={<OportunidadesPage />} />
-        <Route path="/hoteles" element={<HotelesIndex />} />
-        <Route path="/hoteles/:hotelId" element={<HotelDetail />} />
-        <Route path="/tendencias" element={<TendenciasPage />} />
-        <Route path="/alertas" element={<AlertasPage />} />
-        <Route path="/ajustes" element={<AjustesPage />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
+      <AuthProvider>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/registro" element={<RegistroPage />} />
+
+          {/* Bloqueos y Desayunos están conectados a datos reales de Odoo; el
+              resto sigue con datos de ejemplo hasta que se conecten, pero ya
+              son navegables y respetan el rol del usuario. */}
+          <Route path="/" element={<ProtectedRoute dashboard="donde_actuar"><DashboardHome /></ProtectedRoute>} />
+          <Route path="/bloqueos" element={<ProtectedRoute dashboard="bloqueos"><BloqueosPage /></ProtectedRoute>} />
+          <Route path="/desayunos" element={<ProtectedRoute dashboard="desayunos"><DesayunosPage /></ProtectedRoute>} />
+          <Route path="/oportunidades" element={<ProtectedRoute dashboard="oportunidades"><OportunidadesPage /></ProtectedRoute>} />
+          <Route path="/hoteles" element={<ProtectedRoute dashboard="hoteles"><HotelesIndex /></ProtectedRoute>} />
+          <Route path="/hoteles/:hotelId" element={<ProtectedRoute dashboard="hoteles"><HotelDetail /></ProtectedRoute>} />
+          <Route path="/tendencias" element={<ProtectedRoute dashboard="tendencias"><TendenciasPage /></ProtectedRoute>} />
+          <Route path="/alertas" element={<ProtectedRoute dashboard="alertas"><AlertasPage /></ProtectedRoute>} />
+          <Route path="/ajustes" element={<ProtectedRoute dashboard="ajustes"><AjustesPage /></ProtectedRoute>} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </AuthProvider>
     </BrowserRouter>
   );
 }

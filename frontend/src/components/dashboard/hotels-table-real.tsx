@@ -1,0 +1,136 @@
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { ArrowUpDown, ChevronRight, Search } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { fmtEuro, fmtNum, fmtPct, TARGET_OPORTUNIDAD } from "@/lib/mock-data";
+import type { HotelReal } from "@/lib/hoteles-api";
+
+type Key = "name" | "zona" | "sociedad" | "alojados" | "desayunos" | "penetracion" | "produccion" | "precioMedio" | "oportunidad";
+
+function oportunidad(h: HotelReal) {
+  const potenciales = Math.max(0, Math.round(h.alojados * TARGET_OPORTUNIDAD - h.desayunos));
+  return potenciales * h.precioMedio;
+}
+
+const cols: Array<{ key: Key; label: string; align?: "right"; render: (h: HotelReal) => string; sticky?: boolean }> = [
+  { key: "name", label: "Hotel", render: (h) => h.name, sticky: true },
+  { key: "zona", label: "Zona", render: (h) => h.zona },
+  { key: "sociedad", label: "Sociedad", render: (h) => h.sociedad },
+  { key: "alojados", label: "Alojados", align: "right", render: (h) => fmtNum(h.alojados) },
+  { key: "desayunos", label: "Desayunos", align: "right", render: (h) => fmtNum(h.desayunos) },
+  { key: "penetracion", label: "Penetración", align: "right", render: (h) => fmtPct(h.penetracion) },
+  { key: "produccion", label: "Producción", align: "right", render: (h) => fmtEuro(h.produccion) },
+  { key: "precioMedio", label: "Precio med.", align: "right", render: (h) => `${h.precioMedio.toFixed(2)}€` },
+  { key: "oportunidad", label: "Oportunidad", align: "right", render: (h) => fmtEuro(oportunidad(h)) },
+];
+
+export function HotelsTableReal({ hoteles }: { hoteles: HotelReal[] }) {
+  const [sort, setSort] = useState<{ key: Key; dir: "asc" | "desc" }>({ key: "produccion", dir: "desc" });
+  const [q, setQ] = useState("");
+  const [limit, setLimit] = useState(15);
+
+  const rows = useMemo(() => {
+    const filtered = hoteles.filter((h) => {
+      if (!q) return true;
+      const s = q.toLowerCase();
+      return h.name.toLowerCase().includes(s) || h.zona.toLowerCase().includes(s) || h.sociedad.toLowerCase().includes(s);
+    });
+    return filtered.sort((a, b) => {
+      const get = (h: HotelReal) => (sort.key === "oportunidad" ? oportunidad(h) : h[sort.key]);
+      const av = get(a);
+      const bv = get(b);
+      if (typeof av === "string") return sort.dir === "asc" ? av.localeCompare(bv as string) : (bv as string).localeCompare(av);
+      return sort.dir === "asc" ? (av as number) - (bv as number) : (bv as number) - (av as number);
+    });
+  }, [hoteles, sort, q]);
+
+  return (
+    <section className="rounded-xl border border-border bg-surface shadow-soft overflow-hidden">
+      <header className="flex flex-wrap items-center gap-3 px-5 py-4 border-b border-border">
+        <div>
+          <h2 className="text-sm font-semibold text-foreground">Todos los hoteles</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">{rows.length} de {hoteles.length} hoteles</p>
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <div className="flex items-center gap-2 h-8 rounded-md border border-border bg-surface px-2.5 text-xs w-56">
+            <Search className="h-3.5 w-3.5 text-muted-foreground" />
+            <input
+              placeholder="Buscar hotel, zona, sociedad…"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              className="bg-transparent outline-none flex-1"
+            />
+          </div>
+        </div>
+      </header>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-surface-muted/60">
+            <tr>
+              {cols.map((c) => (
+                <th
+                  key={c.key}
+                  onClick={() => setSort((s) => ({ key: c.key, dir: s.key === c.key && s.dir === "desc" ? "asc" : "desc" }))}
+                  className={cn(
+                    "text-[11px] font-medium text-muted-foreground uppercase tracking-wide px-4 py-3 cursor-pointer select-none whitespace-nowrap",
+                    c.align === "right" ? "text-right" : "text-left",
+                    c.sticky && "sticky left-0 bg-surface-muted/95 z-10"
+                  )}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    {c.label}
+                    <ArrowUpDown className={cn("h-3 w-3 opacity-40", sort.key === c.key && "opacity-100 text-primary")} />
+                  </span>
+                </th>
+              ))}
+              <th className="w-8" />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.slice(0, limit).map((h) => (
+              <tr key={h.id} className="border-t border-border hover:bg-accent/30 transition-colors group">
+                {cols.map((c) => (
+                  <td
+                    key={c.key}
+                    className={cn(
+                      "px-4 py-3 whitespace-nowrap num",
+                      c.align === "right" ? "text-right" : "text-left",
+                      c.sticky
+                        ? "sticky left-0 bg-surface group-hover:bg-accent/30 font-medium text-foreground"
+                        : c.key === "zona" || c.key === "sociedad"
+                          ? "text-muted-foreground"
+                          : "text-foreground/90"
+                    )}
+                  >
+                    {c.sticky ? (
+                      <Link to={`/hoteles/${h.id}`} className="hover:text-primary">
+                        {c.render(h)}
+                      </Link>
+                    ) : c.render(h)}
+                  </td>
+                ))}
+                <td className="pr-3">
+                  <Link to={`/hoteles/${h.id}`} className="text-muted-foreground hover:text-primary inline-flex">
+                    <ChevronRight className="h-4 w-4" />
+                  </Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {limit < rows.length && (
+        <div className="p-3 border-t border-border text-center">
+          <button
+            onClick={() => setLimit((l) => l + 25)}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            Mostrar más ({rows.length - limit} restantes)
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
