@@ -10,6 +10,7 @@ import datetime
 
 from django.db import connections
 
+from ..cache import cache_result
 from .engine import ReportLine
 
 _ROOMS_SQL = """
@@ -48,6 +49,7 @@ def fecha_ayer() -> datetime.date:
     return datetime.date.today() - datetime.timedelta(days=1)
 
 
+@cache_result
 def fetch_rooms() -> list[dict]:
     with connections["odoo"].cursor() as cur:
         cur.execute(_ROOMS_SQL)
@@ -65,6 +67,7 @@ def fetch_rooms() -> list[dict]:
     ]
 
 
+@cache_result
 def fetch_room_types() -> list[dict]:
     with connections["odoo"].cursor() as cur:
         cur.execute(_ROOM_TYPES_SQL)
@@ -72,6 +75,7 @@ def fetch_room_types() -> list[dict]:
     return [{"id": r[0], "overnight_room": bool(r[1])} for r in rows]
 
 
+@cache_result
 def fetch_lines(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> list[ReportLine]:
     with connections["odoo"].cursor() as cur:
         cur.execute(_LINES_SQL, [fecha_inicio, fecha_fin])

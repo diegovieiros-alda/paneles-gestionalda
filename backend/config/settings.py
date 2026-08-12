@@ -92,6 +92,7 @@ DATABASES = {
         'PASSWORD': os.environ.get('ODOO_DB_PASSWORD', ''),
         'HOST': os.environ.get('ODOO_DB_HOST', ''),
         'PORT': os.environ.get('ODOO_DB_PORT', '5432'),
+        'CONN_MAX_AGE': 60,
         'OPTIONS': {
             'sslmode': os.environ.get('ODOO_DB_SSLMODE', 'require'),
             'options': '-c client_encoding=UTF8',

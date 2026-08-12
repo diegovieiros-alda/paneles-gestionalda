@@ -12,6 +12,8 @@ import datetime
 
 from django.db import connections
 
+from ..cache import cache_result
+
 _HOTELES_SQL = """
     SELECT prop.id, partner.name, prop.pms_property_code, prop.company_id
     FROM pms_property prop
@@ -52,6 +54,7 @@ _DESAYUNOS_SQL = """
 """
 
 
+@cache_result
 def fetch_hoteles() -> list[dict]:
     with connections["odoo"].cursor() as cur:
         cur.execute(_HOTELES_SQL)
@@ -59,12 +62,14 @@ def fetch_hoteles() -> list[dict]:
     return [{"id": r[0], "name": r[1], "property_code": r[2], "company_id": r[3]} for r in rows]
 
 
+@cache_result
 def fetch_companies() -> dict[int, str]:
     with connections["odoo"].cursor() as cur:
         cur.execute(_COMPANIES_SQL)
         return dict(cur.fetchall())
 
 
+@cache_result
 def fetch_alojados(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[int, int]:
     with connections["odoo"].cursor() as cur:
         cur.execute(_ALOJADOS_SQL, [fecha_inicio, fecha_fin])
@@ -72,6 +77,7 @@ def fetch_alojados(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dic
     return {r[0]: int(r[1] or 0) for r in rows}
 
 
+@cache_result
 def fetch_desayunos(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[int, dict]:
     with connections["odoo"].cursor() as cur:
         cur.execute(
@@ -100,6 +106,7 @@ _SERIE_MENSUAL_SQL = """
 """
 
 
+@cache_result
 def fetch_serie_mensual(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> list[dict]:
     with connections["odoo"].cursor() as cur:
         cur.execute(
@@ -138,6 +145,7 @@ _DESAYUNOS_MENSUAL_HOTEL_SQL = """
 """
 
 
+@cache_result
 def fetch_alojados_mensual_hotel(hotel_id: int, fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[str, int]:
     with connections["odoo"].cursor() as cur:
         cur.execute(_ALOJADOS_MENSUAL_HOTEL_SQL, [hotel_id, fecha_inicio, fecha_fin])
@@ -145,6 +153,7 @@ def fetch_alojados_mensual_hotel(hotel_id: int, fecha_inicio: datetime.date, fec
     return {r[0].isoformat(): int(r[1] or 0) for r in rows}
 
 
+@cache_result
 def fetch_desayunos_mensual_hotel(hotel_id: int, fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[str, dict]:
     with connections["odoo"].cursor() as cur:
         cur.execute(
