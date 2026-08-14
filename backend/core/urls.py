@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views
+from . import admin_views, views
 
 urlpatterns = [
     path('health/', views.health, name='health'),
@@ -15,4 +15,10 @@ urlpatterns = [
     path('auth/login/', views.iniciar_sesion, name='login'),
     path('auth/logout/', views.cerrar_sesion, name='logout'),
     path('auth/me/', views.me, name='me'),
+    path('admin/usuarios/', admin_views.usuarios, name='admin_usuarios'),
+    path('admin/usuarios/<int:user_id>/', admin_views.usuario_detalle, name='admin_usuario_detalle'),
+    path('admin/roles/', admin_views.roles, name='admin_roles'),
+    path('admin/departamentos/', admin_views.departamentos, name='admin_departamentos'),
+    path('admin/mapeos/', admin_views.mapeos, name='admin_mapeos'),
+    path('admin/mapeos/<int:mapeo_id>/', admin_views.mapeo_detalle, name='admin_mapeo_detalle'),
 ]

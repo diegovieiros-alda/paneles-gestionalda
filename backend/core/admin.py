@@ -1,3 +1,9 @@
 from django.contrib import admin
 
-# Register your models here.
+from .models import MapeoRolDepartamento
+
+
+@admin.register(MapeoRolDepartamento)
+class MapeoRolDepartamentoAdmin(admin.ModelAdmin):
+    list_display = ("departamento_odoo", "grupo")
+    autocomplete_fields = ("grupo",)

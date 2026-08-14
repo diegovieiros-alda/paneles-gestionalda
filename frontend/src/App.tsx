@@ -10,8 +10,9 @@ import AlertasPage from "@/pages/alertas";
 import AjustesPage from "@/pages/ajustes";
 import RegistroPage from "@/pages/registro";
 import LoginPage from "@/pages/login";
+import UsuariosPage from "@/pages/usuarios";
 import { AuthProvider } from "@/lib/auth-context";
-import { ProtectedRoute } from "@/components/dashboard/protected-route";
+import { ProtectedRoute, SuperuserRoute } from "@/components/dashboard/protected-route";
 
 function NotFound() {
   return (
@@ -55,6 +56,7 @@ function App() {
           <Route path="/tendencias" element={<ProtectedRoute dashboard="tendencias"><TendenciasPage /></ProtectedRoute>} />
           <Route path="/alertas" element={<ProtectedRoute dashboard="alertas"><AlertasPage /></ProtectedRoute>} />
           <Route path="/ajustes" element={<ProtectedRoute dashboard="ajustes"><AjustesPage /></ProtectedRoute>} />
+          <Route path="/usuarios" element={<SuperuserRoute><UsuariosPage /></SuperuserRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </AuthProvider>

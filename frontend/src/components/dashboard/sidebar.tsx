@@ -1,11 +1,13 @@
 import { Link, useLocation } from "react-router-dom";
 import {
-  Target, Building2, TrendingUp, Bell, Settings, Coffee, Sparkles, Ban,
+  Target, Building2, TrendingUp, Bell, Settings, Coffee, Sparkles, Ban, Users, type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 
-const NAV = [
+type NavItem = { to: string; label: string; icon: LucideIcon; dashboard: string };
+
+const NAV: readonly NavItem[] = [
   { to: "/", label: "¿Dónde actuar hoy?", icon: Target, dashboard: "donde_actuar" },
   { to: "/bloqueos", label: "Bloqueos", icon: Ban, dashboard: "bloqueos" },
   { to: "/desayunos", label: "Desayunos", icon: Coffee, dashboard: "desayunos" },
@@ -14,12 +16,15 @@ const NAV = [
   { to: "/tendencias", label: "Tendencias", icon: TrendingUp, dashboard: "tendencias" },
   { to: "/alertas", label: "Alertas", icon: Bell, dashboard: "alertas" },
   { to: "/ajustes", label: "Ajustes", icon: Settings, dashboard: "ajustes" },
-] as const;
+];
 
 export function Sidebar() {
   const { pathname } = useLocation();
   const { usuario } = useAuth();
   const nav = NAV.filter((n) => usuario?.dashboards.includes(n.dashboard));
+  if (usuario?.esSuperusuario) {
+    nav.push({ to: "/usuarios", label: "Usuarios", icon: Users, dashboard: "usuarios" });
+  }
 
   return (
     <aside className="hidden lg:flex w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">

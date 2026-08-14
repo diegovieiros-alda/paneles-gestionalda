@@ -7,7 +7,15 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
 
-from .accounts import RegistroError, dashboards_visibles, registrar_usuario, requiere_dashboard
+from .accounts import (
+    RegistroError,
+    actualizar_perfil,
+    asignar_rol_automatico,
+    dashboards_visibles,
+    empleado_activo,
+    registrar_usuario,
+    requiere_dashboard,
+)
 from .bloqueos.service import get_report
 from .hoteles.service import (
     get_hotel_desayunos,
@@ -19,6 +27,15 @@ from .hoteles.service import (
 logger = logging.getLogger(__name__)
 
 MAX_RANGO_DIAS = 92  # ~3 meses, para no lanzar consultas enormes contra Odoo
+
+
+def _sesion_json(user) -> dict:
+    return {
+        "email": user.email,
+        "nombre": user.first_name,
+        "esSuperusuario": user.is_superuser,
+        "dashboards": dashboards_visibles(user),
+    }
 
 
 def health(request):
@@ -47,10 +64,7 @@ def registro(request):
         return JsonResponse({"error": e.mensaje}, status=e.status)
 
     login(request, user)
-    return JsonResponse(
-        {"email": user.email, "nombre": user.first_name, "dashboards": dashboards_visibles(user)},
-        status=201,
-    )
+    return JsonResponse(_sesion_json(user), status=201)
 
 
 @require_POST
@@ -66,8 +80,14 @@ def iniciar_sesion(request):
     if user is None:
         return JsonResponse({"error": "Email o contraseña incorrectos"}, status=401)
 
+    if not user.is_superuser:
+        empleado = empleado_activo(user.email)
+        if empleado is not None:
+            actualizar_perfil(user, empleado["departamento"])
+            asignar_rol_automatico(user, empleado["departamento"])
+
     login(request, user)
-    return JsonResponse({"email": user.email, "nombre": user.first_name, "dashboards": dashboards_visibles(user)})
+    return JsonResponse(_sesion_json(user))
 
 
 @require_POST
@@ -79,8 +99,7 @@ def cerrar_sesion(request):
 def me(request):
     if not request.user.is_authenticated:
         return JsonResponse({"error": "No autenticado"}, status=401)
-    user = request.user
-    return JsonResponse({"email": user.email, "nombre": user.first_name, "dashboards": dashboards_visibles(user)})
+    return JsonResponse(_sesion_json(request.user))
 
 
 def _parse_fecha(value: str | None) -> datetime.date | None:

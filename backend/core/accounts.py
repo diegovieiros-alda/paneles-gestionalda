@@ -1,4 +1,5 @@
-"""Registro de usuarios: solo empleados activos de Alda pueden crear cuenta.
+"""Registro de usuarios: solo empleados activos de Alda pueden crear cuenta,
+y su rol (Group) se asigna automáticamente según su departamento en Odoo.
 
 La comprobación de "es empleado" se hace contra hr_employee en Odoo (solo
 lectura, ver core/bloqueos/repository.py para el patrón), no filtramos por
@@ -16,7 +17,7 @@ from django.core.validators import validate_email
 from django.db import connections
 from django.http import JsonResponse
 
-from .models import DASHBOARDS
+from .models import DASHBOARDS, MapeoRolDepartamento, PerfilUsuario
 
 User = get_user_model()
 
@@ -49,6 +50,21 @@ def requiere_dashboard(key: str):
     return decorator
 
 
+def requiere_superuser(view):
+    """Decorador para vistas: exige sesión iniciada y superusuario (usado
+    por la pantalla de administración de usuarios)."""
+
+    @wraps(view)
+    def wrapped(request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return JsonResponse({"error": "No autenticado"}, status=401)
+        if not request.user.is_superuser:
+            return JsonResponse({"error": "Requiere permisos de administrador"}, status=403)
+        return view(request, *args, **kwargs)
+
+    return wrapped
+
+
 class RegistroError(Exception):
     def __init__(self, mensaje: str, status: int = 400):
         super().__init__(mensaje)
@@ -56,13 +72,41 @@ class RegistroError(Exception):
         self.status = status
 
 
-def es_empleado_activo(email: str) -> bool:
+def empleado_activo(email: str) -> dict | None:
+    """Datos del empleado activo con ese email (para validar el registro y
+    decidir su rol), o None si no es un empleado activo de la compañía."""
     with connections["odoo"].cursor() as cur:
         cur.execute(
-            "SELECT 1 FROM hr_employee WHERE active = true AND lower(work_email) = lower(%s) LIMIT 1",
+            """
+            SELECT hd.name::text
+            FROM hr_employee he
+            LEFT JOIN hr_department hd ON hd.id = he.department_id
+            WHERE he.active = true AND lower(he.work_email) = lower(%s)
+            LIMIT 1
+            """,
             [email],
         )
-        return cur.fetchone() is not None
+        row = cur.fetchone()
+    if row is None:
+        return None
+    return {"departamento": row[0]}
+
+
+def actualizar_perfil(user, departamento: str | None) -> None:
+    """Cachea el departamento actual del usuario para la pantalla de
+    administración (evita consultar Odoo al listar usuarios)."""
+    PerfilUsuario.objects.update_or_create(user=user, defaults={"departamento_odoo": departamento or ""})
+
+
+def asignar_rol_automatico(user, departamento: str | None) -> None:
+    """Asigna el Group mapeado a `departamento` (ver MapeoRolDepartamento
+    en /admin/). Solo si el usuario no tiene ya un rol asignado, para no
+    pisar una asignación manual hecha por un administrador."""
+    if not departamento or user.groups.exists():
+        return
+    mapeo = MapeoRolDepartamento.objects.filter(departamento_odoo__iexact=departamento).first()
+    if mapeo is not None:
+        user.groups.add(mapeo.grupo)
 
 
 def registrar_usuario(email: str, password: str, nombre: str = ""):
@@ -81,10 +125,13 @@ def registrar_usuario(email: str, password: str, nombre: str = ""):
     except ValidationError as e:
         raise RegistroError(" ".join(e.messages))
 
-    if not es_empleado_activo(email):
+    empleado = empleado_activo(email)
+    if empleado is None:
         raise RegistroError("Ese email no corresponde a un empleado activo de la compañía", status=403)
 
     user = User(username=email, email=email, first_name=nombre.strip()[:150])
     user.set_password(password)
     user.save()
+    actualizar_perfil(user, empleado["departamento"])
+    asignar_rol_automatico(user, empleado["departamento"])
     return user
