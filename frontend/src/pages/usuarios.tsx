@@ -3,13 +3,18 @@ import { DashboardShell } from "@/components/dashboard/shell";
 import { Button } from "@/components/ui/button";
 import {
   actualizarMapeo,
+  actualizarRol,
   actualizarUsuario,
   crearMapeo,
+  crearRol,
   eliminarMapeo,
+  eliminarRol,
+  fetchDashboardsDisponibles,
   fetchDepartamentos,
   fetchMapeos,
   fetchRoles,
   fetchUsuarios,
+  type DashboardDisponible,
   type MapeoRol,
   type Rol,
   type UsuarioAdmin,
@@ -23,20 +28,23 @@ export default function UsuariosPage() {
   const [roles, setRoles] = useState<Rol[]>([]);
   const [mapeos, setMapeos] = useState<MapeoRol[]>([]);
   const [departamentos, setDepartamentos] = useState<string[]>([]);
+  const [dashboardsCatalogo, setDashboardsCatalogo] = useState<DashboardDisponible[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   async function cargar() {
     try {
-      const [u, r, m, d] = await Promise.all([
+      const [u, r, m, d, db] = await Promise.all([
         fetchUsuarios(),
         fetchRoles(),
         fetchMapeos(),
         fetchDepartamentos(),
+        fetchDashboardsDisponibles(),
       ]);
       setUsuarios(u.usuarios);
       setRoles(r.roles);
       setMapeos(m.mapeos);
       setDepartamentos(d.departamentos);
+      setDashboardsCatalogo(db.dashboards);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado");
     }
@@ -119,9 +127,119 @@ export default function UsuariosPage() {
           )}
         </section>
 
+        <RolesSection roles={roles} dashboardsCatalogo={dashboardsCatalogo} onChange={cargar} setError={setError} />
+
         <MapeosSection roles={roles} departamentos={departamentos} mapeos={mapeos} onChange={cargar} setError={setError} />
       </div>
     </DashboardShell>
+  );
+}
+
+function RolesSection({
+  roles, dashboardsCatalogo, onChange, setError,
+}: {
+  roles: Rol[];
+  dashboardsCatalogo: DashboardDisponible[];
+  onChange: () => Promise<void>;
+  setError: (e: string | null) => void;
+}) {
+  const [nuevoNombre, setNuevoNombre] = useState("");
+  const [nuevosDashboards, setNuevosDashboards] = useState<string[]>([]);
+
+  async function onToggleDashboard(rol: Rol, key: string) {
+    const dashboards = rol.dashboards.includes(key)
+      ? rol.dashboards.filter((d) => d !== key)
+      : [...rol.dashboards, key];
+    try {
+      await actualizarRol(rol.id, { dashboards });
+      await onChange();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error inesperado");
+    }
+  }
+
+  async function onEliminar(rol: Rol) {
+    try {
+      await eliminarRol(rol.id);
+      await onChange();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error inesperado");
+    }
+  }
+
+  function toggleNuevoDashboard(key: string) {
+    setNuevosDashboards((prev) => (prev.includes(key) ? prev.filter((d) => d !== key) : [...prev, key]));
+  }
+
+  async function onCrear() {
+    if (!nuevoNombre.trim()) return;
+    try {
+      await crearRol(nuevoNombre.trim(), nuevosDashboards);
+      setNuevoNombre("");
+      setNuevosDashboards([]);
+      await onChange();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error inesperado");
+    }
+  }
+
+  return (
+    <section className="rounded-xl border border-border bg-surface shadow-soft overflow-hidden">
+      <header className="px-5 py-4 border-b border-border">
+        <h2 className="text-sm font-semibold text-foreground">Roles</h2>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Qué secciones ve cada rol. Crea al menos un rol para poder asignárselo a los usuarios.
+        </p>
+      </header>
+
+      <div className="divide-y divide-border">
+        {roles.map((r) => (
+          <div key={r.id} className="flex flex-wrap items-start gap-4 px-5 py-4">
+            <div className="min-w-[140px] text-sm font-medium text-foreground pt-1">{r.nombre}</div>
+            <div className="flex-1 flex flex-wrap gap-x-4 gap-y-2">
+              {dashboardsCatalogo.map((d) => (
+                <label key={d.key} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={r.dashboards.includes(d.key)}
+                    onChange={() => onToggleDashboard(r, d.key)}
+                  />
+                  {d.nombre}
+                </label>
+              ))}
+            </div>
+            <Button variant="destructive" size="sm" onClick={() => onEliminar(r)}>Eliminar</Button>
+          </div>
+        ))}
+        {roles.length === 0 && (
+          <p className="px-5 py-4 text-sm text-muted-foreground">Todavía no hay roles creados.</p>
+        )}
+      </div>
+
+      <div className="px-5 py-4 border-t border-border bg-surface-muted/30 space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            placeholder="Nombre del rol"
+            value={nuevoNombre}
+            onChange={(e) => setNuevoNombre(e.target.value)}
+            className="rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground w-52"
+          />
+          <Button size="sm" disabled={!nuevoNombre.trim()} onClick={onCrear}>Crear rol</Button>
+        </div>
+        <div className="flex flex-wrap gap-x-4 gap-y-2">
+          {dashboardsCatalogo.map((d) => (
+            <label key={d.key} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={nuevosDashboards.includes(d.key)}
+                onChange={() => toggleNuevoDashboard(d.key)}
+              />
+              {d.nombre}
+            </label>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 

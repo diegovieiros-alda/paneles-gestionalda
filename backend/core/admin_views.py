@@ -8,16 +8,17 @@ from __future__ import annotations
 import json
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import Group, Permission
 from django.db import connections
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 
 from .accounts import requiere_superuser
 from .cache import cache_result
-from .models import MapeoRolDepartamento
+from .models import DASHBOARDS, MapeoRolDepartamento
 
 User = get_user_model()
+DASHBOARD_KEYS = [key for key, _ in DASHBOARDS]
 
 
 def _usuario_json(user) -> dict:
@@ -78,8 +79,72 @@ def usuario_detalle(request, user_id):
 
 @requiere_superuser
 @require_http_methods(["GET"])
+def dashboards_disponibles(request):
+    return JsonResponse({"dashboards": [{"key": key, "nombre": label} for key, label in DASHBOARDS]})
+
+
+def _permisos_dashboards(keys) -> list:
+    codenames = [f"ver_{k}" for k in keys if k in DASHBOARD_KEYS]
+    return list(Permission.objects.filter(content_type__app_label="core", codename__in=codenames))
+
+
+def _rol_json(grupo: Group) -> dict:
+    codenames = set(
+        grupo.permissions.filter(content_type__app_label="core").values_list("codename", flat=True)
+    )
+    dashboards = [key for key in DASHBOARD_KEYS if f"ver_{key}" in codenames]
+    return {"id": grupo.id, "nombre": grupo.name, "dashboards": dashboards}
+
+
+@requiere_superuser
+@require_http_methods(["GET", "POST"])
 def roles(request):
-    return JsonResponse({"roles": [{"id": g.id, "nombre": g.name} for g in Group.objects.order_by("name")]})
+    if request.method == "GET":
+        return JsonResponse({"roles": [_rol_json(g) for g in Group.objects.order_by("name")]})
+
+    try:
+        data = json.loads(request.body or b"{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "JSON inválido"}, status=400)
+
+    nombre = (data.get("nombre") or "").strip()
+    if not nombre:
+        return JsonResponse({"error": "Falta nombre"}, status=400)
+    if Group.objects.filter(name__iexact=nombre).exists():
+        return JsonResponse({"error": "Ya existe un rol con ese nombre"}, status=409)
+
+    grupo = Group.objects.create(name=nombre)
+    grupo.permissions.set(_permisos_dashboards(data.get("dashboards") or []))
+    return JsonResponse(_rol_json(grupo), status=201)
+
+
+@requiere_superuser
+@require_http_methods(["PATCH", "DELETE"])
+def rol_detalle(request, grupo_id):
+    try:
+        grupo = Group.objects.get(id=grupo_id)
+    except Group.DoesNotExist:
+        return JsonResponse({"error": "Rol no encontrado"}, status=404)
+
+    if request.method == "DELETE":
+        grupo.delete()
+        return JsonResponse({"ok": True})
+
+    try:
+        data = json.loads(request.body or b"{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "JSON inválido"}, status=400)
+
+    if "nombre" in data:
+        nuevo = (data["nombre"] or "").strip()
+        if not nuevo:
+            return JsonResponse({"error": "nombre no puede estar vacío"}, status=400)
+        grupo.name = nuevo
+        grupo.save(update_fields=["name"])
+    if "dashboards" in data:
+        grupo.permissions.set(_permisos_dashboards(data["dashboards"]))
+
+    return JsonResponse(_rol_json(grupo))
 
 
 @cache_result

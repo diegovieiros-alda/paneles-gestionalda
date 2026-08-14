@@ -11,7 +11,9 @@ export type UsuarioAdmin = {
   grupoNombre: string | null;
 };
 
-export type Rol = { id: number; nombre: string };
+export type Rol = { id: number; nombre: string; dashboards: string[] };
+
+export type DashboardDisponible = { key: string; nombre: string };
 
 export type MapeoRol = { id: number; departamentoOdoo: string; grupoId: number; grupoNombre: string };
 
@@ -48,6 +50,22 @@ export function actualizarUsuario(id: number, cambios: { grupoId?: number | null
 
 export function fetchRoles() {
   return apiFetch<{ roles: Rol[] }>("/api/admin/roles/");
+}
+
+export function crearRol(nombre: string, dashboards: string[]) {
+  return apiFetch<Rol>("/api/admin/roles/", { method: "POST", body: { nombre, dashboards } });
+}
+
+export function actualizarRol(id: number, cambios: { nombre?: string; dashboards?: string[] }) {
+  return apiFetch<Rol>(`/api/admin/roles/${id}/`, { method: "PATCH", body: cambios });
+}
+
+export function eliminarRol(id: number) {
+  return apiFetch<{ ok: boolean }>(`/api/admin/roles/${id}/`, { method: "DELETE" });
+}
+
+export function fetchDashboardsDisponibles() {
+  return apiFetch<{ dashboards: DashboardDisponible[] }>("/api/admin/dashboards/");
 }
 
 export function fetchDepartamentos() {
