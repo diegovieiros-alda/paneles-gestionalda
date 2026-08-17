@@ -81,10 +81,13 @@ def iniciar_sesion(request):
     if user is None:
         return JsonResponse({"error": "Email o contraseña incorrectos"}, status=401)
 
-    if not user.is_superuser:
-        empleado = empleado_activo(user.email)
-        if empleado is not None:
-            actualizar_perfil(user, empleado["departamento"], empleado["puesto"])
+    # El perfil (departamento/puesto) se cachea para cualquier cuenta con
+    # email de Odoo, sea o no superusuario — es solo informativo. El rol
+    # automático sí se salta para superusuarios: ya tienen acceso total.
+    empleado = empleado_activo(user.email)
+    if empleado is not None:
+        actualizar_perfil(user, empleado["departamento"], empleado["puesto"])
+        if not user.is_superuser:
             asignar_rol_automatico(user, empleado["puesto"])
 
     login(request, user)
