@@ -44,8 +44,15 @@ export function fetchUsuarios() {
   return apiFetch<{ usuarios: UsuarioAdmin[] }>("/api/admin/usuarios/");
 }
 
-export function actualizarUsuario(id: number, cambios: { grupoId?: number | null; activo?: boolean }) {
+export function actualizarUsuario(
+  id: number,
+  cambios: { grupoId?: number | null; activo?: boolean; esSuperusuario?: boolean }
+) {
   return apiFetch<UsuarioAdmin>(`/api/admin/usuarios/${id}/`, { method: "PATCH", body: cambios });
+}
+
+export function eliminarUsuario(id: number) {
+  return apiFetch<{ ok: boolean }>(`/api/admin/usuarios/${id}/`, { method: "DELETE" });
 }
 
 export function fetchRoles() {

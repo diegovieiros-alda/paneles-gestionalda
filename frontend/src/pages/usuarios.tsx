@@ -9,6 +9,7 @@ import {
   crearRol,
   eliminarMapeo,
   eliminarRol,
+  eliminarUsuario,
   fetchDashboardsDisponibles,
   fetchDepartamentos,
   fetchMapeos,
@@ -72,6 +73,28 @@ export default function UsuariosPage() {
     }
   }
 
+  async function onHacerSuperusuario(usuario: UsuarioAdmin) {
+    const nombre = usuario.nombre || usuario.email;
+    if (!confirm(`¿Hacer superusuario a ${nombre}? Tendrá acceso total y ya no se podrá gestionar desde aquí.`)) return;
+    try {
+      await actualizarUsuario(usuario.id, { esSuperusuario: true });
+      await cargar();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error inesperado");
+    }
+  }
+
+  async function onEliminar(usuario: UsuarioAdmin) {
+    const nombre = usuario.nombre || usuario.email;
+    if (!confirm(`¿Eliminar la cuenta de ${nombre}? Esta acción no se puede deshacer.`)) return;
+    try {
+      await eliminarUsuario(usuario.id);
+      await cargar();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error inesperado");
+    }
+  }
+
   return (
     <DashboardShell title="Usuarios" subtitle="Gestión de usuarios y roles">
       <div className="p-6 max-w-[1200px] mx-auto space-y-6">
@@ -118,6 +141,12 @@ export default function UsuariosPage() {
                         onClick={() => onToggleActivo(u)}
                       >
                         {u.activo ? "Activo" : "Desactivado"}
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => onHacerSuperusuario(u)}>
+                        Hacer superusuario
+                      </Button>
+                      <Button variant="destructive" size="sm" onClick={() => onEliminar(u)}>
+                        Eliminar
                       </Button>
                     </>
                   )}

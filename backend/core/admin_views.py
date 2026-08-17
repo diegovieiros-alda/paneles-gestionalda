@@ -44,13 +44,8 @@ def usuarios(request):
 
 
 @requiere_superuser
-@require_http_methods(["PATCH"])
+@require_http_methods(["PATCH", "DELETE"])
 def usuario_detalle(request, user_id):
-    try:
-        data = json.loads(request.body or b"{}")
-    except json.JSONDecodeError:
-        return JsonResponse({"error": "JSON inválido"}, status=400)
-
     try:
         user = User.objects.get(id=user_id)
     except User.DoesNotExist:
@@ -59,9 +54,23 @@ def usuario_detalle(request, user_id):
     if user.is_superuser:
         return JsonResponse({"error": "No se puede modificar a un superusuario desde aquí"}, status=403)
 
+    if request.method == "DELETE":
+        user.delete()
+        return JsonResponse({"ok": True})
+
+    try:
+        data = json.loads(request.body or b"{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "JSON inválido"}, status=400)
+
     if "activo" in data:
         user.is_active = bool(data["activo"])
         user.save(update_fields=["is_active"])
+
+    if "esSuperusuario" in data and data["esSuperusuario"]:
+        user.is_superuser = True
+        user.is_staff = True
+        user.save(update_fields=["is_superuser", "is_staff"])
 
     if "grupoId" in data:
         grupo_id = data["grupoId"]
