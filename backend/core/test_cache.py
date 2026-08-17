@@ -1,10 +1,19 @@
-"""Comprobación mínima de que cache_result evita llamadas repetidas."""
+"""Comprobación mínima de que cache_result evita llamadas repetidas.
+
+La cache es FileBasedCache (ver settings.py, compartida entre workers de
+gunicorn) y por tanto persiste en disco entre ejecuciones sueltas de
+`manage.py test`, a diferencia de LocMemCache. cache.clear() en cada test
+evita que una ejecución anterior deje un hit ya calentado."""
+from django.core.cache import cache
 from django.test import SimpleTestCase
 
 from .cache import cache_result, origen_datos, tracking
 
 
 class CacheResultTests(SimpleTestCase):
+    def setUp(self):
+        cache.clear()
+
     def test_evita_llamadas_repetidas_con_mismos_argumentos(self):
         llamadas = []
 
@@ -27,6 +36,9 @@ class CacheResultTests(SimpleTestCase):
 
 
 class TrackingTests(SimpleTestCase):
+    def setUp(self):
+        cache.clear()
+
     def test_odoo_si_hubo_al_menos_un_miss(self):
         @cache_result
         def consulta(x):

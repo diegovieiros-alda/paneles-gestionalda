@@ -1,6 +1,6 @@
-"""Comprobación mínima de la asignación automática de rol por departamento.
-Sin BD: MapeoRolDepartamento.objects se mockea (igual que bloqueos/tests.py
-evita la BD probando el motor con datos sintéticos)."""
+"""Comprobación mínima de la asignación automática de rol por puesto de
+trabajo. Sin BD: MapeoRolPuesto.objects se mockea (igual que
+bloqueos/tests.py evita la BD probando el motor con datos sintéticos)."""
 from unittest.mock import MagicMock, patch
 
 from django.test import RequestFactory, SimpleTestCase
@@ -15,37 +15,37 @@ def _usuario(con_grupos=False):
 
 
 class AsignarRolAutomaticoTests(SimpleTestCase):
-    @patch("core.accounts.MapeoRolDepartamento.objects")
-    def test_asigna_el_grupo_mapeado_al_departamento(self, objects):
+    @patch("core.accounts.MapeoRolPuesto.objects")
+    def test_asigna_el_grupo_mapeado_al_puesto(self, objects):
         grupo = MagicMock()
         objects.filter.return_value.first.return_value = MagicMock(grupo=grupo)
         user = _usuario()
 
-        asignar_rol_automatico(user, "Revenue Management")
+        asignar_rol_automatico(user, "Revenue Manager")
 
-        objects.filter.assert_called_once_with(departamento_odoo__iexact="Revenue Management")
+        objects.filter.assert_called_once_with(puesto_trabajo__iexact="Revenue Manager")
         user.groups.add.assert_called_once_with(grupo)
 
-    @patch("core.accounts.MapeoRolDepartamento.objects")
-    def test_no_asigna_nada_si_el_departamento_no_esta_mapeado(self, objects):
+    @patch("core.accounts.MapeoRolPuesto.objects")
+    def test_no_asigna_nada_si_el_puesto_no_esta_mapeado(self, objects):
         objects.filter.return_value.first.return_value = None
         user = _usuario()
 
-        asignar_rol_automatico(user, "Departamento inexistente")
+        asignar_rol_automatico(user, "Puesto inexistente")
 
         user.groups.add.assert_not_called()
 
-    @patch("core.accounts.MapeoRolDepartamento.objects")
+    @patch("core.accounts.MapeoRolPuesto.objects")
     def test_no_pisa_un_rol_asignado_a_mano(self, objects):
         user = _usuario(con_grupos=True)
 
-        asignar_rol_automatico(user, "Operaciones")
+        asignar_rol_automatico(user, "Camarero")
 
         objects.filter.assert_not_called()
         user.groups.add.assert_not_called()
 
-    @patch("core.accounts.MapeoRolDepartamento.objects")
-    def test_no_hace_nada_sin_departamento(self, objects):
+    @patch("core.accounts.MapeoRolPuesto.objects")
+    def test_no_hace_nada_sin_puesto(self, objects):
         user = _usuario()
 
         asignar_rol_automatico(user, None)

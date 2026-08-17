@@ -1,5 +1,5 @@
 """Registro de usuarios: solo empleados activos de Alda pueden crear cuenta,
-y su rol (Group) se asigna automáticamente según su departamento en Odoo.
+y su rol (Group) se asigna automáticamente según su puesto de trabajo en Odoo.
 
 La comprobación de "es empleado" se hace contra hr_employee en Odoo (solo
 lectura, ver core/bloqueos/repository.py para el patrón), no filtramos por
@@ -17,7 +17,7 @@ from django.core.validators import validate_email
 from django.db import connections
 from django.http import JsonResponse
 
-from .models import DASHBOARDS, MapeoRolDepartamento, PerfilUsuario
+from .models import DASHBOARDS, MapeoRolPuesto, PerfilUsuario
 
 User = get_user_model()
 
@@ -102,13 +102,13 @@ def actualizar_perfil(user, departamento: str | None, puesto: str | None = None)
     )
 
 
-def asignar_rol_automatico(user, departamento: str | None) -> None:
-    """Asigna el Group mapeado a `departamento` (ver MapeoRolDepartamento
-    en /admin/). Solo si el usuario no tiene ya un rol asignado, para no
-    pisar una asignación manual hecha por un administrador."""
-    if not departamento or user.groups.exists():
+def asignar_rol_automatico(user, puesto: str | None) -> None:
+    """Asigna el Group mapeado a `puesto` (ver MapeoRolPuesto). Solo si el
+    usuario no tiene ya un rol asignado, para no pisar una asignación
+    manual hecha por un administrador."""
+    if not puesto or user.groups.exists():
         return
-    mapeo = MapeoRolDepartamento.objects.filter(departamento_odoo__iexact=departamento).first()
+    mapeo = MapeoRolPuesto.objects.filter(puesto_trabajo__iexact=puesto).first()
     if mapeo is not None:
         user.groups.add(mapeo.grupo)
 
@@ -137,5 +137,5 @@ def registrar_usuario(email: str, password: str, nombre: str = ""):
     user.set_password(password)
     user.save()
     actualizar_perfil(user, empleado["departamento"], empleado["puesto"])
-    asignar_rol_automatico(user, empleado["departamento"])
+    asignar_rol_automatico(user, empleado["puesto"])
     return user

@@ -85,7 +85,7 @@ def iniciar_sesion(request):
         empleado = empleado_activo(user.email)
         if empleado is not None:
             actualizar_perfil(user, empleado["departamento"], empleado["puesto"])
-            asignar_rol_automatico(user, empleado["departamento"])
+            asignar_rol_automatico(user, empleado["puesto"])
 
     login(request, user)
     return JsonResponse(_sesion_json(user))

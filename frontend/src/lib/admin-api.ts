@@ -16,7 +16,7 @@ export type Rol = { id: number; nombre: string; dashboards: string[] };
 
 export type DashboardDisponible = { key: string; nombre: string };
 
-export type MapeoRol = { id: number; departamentoOdoo: string; grupoId: number; grupoNombre: string };
+export type MapeoRol = { id: number; puestoTrabajo: string; grupoId: number; grupoNombre: string };
 
 async function apiFetch<T>(url: string, options: { method?: string; body?: unknown } = {}): Promise<T> {
   const { method = "GET", body } = options;
@@ -76,16 +76,16 @@ export function fetchDashboardsDisponibles() {
   return apiFetch<{ dashboards: DashboardDisponible[] }>("/api/admin/dashboards/");
 }
 
-export function fetchDepartamentos() {
-  return apiFetch<{ departamentos: string[] }>("/api/admin/departamentos/");
+export function fetchPuestos() {
+  return apiFetch<{ puestos: string[] }>("/api/admin/puestos/");
 }
 
 export function fetchMapeos() {
   return apiFetch<{ mapeos: MapeoRol[] }>("/api/admin/mapeos/");
 }
 
-export function crearMapeo(departamentoOdoo: string, grupoId: number) {
-  return apiFetch<MapeoRol>("/api/admin/mapeos/", { method: "POST", body: { departamentoOdoo, grupoId } });
+export function crearMapeo(puestoTrabajo: string, grupoId: number) {
+  return apiFetch<MapeoRol>("/api/admin/mapeos/", { method: "POST", body: { puestoTrabajo, grupoId } });
 }
 
 export function actualizarMapeo(id: number, grupoId: number) {

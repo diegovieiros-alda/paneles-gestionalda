@@ -1,9 +1,9 @@
 from django.contrib import admin
 
-from .models import MapeoRolDepartamento
+from .models import MapeoRolPuesto
 
 
-@admin.register(MapeoRolDepartamento)
-class MapeoRolDepartamentoAdmin(admin.ModelAdmin):
-    list_display = ("departamento_odoo", "grupo")
+@admin.register(MapeoRolPuesto)
+class MapeoRolPuestoAdmin(admin.ModelAdmin):
+    list_display = ("puesto_trabajo", "grupo")
     autocomplete_fields = ("grupo",)

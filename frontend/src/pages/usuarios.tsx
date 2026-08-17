@@ -11,8 +11,8 @@ import {
   eliminarRol,
   eliminarUsuario,
   fetchDashboardsDisponibles,
-  fetchDepartamentos,
   fetchMapeos,
+  fetchPuestos,
   fetchRoles,
   fetchUsuarios,
   type DashboardDisponible,
@@ -28,23 +28,23 @@ export default function UsuariosPage() {
   const [usuarios, setUsuarios] = useState<UsuarioAdmin[] | null>(null);
   const [roles, setRoles] = useState<Rol[]>([]);
   const [mapeos, setMapeos] = useState<MapeoRol[]>([]);
-  const [departamentos, setDepartamentos] = useState<string[]>([]);
+  const [puestos, setPuestos] = useState<string[]>([]);
   const [dashboardsCatalogo, setDashboardsCatalogo] = useState<DashboardDisponible[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   async function cargar() {
     try {
-      const [u, r, m, d, db] = await Promise.all([
+      const [u, r, m, p, db] = await Promise.all([
         fetchUsuarios(),
         fetchRoles(),
         fetchMapeos(),
-        fetchDepartamentos(),
+        fetchPuestos(),
         fetchDashboardsDisponibles(),
       ]);
       setUsuarios(u.usuarios);
       setRoles(r.roles);
       setMapeos(m.mapeos);
-      setDepartamentos(d.departamentos);
+      setPuestos(p.puestos);
       setDashboardsCatalogo(db.dashboards);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error inesperado");
@@ -160,7 +160,7 @@ export default function UsuariosPage() {
 
         <RolesSection roles={roles} dashboardsCatalogo={dashboardsCatalogo} onChange={cargar} setError={setError} />
 
-        <MapeosSection roles={roles} departamentos={departamentos} mapeos={mapeos} onChange={cargar} setError={setError} />
+        <MapeosSection roles={roles} puestos={puestos} mapeos={mapeos} onChange={cargar} setError={setError} />
       </div>
     </DashboardShell>
   );
@@ -275,22 +275,22 @@ function RolesSection({
 }
 
 function MapeosSection({
-  roles, departamentos, mapeos, onChange, setError,
+  roles, puestos, mapeos, onChange, setError,
 }: {
   roles: Rol[];
-  departamentos: string[];
+  puestos: string[];
   mapeos: MapeoRol[];
   onChange: () => Promise<void>;
   setError: (e: string | null) => void;
 }) {
-  const [nuevoDepartamento, setNuevoDepartamento] = useState("");
+  const [nuevoPuesto, setNuevoPuesto] = useState("");
   const [nuevoRol, setNuevoRol] = useState("");
 
   async function onCrear() {
-    if (!nuevoDepartamento || !nuevoRol) return;
+    if (!nuevoPuesto || !nuevoRol) return;
     try {
-      await crearMapeo(nuevoDepartamento, Number(nuevoRol));
-      setNuevoDepartamento("");
+      await crearMapeo(nuevoPuesto, Number(nuevoRol));
+      setNuevoPuesto("");
       setNuevoRol("");
       await onChange();
     } catch (e) {
@@ -316,23 +316,23 @@ function MapeosSection({
     }
   }
 
-  const departamentosSinMapeo = departamentos.filter(
-    (d) => !mapeos.some((m) => m.departamentoOdoo.toLowerCase() === d.toLowerCase())
+  const puestosSinMapeo = puestos.filter(
+    (p) => !mapeos.some((m) => m.puestoTrabajo.toLowerCase() === p.toLowerCase())
   );
 
   return (
     <section className="rounded-xl border border-border bg-surface shadow-soft overflow-hidden">
       <header className="px-5 py-4 border-b border-border">
-        <h2 className="text-sm font-semibold text-foreground">Departamento → rol</h2>
+        <h2 className="text-sm font-semibold text-foreground">Puesto de trabajo → rol</h2>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Rol que se asigna solo al registrarse un empleado de cada departamento de Odoo.
+          Rol que se asigna solo al registrarse un empleado de cada puesto de trabajo de Odoo.
         </p>
       </header>
 
       <div className="divide-y divide-border">
         {mapeos.map((m) => (
           <div key={m.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
-            <div className="flex-1 min-w-[220px] text-sm text-foreground">{m.departamentoOdoo}</div>
+            <div className="flex-1 min-w-[220px] text-sm text-foreground">{m.puestoTrabajo}</div>
             <select
               className={SELECT_CLASS}
               value={m.grupoId}
@@ -350,12 +350,12 @@ function MapeosSection({
       <div className="flex flex-wrap items-center gap-3 px-5 py-4 border-t border-border bg-surface-muted/30">
         <select
           className={SELECT_CLASS}
-          value={nuevoDepartamento}
-          onChange={(e) => setNuevoDepartamento(e.target.value)}
+          value={nuevoPuesto}
+          onChange={(e) => setNuevoPuesto(e.target.value)}
         >
-          <option value="">Departamento…</option>
-          {departamentosSinMapeo.map((d) => (
-            <option key={d} value={d}>{d}</option>
+          <option value="">Puesto de trabajo…</option>
+          {puestosSinMapeo.map((p) => (
+            <option key={p} value={p}>{p}</option>
           ))}
         </select>
         <select className={SELECT_CLASS} value={nuevoRol} onChange={(e) => setNuevoRol(e.target.value)}>
@@ -364,7 +364,7 @@ function MapeosSection({
             <option key={r.id} value={r.id}>{r.nombre}</option>
           ))}
         </select>
-        <Button size="sm" disabled={!nuevoDepartamento || !nuevoRol} onClick={onCrear}>Añadir mapeo</Button>
+        <Button size="sm" disabled={!nuevoPuesto || !nuevoRol} onClick={onCrear}>Añadir mapeo</Button>
       </div>
     </section>
   );

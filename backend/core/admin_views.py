@@ -1,6 +1,6 @@
 """Gestión de usuarios y roles desde el frontend (solo superusuarios):
 listar usuarios, cambiar su rol o desactivarlos, y mantener el mapeo
-departamento de Odoo → rol que usa el registro automático (ver
+puesto de trabajo de Odoo → rol que usa el registro automático (ver
 accounts.asignar_rol_automatico). Reemplaza el flujo manual por /admin/.
 """
 from __future__ import annotations
@@ -15,7 +15,7 @@ from django.views.decorators.http import require_http_methods
 
 from .accounts import requiere_superuser
 from .cache import cache_result
-from .models import DASHBOARDS, MapeoRolDepartamento
+from .models import DASHBOARDS, MapeoRolPuesto
 
 User = get_user_model()
 DASHBOARD_KEYS = [key for key, _ in DASHBOARDS]
@@ -158,27 +158,29 @@ def rol_detalle(request, grupo_id):
 
 
 @cache_result
-def _departamentos_odoo() -> list[str]:
+def _puestos_odoo() -> list[str]:
     with connections["odoo"].cursor() as cur:
-        cur.execute("SELECT DISTINCT name::text FROM hr_department WHERE name IS NOT NULL ORDER BY 1")
+        cur.execute(
+            "SELECT DISTINCT job_title FROM hr_employee WHERE job_title IS NOT NULL AND job_title != '' ORDER BY 1"
+        )
         return [r[0] for r in cur.fetchall()]
 
 
 @requiere_superuser
 @require_http_methods(["GET"])
-def departamentos(request):
-    return JsonResponse({"departamentos": _departamentos_odoo()})
+def puestos(request):
+    return JsonResponse({"puestos": _puestos_odoo()})
 
 
-def _mapeo_json(m: MapeoRolDepartamento) -> dict:
-    return {"id": m.id, "departamentoOdoo": m.departamento_odoo, "grupoId": m.grupo_id, "grupoNombre": m.grupo.name}
+def _mapeo_json(m: MapeoRolPuesto) -> dict:
+    return {"id": m.id, "puestoTrabajo": m.puesto_trabajo, "grupoId": m.grupo_id, "grupoNombre": m.grupo.name}
 
 
 @requiere_superuser
 @require_http_methods(["GET", "POST"])
 def mapeos(request):
     if request.method == "GET":
-        qs = MapeoRolDepartamento.objects.select_related("grupo").order_by("departamento_odoo")
+        qs = MapeoRolPuesto.objects.select_related("grupo").order_by("puesto_trabajo")
         return JsonResponse({"mapeos": [_mapeo_json(m) for m in qs]})
 
     try:
@@ -186,20 +188,20 @@ def mapeos(request):
     except json.JSONDecodeError:
         return JsonResponse({"error": "JSON inválido"}, status=400)
 
-    departamento = (data.get("departamentoOdoo") or "").strip()
+    puesto = (data.get("puestoTrabajo") or "").strip()
     grupo_id = data.get("grupoId")
-    if not departamento or not grupo_id:
-        return JsonResponse({"error": "Faltan departamentoOdoo o grupoId"}, status=400)
+    if not puesto or not grupo_id:
+        return JsonResponse({"error": "Faltan puestoTrabajo o grupoId"}, status=400)
 
     try:
         grupo = Group.objects.get(id=grupo_id)
     except Group.DoesNotExist:
         return JsonResponse({"error": "Rol no encontrado"}, status=404)
 
-    if MapeoRolDepartamento.objects.filter(departamento_odoo__iexact=departamento).exists():
-        return JsonResponse({"error": "Ese departamento ya tiene un mapeo"}, status=409)
+    if MapeoRolPuesto.objects.filter(puesto_trabajo__iexact=puesto).exists():
+        return JsonResponse({"error": "Ese puesto ya tiene un mapeo"}, status=409)
 
-    mapeo = MapeoRolDepartamento.objects.create(departamento_odoo=departamento, grupo=grupo)
+    mapeo = MapeoRolPuesto.objects.create(puesto_trabajo=puesto, grupo=grupo)
     return JsonResponse(_mapeo_json(mapeo), status=201)
 
 
@@ -207,8 +209,8 @@ def mapeos(request):
 @require_http_methods(["PATCH", "DELETE"])
 def mapeo_detalle(request, mapeo_id):
     try:
-        mapeo = MapeoRolDepartamento.objects.get(id=mapeo_id)
-    except MapeoRolDepartamento.DoesNotExist:
+        mapeo = MapeoRolPuesto.objects.get(id=mapeo_id)
+    except MapeoRolPuesto.DoesNotExist:
         return JsonResponse({"error": "Mapeo no encontrado"}, status=404)
 
     if request.method == "DELETE":
@@ -225,10 +227,10 @@ def mapeo_detalle(request, mapeo_id):
             mapeo.grupo = Group.objects.get(id=data["grupoId"])
         except Group.DoesNotExist:
             return JsonResponse({"error": "Rol no encontrado"}, status=404)
-    if "departamentoOdoo" in data:
-        nuevo = (data["departamentoOdoo"] or "").strip()
+    if "puestoTrabajo" in data:
+        nuevo = (data["puestoTrabajo"] or "").strip()
         if not nuevo:
-            return JsonResponse({"error": "departamentoOdoo no puede estar vacío"}, status=400)
-        mapeo.departamento_odoo = nuevo
+            return JsonResponse({"error": "puestoTrabajo no puede estar vacío"}, status=400)
+        mapeo.puesto_trabajo = nuevo
     mapeo.save()
     return JsonResponse(_mapeo_json(mapeo))

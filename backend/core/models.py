@@ -29,22 +29,22 @@ class DashboardAccess(models.Model):
         permissions = [(f"ver_{key}", f"Puede ver el dashboard: {label}") for key, label in DASHBOARDS]
 
 
-class MapeoRolDepartamento(models.Model):
-    """Departamento de Odoo (hr_department.name) → rol (Group) que se le
-    asigna automáticamente al usuario al registrarse. Se gestiona desde la
-    pantalla de administración del frontend (core/admin_views.py), no
-    desde /admin/: si el departamento de un empleado no tiene fila aquí,
-    se registra sin rol y un administrador se lo asigna a mano."""
+class MapeoRolPuesto(models.Model):
+    """Puesto de trabajo de Odoo (hr_employee.job_title) → rol (Group) que
+    se le asigna automáticamente al usuario al registrarse. Se gestiona
+    desde la pantalla de administración del frontend (core/admin_views.py),
+    no desde /admin/: si el puesto de un empleado no tiene fila aquí, se
+    registra sin rol y un administrador se lo asigna a mano."""
 
-    departamento_odoo = models.CharField(max_length=200, unique=True)
+    puesto_trabajo = models.CharField(max_length=200, unique=True)
     grupo = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="+")
 
     class Meta:
-        verbose_name = "Mapeo departamento → rol"
-        verbose_name_plural = "Mapeos departamento → rol"
+        verbose_name = "Mapeo puesto → rol"
+        verbose_name_plural = "Mapeos puesto → rol"
 
     def __str__(self):
-        return f"{self.departamento_odoo} → {self.grupo.name}"
+        return f"{self.puesto_trabajo} → {self.grupo.name}"
 
 
 class PerfilUsuario(models.Model):
