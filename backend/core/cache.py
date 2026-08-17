@@ -3,10 +3,10 @@ la misma query cuando varios usuarios (o el mismo, al navegar) piden el
 mismo rango de fechas en pocos minutos. Los datos de Odoo no son en tiempo
 real para estos dashboards, así que un margen de minutos es aceptable.
 
-ponytail: usa el backend de caché por defecto de Django (LocMemCache, en
-memoria del proceso) — no compartida entre workers de gunicorn. Si el
-número de workers crece y el hit-rate entre workers importa, pasar CACHES
-a Redis/Memcached en settings.py; el decorador no cambia.
+ponytail: CACHES apunta a FileBasedCache (ver settings.py) — un directorio
+compartido en disco, para que los distintos workers de gunicorn vean la
+misma cache. Si algún día hay varios servidores detrás de un balanceador,
+pasar a Redis/Memcached en settings.py; el decorador no cambia.
 """
 from __future__ import annotations
 

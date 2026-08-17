@@ -5,3 +5,4 @@ __pycache__/
 .env
 staticfiles/
 db.sqlite3
+django_cache/

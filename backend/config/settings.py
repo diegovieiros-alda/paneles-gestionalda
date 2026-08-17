@@ -106,6 +106,17 @@ DATABASES = {
 # third-party schema) — keep migrations off it and never route writes there.
 DATABASE_ROUTERS = ['core.db_routers.OdooReadOnlyRouter']
 
+# Cache en disco (no LocMemCache): gunicorn corre con varios workers, cada
+# uno con su propia memoria, así que una cache en RAM del proceso solo
+# acierta 1 de cada N veces. Un directorio compartido en disco lo arregla
+# sin añadir Redis/Memcached — ver core/cache.py.
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.filebased.FileBasedCache',
+        'LOCATION': BASE_DIR / 'django_cache',
+    }
+}
+
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
