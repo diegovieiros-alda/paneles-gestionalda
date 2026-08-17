@@ -48,9 +48,10 @@ class MapeoRolDepartamento(models.Model):
 
 
 class PerfilUsuario(models.Model):
-    """Departamento de Odoo del usuario, cacheado en cada login para
-    mostrarlo en la pantalla de administración sin consultar Odoo por
-    cada usuario listado. Ver accounts.actualizar_perfil()."""
+    """Departamento y puesto de trabajo de Odoo del usuario, cacheados en
+    cada login para mostrarlos en la pantalla de administración sin
+    consultar Odoo por cada usuario listado. Ver accounts.actualizar_perfil()."""
 
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="perfil")
     departamento_odoo = models.CharField(max_length=200, blank=True, default="")
+    puesto_trabajo = models.CharField(max_length=200, blank=True, default="")

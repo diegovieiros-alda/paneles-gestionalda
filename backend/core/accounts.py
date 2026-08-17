@@ -74,11 +74,13 @@ class RegistroError(Exception):
 
 def empleado_activo(email: str) -> dict | None:
     """Datos del empleado activo con ese email (para validar el registro y
-    decidir su rol), o None si no es un empleado activo de la compañía."""
+    decidir su rol), o None si no es un empleado activo de la compañía.
+    job_title es un varchar plano en hr_employee (no hace falta el join a
+    hr_job, que además tiene el nombre en jsonb multi-idioma)."""
     with connections["odoo"].cursor() as cur:
         cur.execute(
             """
-            SELECT hd.name::text
+            SELECT hd.name::text, he.job_title
             FROM hr_employee he
             LEFT JOIN hr_department hd ON hd.id = he.department_id
             WHERE he.active = true AND lower(he.work_email) = lower(%s)
@@ -89,13 +91,15 @@ def empleado_activo(email: str) -> dict | None:
         row = cur.fetchone()
     if row is None:
         return None
-    return {"departamento": row[0]}
+    return {"departamento": row[0], "puesto": row[1]}
 
 
-def actualizar_perfil(user, departamento: str | None) -> None:
-    """Cachea el departamento actual del usuario para la pantalla de
-    administración (evita consultar Odoo al listar usuarios)."""
-    PerfilUsuario.objects.update_or_create(user=user, defaults={"departamento_odoo": departamento or ""})
+def actualizar_perfil(user, departamento: str | None, puesto: str | None = None) -> None:
+    """Cachea el departamento y puesto de trabajo actuales del usuario para
+    la pantalla de administración (evita consultar Odoo al listar usuarios)."""
+    PerfilUsuario.objects.update_or_create(
+        user=user, defaults={"departamento_odoo": departamento or "", "puesto_trabajo": puesto or ""}
+    )
 
 
 def asignar_rol_automatico(user, departamento: str | None) -> None:
@@ -132,6 +136,6 @@ def registrar_usuario(email: str, password: str, nombre: str = ""):
     user = User(username=email, email=email, first_name=nombre.strip()[:150])
     user.set_password(password)
     user.save()
-    actualizar_perfil(user, empleado["departamento"])
+    actualizar_perfil(user, empleado["departamento"], empleado["puesto"])
     asignar_rol_automatico(user, empleado["departamento"])
     return user

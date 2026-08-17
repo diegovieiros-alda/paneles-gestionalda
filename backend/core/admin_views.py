@@ -31,6 +31,7 @@ def _usuario_json(user) -> dict:
         "activo": user.is_active,
         "esSuperusuario": user.is_superuser,
         "departamento": perfil.departamento_odoo if perfil else "",
+        "puesto": perfil.puesto_trabajo if perfil else "",
         "grupoId": grupo.id if grupo else None,
         "grupoNombre": grupo.name if grupo else None,
     }

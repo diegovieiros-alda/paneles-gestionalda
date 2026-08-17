@@ -7,6 +7,7 @@ export type UsuarioAdmin = {
   activo: boolean;
   esSuperusuario: boolean;
   departamento: string;
+  puesto: string;
   grupoId: number | null;
   grupoNombre: string | null;
 };

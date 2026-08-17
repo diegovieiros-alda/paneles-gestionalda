@@ -84,7 +84,7 @@ def iniciar_sesion(request):
     if not user.is_superuser:
         empleado = empleado_activo(user.email)
         if empleado is not None:
-            actualizar_perfil(user, empleado["departamento"])
+            actualizar_perfil(user, empleado["departamento"], empleado["puesto"])
             asignar_rol_automatico(user, empleado["departamento"])
 
     login(request, user)

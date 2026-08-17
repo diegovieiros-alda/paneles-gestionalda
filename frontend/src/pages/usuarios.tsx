@@ -117,7 +117,9 @@ export default function UsuariosPage() {
                   <div className="flex-1 min-w-[220px]">
                     <div className="text-sm font-medium text-foreground">{u.nombre || u.email}</div>
                     <div className="text-xs text-muted-foreground">
-                      {u.email}{u.departamento ? ` · ${u.departamento}` : ""}
+                      {u.email}
+                      {u.puesto ? ` · ${u.puesto}` : ""}
+                      {u.departamento ? ` · ${u.departamento}` : ""}
                     </div>
                   </div>
 
