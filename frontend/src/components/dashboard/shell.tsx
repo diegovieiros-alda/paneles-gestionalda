@@ -1,16 +1,17 @@
 import { type ReactNode } from "react";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
+import type { OrigenDatos } from "./data-source-badge";
 
 export function DashboardShell({
-  title, subtitle, children,
-}: { title: string; subtitle?: string; children: ReactNode }) {
+  title, subtitle, origenDatos, children,
+}: { title: string; subtitle?: string; origenDatos?: OrigenDatos; children: ReactNode }) {
   return (
     <div className="min-h-screen flex bg-background">
       <Sidebar />
       <div className="flex-1 min-w-0 flex flex-col">
-        <Topbar title={title} subtitle={subtitle} />
-        <main className="flex-1 min-w-0">{children}</main>
+        <Topbar title={title} subtitle={subtitle} origenDatos={origenDatos} />
+        <main className="flex-1 min-w-0 animate-in fade-in duration-300">{children}</main>
       </div>
     </div>
   );

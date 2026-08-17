@@ -3,9 +3,10 @@ export type HotelDirectorio = {
   name: string;
   zona: string;
   sociedad: string;
+  origenDatos?: "odoo" | "cache";
 };
 
-export async function fetchHoteles(): Promise<{ hoteles: HotelDirectorio[] }> {
+export async function fetchHoteles(): Promise<{ hoteles: HotelDirectorio[]; origenDatos?: "odoo" | "cache" }> {
   const res = await fetch(`/api/hoteles/`);
   if (!res.ok) {
     const body = await res.json().catch(() => null);
@@ -35,6 +36,7 @@ export type DesayunosReport = {
   fechaInicio: string;
   fechaFin: string;
   hoteles: HotelReal[];
+  origenDatos?: "odoo" | "cache";
 };
 
 export type SerieMensual = { mes: string; desayunos: number; produccion: number };
@@ -72,6 +74,7 @@ export type MesHotel = {
 export type HotelDesayunos = {
   actual: MesHotel;
   serieMensual: MesHotel[];
+  origenDatos?: "odoo" | "cache";
 };
 
 export async function fetchHotelDesayunos(id: string | number, desde: string, hasta: string): Promise<HotelDesayunos> {

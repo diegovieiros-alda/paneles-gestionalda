@@ -6,6 +6,7 @@ import { EvolutionChartReal } from "@/components/dashboard/evolution-chart-real"
 import { RankingListReal } from "@/components/dashboard/ranking-list-real";
 import { HotelsTableReal } from "@/components/dashboard/hotels-table-real";
 import { OpportunityBlockReal } from "@/components/dashboard/opportunity-block-real";
+import { Skeleton } from "@/components/ui/skeleton";
 import { fetchResumen, type ResumenReport } from "@/lib/hoteles-api";
 import { fmtEuro, fmtPct, TARGET_PENETRACION } from "@/lib/mock-data";
 import { Target } from "lucide-react";
@@ -35,7 +36,20 @@ export default function DashboardHome() {
   if (loading || !report) {
     return (
       <DashboardShell title="¿Dónde actuar hoy?">
-        <div className="p-10 text-center text-sm text-muted-foreground">Cargando…</div>
+        <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
+          <Skeleton className="h-20 w-full rounded-xl" />
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Skeleton className="h-64 rounded-xl" />
+            <Skeleton className="h-64 rounded-xl" />
+          </div>
+          <Skeleton className="h-40 rounded-xl" />
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
+            <Skeleton className="h-24 rounded-xl" />
+            <Skeleton className="h-24 rounded-xl" />
+            <Skeleton className="h-24 rounded-xl" />
+          </div>
+          <Skeleton className="h-72 rounded-xl" />
+        </div>
       </DashboardShell>
     );
   }
@@ -53,6 +67,7 @@ export default function DashboardHome() {
     <DashboardShell
       title="¿Dónde actuar hoy?"
       subtitle={`Vista global · Este mes · ${hoteles.length} hoteles`}
+      origenDatos={report.origenDatos}
     >
       <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
         <section className="rounded-xl border border-border bg-surface px-5 py-4 shadow-soft flex flex-wrap items-center gap-6">

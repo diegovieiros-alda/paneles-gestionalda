@@ -17,6 +17,7 @@ from .accounts import (
     requiere_dashboard,
 )
 from .bloqueos.service import get_report
+from .cache import origen_datos, tracking
 from .hoteles.service import (
     get_hotel_desayunos,
     get_hotel_info,
@@ -125,7 +126,10 @@ def bloqueos(request):
         return JsonResponse({"error": f"El rango máximo permitido es de {MAX_RANGO_DIAS} días"}, status=400)
 
     try:
-        return JsonResponse(get_report(fecha_inicio, fecha_fin))
+        with tracking() as t:
+            data = get_report(fecha_inicio, fecha_fin)
+        data["origenDatos"] = origen_datos(t)
+        return JsonResponse(data)
     except Exception:
         logger.exception("Error al generar el informe de bloqueos")
         return JsonResponse({"error": "No se pudo obtener el informe de bloqueos"}, status=502)
@@ -137,7 +141,9 @@ def hoteles(request):
     métricas — las métricas de desayuno viven en /api/desayunos/ (permiso
     "desayunos"), las de bloqueos en /api/bloqueos/ (permiso "bloqueos")."""
     try:
-        return JsonResponse({"hoteles": get_hoteles_directorio()})
+        with tracking() as t:
+            data = get_hoteles_directorio()
+        return JsonResponse({"hoteles": data, "origenDatos": origen_datos(t)})
     except Exception:
         logger.exception("Error al generar el directorio de hoteles")
         return JsonResponse({"error": "No se pudo obtener el listado de hoteles"}, status=502)
@@ -146,14 +152,15 @@ def hoteles(request):
 @requiere_dashboard("hoteles")
 def hotel_detalle(request, hotel_id):
     try:
-        datos = get_hotel_info(hotel_id)
+        with tracking() as t:
+            datos = get_hotel_info(hotel_id)
     except Exception:
         logger.exception("Error al generar la ficha del hotel %s", hotel_id)
         return JsonResponse({"error": "No se pudo obtener el hotel"}, status=502)
 
     if datos is None:
         return JsonResponse({"error": "Hotel no encontrado"}, status=404)
-    return JsonResponse(datos)
+    return JsonResponse({**datos, "origenDatos": origen_datos(t)})
 
 
 def _rango_mes_por_defecto(request):
@@ -183,7 +190,10 @@ def desayunos(request):
         return error_response
 
     try:
-        return JsonResponse(get_resumen(fecha_inicio, fecha_fin))
+        with tracking() as t:
+            data = get_resumen(fecha_inicio, fecha_fin)
+        data["origenDatos"] = origen_datos(t)
+        return JsonResponse(data)
     except Exception:
         logger.exception("Error al generar las métricas de desayuno")
         return JsonResponse({"error": "No se pudieron obtener las métricas de desayuno"}, status=502)
@@ -196,9 +206,12 @@ def hotel_desayunos(request, hotel_id):
         return error_response
 
     try:
-        if get_hotel_info(hotel_id) is None:
-            return JsonResponse({"error": "Hotel no encontrado"}, status=404)
-        return JsonResponse(get_hotel_desayunos(hotel_id, fecha_inicio, fecha_fin))
+        with tracking() as t:
+            if get_hotel_info(hotel_id) is None:
+                return JsonResponse({"error": "Hotel no encontrado"}, status=404)
+            data = get_hotel_desayunos(hotel_id, fecha_inicio, fecha_fin)
+        data["origenDatos"] = origen_datos(t)
+        return JsonResponse(data)
     except Exception:
         logger.exception("Error al generar los desayunos del hotel %s", hotel_id)
         return JsonResponse({"error": "No se pudieron obtener los desayunos del hotel"}, status=502)
@@ -218,7 +231,8 @@ def hotel_bloqueos(request, hotel_id):
         return JsonResponse({"error": f"El rango máximo permitido es de {MAX_RANGO_DIAS} días"}, status=400)
 
     try:
-        data = get_report(fecha_inicio, fecha_fin)
+        with tracking() as t:
+            data = get_report(fecha_inicio, fecha_fin)
     except Exception:
         logger.exception("Error al generar los bloqueos del hotel %s", hotel_id)
         return JsonResponse({"error": "No se pudieron obtener los bloqueos del hotel"}, status=502)
@@ -230,6 +244,7 @@ def hotel_bloqueos(request, hotel_id):
             "fechaFin": data["fechaFin"],
             "diasEnRango": data["diasEnRango"],
             "hotel": hotel,
+            "origenDatos": origen_datos(t),
         }
     )
 
@@ -240,7 +255,10 @@ def resumen(request):
     fecha_inicio = hoy.replace(day=1)
 
     try:
-        return JsonResponse(get_resumen(fecha_inicio, hoy))
+        with tracking() as t:
+            data = get_resumen(fecha_inicio, hoy)
+        data["origenDatos"] = origen_datos(t)
+        return JsonResponse(data)
     except Exception:
         logger.exception("Error al generar el resumen general")
         return JsonResponse({"error": "No se pudo obtener el resumen"}, status=502)

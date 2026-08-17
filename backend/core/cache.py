@@ -10,6 +10,8 @@ a Redis/Memcached en settings.py; el decorador no cambia.
 """
 from __future__ import annotations
 
+import contextlib
+import contextvars
 import functools
 import hashlib
 import pickle
@@ -17,6 +19,38 @@ import pickle
 from django.core.cache import cache
 
 TIMEOUT = 300  # 5 minutos
+
+# Cuenta hits/misses de cache_result durante una vista, para poder decirle
+# al frontend si la respuesta vino de Odoo en vivo o de cache (ver
+# views._sesion_json hermano `origen_datos` y el uso de `tracking()` en
+# cada vista que llama a fetch_*). Un ContextVar porque las funciones
+# cacheadas (bloqueos/hoteles repository) no reciben ni devuelven ningún
+# objeto de request al que enganchar esto.
+_tracker: contextvars.ContextVar["_Tracker | None"] = contextvars.ContextVar("cache_tracker", default=None)
+
+
+class _Tracker:
+    __slots__ = ("hits", "misses")
+
+    def __init__(self):
+        self.hits = 0
+        self.misses = 0
+
+
+@contextlib.contextmanager
+def tracking():
+    """Úsalo alrededor de las llamadas a fetch_* de una vista para saber si
+    hubo alguna consulta real a Odoo (miss) o todo vino de cache (hits)."""
+    tracker = _Tracker()
+    token = _tracker.set(tracker)
+    try:
+        yield tracker
+    finally:
+        _tracker.reset(token)
+
+
+def origen_datos(tracker: "_Tracker") -> str:
+    return "odoo" if tracker.misses > 0 else "cache"
 
 
 def cache_result(func):
@@ -27,9 +61,14 @@ def cache_result(func):
         raw = pickle.dumps((func.__module__, func.__qualname__, args, kwargs))
         key = "core:" + hashlib.sha1(raw).hexdigest()
         resultado = cache.get(key)
+        tracker = _tracker.get()
         if resultado is None:
             resultado = func(*args, **kwargs)
             cache.set(key, resultado, TIMEOUT)
+            if tracker is not None:
+                tracker.misses += 1
+        elif tracker is not None:
+            tracker.hits += 1
         return resultado
 
     return wrapped

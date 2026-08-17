@@ -8,6 +8,8 @@ import { DashboardShell } from "@/components/dashboard/shell";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { HotelBlockCard, OcupacionBar } from "@/components/dashboard/hotel-block-card";
 import { RangeFilter } from "@/components/dashboard/range-filter";
+import { DataSourceBadge } from "@/components/dashboard/data-source-badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { fetchHotelInfo, fetchHotelDesayunos, type HotelDirectorio, type HotelDesayunos } from "@/lib/hoteles-api";
 import { fetchHotelBloqueos, type HotelBloqueosReport } from "@/lib/bloqueos-api";
 import { fmtEuro, fmtNum, fmtPct } from "@/lib/mock-data";
@@ -77,10 +79,17 @@ function DesayunosPanel({ hotelId }: { hotelId: string }) {
 
   return (
     <div className="space-y-6">
-      <RangeFilter preset={rango.preset} custom={rango.custom} onPreset={rango.onPreset} onCustom={rango.onCustom} compact />
+      <div className="flex flex-wrap items-center gap-2">
+        <RangeFilter preset={rango.preset} custom={rango.custom} onPreset={rango.onPreset} onCustom={rango.onCustom} compact />
+        <DataSourceBadge origen={data?.origenDatos} />
+      </div>
 
       {error && <p className="text-sm text-danger">{error}</p>}
-      {!data && !error && <p className="text-sm text-muted-foreground">Cargando…</p>}
+      {!data && !error && (
+        <div className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
+          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
+        </div>
+      )}
 
       {data && (
         <>
@@ -150,10 +159,17 @@ function OcupacionPanel({ hotelId }: { hotelId: string }) {
 
   return (
     <div className="space-y-4">
-      <RangeFilter preset={rango.preset} custom={rango.custom} onPreset={rango.onPreset} onCustom={rango.onCustom} compact />
+      <div className="flex flex-wrap items-center gap-2">
+        <RangeFilter preset={rango.preset} custom={rango.custom} onPreset={rango.onPreset} onCustom={rango.onCustom} compact />
+        <DataSourceBadge origen={data?.origenDatos} />
+      </div>
 
       {error && <p className="text-sm text-danger">{error}</p>}
-      {!data && !error && <p className="text-sm text-muted-foreground">Cargando…</p>}
+      {!data && !error && (
+        <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
+        </div>
+      )}
 
       {data && !data.hotel && (
         <p className="text-sm text-muted-foreground">Sin datos de ocupación en el periodo seleccionado.</p>
@@ -189,10 +205,13 @@ function BloqueosPanel({ hotelId }: { hotelId: string }) {
 
   return (
     <div className="space-y-4">
-      <RangeFilter preset={rango.preset} custom={rango.custom} onPreset={rango.onPreset} onCustom={rango.onCustom} compact />
+      <div className="flex flex-wrap items-center gap-2">
+        <RangeFilter preset={rango.preset} custom={rango.custom} onPreset={rango.onPreset} onCustom={rango.onCustom} compact />
+        <DataSourceBadge origen={data?.origenDatos} />
+      </div>
 
       {error && <p className="text-sm text-danger">{error}</p>}
-      {!data && !error && <p className="text-sm text-muted-foreground">Cargando…</p>}
+      {!data && !error && <Skeleton className="h-40 rounded-xl" />}
       {data && !data.hotel && (
         <p className="text-sm text-muted-foreground">Sin habitaciones bloqueadas en el periodo seleccionado.</p>
       )}
@@ -221,7 +240,11 @@ export default function HotelDetail() {
   if (loading) {
     return (
       <DashboardShell title="Cargando…">
-        <div className="p-10 text-center text-sm text-muted-foreground">Cargando hotel…</div>
+        <div className="p-6 space-y-6 max-w-[1500px] mx-auto">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-28 rounded-xl" />
+          <Skeleton className="h-48 rounded-xl" />
+        </div>
       </DashboardShell>
     );
   }
@@ -240,7 +263,7 @@ export default function HotelDetail() {
   const tieneBloqueos = usuario?.dashboards.includes("bloqueos");
 
   return (
-    <DashboardShell title={hotel.name} subtitle={`${hotel.zona} · ${hotel.sociedad}`}>
+    <DashboardShell title={hotel.name} subtitle={`${hotel.zona} · ${hotel.sociedad}`} origenDatos={hotel.origenDatos}>
       <div className="p-6 space-y-6 max-w-[1500px] mx-auto">
         <div className="flex items-center gap-3">
           <Link to="/hoteles" className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground">

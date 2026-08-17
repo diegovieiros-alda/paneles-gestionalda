@@ -2,16 +2,21 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, Search } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard/shell";
+import { Skeleton } from "@/components/ui/skeleton";
 import { fetchHoteles, type HotelDirectorio } from "@/lib/hoteles-api";
 
 export default function HotelesIndex() {
   const [hoteles, setHoteles] = useState<HotelDirectorio[] | null>(null);
+  const [origenDatos, setOrigenDatos] = useState<"odoo" | "cache" | undefined>();
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState("");
 
   useEffect(() => {
     fetchHoteles()
-      .then((r) => setHoteles(r.hoteles))
+      .then((r) => {
+        setHoteles(r.hoteles);
+        setOrigenDatos(r.origenDatos);
+      })
       .catch((e) => setError(e.message));
   }, []);
 
@@ -25,7 +30,7 @@ export default function HotelesIndex() {
   }, [hoteles, q]);
 
   return (
-    <DashboardShell title="Hoteles" subtitle="Directorio de hoteles de la cadena">
+    <DashboardShell title="Hoteles" subtitle="Directorio de hoteles de la cadena" origenDatos={origenDatos}>
       <div className="p-6 max-w-[1200px] mx-auto space-y-4">
         {error && (
           <div className="rounded-xl border border-danger/30 bg-danger/5 p-4 text-sm text-danger">{error}</div>
@@ -50,21 +55,35 @@ export default function HotelesIndex() {
             </div>
           </header>
 
-          <div className="divide-y divide-border">
-            {rows.map((h) => (
-              <Link
-                key={h.id}
-                to={`/hoteles/${h.id}`}
-                className="flex items-center gap-3 px-5 py-3 hover:bg-accent/30 transition-colors"
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-foreground truncate">{h.name}</div>
-                  <div className="text-xs text-muted-foreground truncate">{h.zona} · {h.sociedad}</div>
+          {hoteles ? (
+            <div className="divide-y divide-border">
+              {rows.map((h, i) => (
+                <Link
+                  key={h.id}
+                  to={`/hoteles/${h.id}`}
+                  style={{ animationDelay: `${Math.min(i, 12) * 25}ms` }}
+                  className="flex items-center gap-3 px-5 py-3 hover:bg-accent/30 transition-colors animate-in fade-in slide-in-from-bottom-1 duration-300 fill-mode-backwards"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-foreground truncate">{h.name}</div>
+                    <div className="text-xs text-muted-foreground truncate">{h.zona} · {h.sociedad}</div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 px-5 py-3">
+                  <div className="flex-1 space-y-1.5">
+                    <Skeleton className="h-4 w-48" />
+                    <Skeleton className="h-3 w-32" />
+                  </div>
                 </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground" />
-              </Link>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
       </div>
     </DashboardShell>

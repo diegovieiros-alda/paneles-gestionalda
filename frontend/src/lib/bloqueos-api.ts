@@ -37,6 +37,7 @@ export type BloqueosReport = {
   fechaInicio: string;
   fechaFin: string;
   diasEnRango: number;
+  origenDatos?: "odoo" | "cache";
   resumen: {
     totalHotelesCadena: number;
     totalHotelesAfectados: number;
@@ -65,6 +66,7 @@ export type HotelBloqueosReport = {
   fechaFin: string;
   diasEnRango: number;
   hotel: BloqueoHotel | null;
+  origenDatos?: "odoo" | "cache";
 };
 
 export async function fetchHotelBloqueos(hotelId: number | string, desde: string, hasta: string): Promise<HotelBloqueosReport> {

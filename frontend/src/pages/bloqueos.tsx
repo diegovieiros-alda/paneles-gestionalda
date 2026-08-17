@@ -7,6 +7,7 @@ import { fmtEuro, fmtNum } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { fmtFecha, HotelBlockCard } from "@/components/dashboard/hotel-block-card";
 import { RangeFilter } from "@/components/dashboard/range-filter";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function SummaryCard({
   icon: Icon, label, value, sub, tone,
@@ -66,7 +67,7 @@ export default function BloqueosPage() {
     : "Habitaciones fuera de servicio";
 
   return (
-    <DashboardShell title="Bloqueos" subtitle={subtitle}>
+    <DashboardShell title="Bloqueos" subtitle={subtitle} origenDatos={report?.origenDatos}>
       <RangeFilter
         preset={preset}
         custom={custom}
@@ -83,7 +84,14 @@ export default function BloqueosPage() {
         )}
 
         {loading && !report && (
-          <div className="text-sm text-muted-foreground p-10 text-center">Cargando informe de bloqueos…</div>
+          <div className="space-y-6">
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
+              <Skeleton className="h-24 rounded-xl" />
+              <Skeleton className="h-24 rounded-xl" />
+              <Skeleton className="h-24 rounded-xl" />
+            </div>
+            <Skeleton className="h-48 rounded-xl" />
+          </div>
         )}
 
         {report && (
@@ -118,12 +126,16 @@ export default function BloqueosPage() {
               </div>
             )}
 
-            {zonas.map((zona) => {
+            {zonas.map((zona, i) => {
               const hoteles = porZona.get(zona)!;
               const bloqueadasZona = hoteles.reduce((a, h) => a + h.kpis.habitacionesBloqueadas, 0);
               const impactoZona = hoteles.reduce((a, h) => a + (h.kpis.perdidaFinancieraEstimada ?? 0), 0);
               return (
-                <section key={zona} className="space-y-3">
+                <section
+                  key={zona}
+                  style={{ animationDelay: `${i * 60}ms` }}
+                  className="space-y-3 animate-in fade-in slide-in-from-bottom-2 duration-300 fill-mode-backwards"
+                >
                   <div className="flex items-center justify-between border-b-2 border-foreground/80 pb-1.5">
                     <h2 className="text-xs font-bold uppercase tracking-wide text-foreground">📍 {zona}</h2>
                     <span className="text-xs text-muted-foreground">

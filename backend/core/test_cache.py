@@ -1,7 +1,7 @@
 """Comprobación mínima de que cache_result evita llamadas repetidas."""
 from django.test import SimpleTestCase
 
-from .cache import cache_result
+from .cache import cache_result, origen_datos, tracking
 
 
 class CacheResultTests(SimpleTestCase):
@@ -24,3 +24,35 @@ class CacheResultTests(SimpleTestCase):
 
         self.assertEqual(consulta(1), 2)
         self.assertEqual(consulta(2), 4)
+
+
+class TrackingTests(SimpleTestCase):
+    def test_odoo_si_hubo_al_menos_un_miss(self):
+        @cache_result
+        def consulta(x):
+            return x
+
+        with tracking() as t:
+            consulta("a-nueva")
+            consulta("a-nueva")  # hit, no cambia el origen
+
+        self.assertEqual(origen_datos(t), "odoo")
+
+    def test_cache_si_todo_fueron_hits(self):
+        @cache_result
+        def consulta(x):
+            return x
+
+        consulta("b-precalentada")  # miss, fuera del tracking
+
+        with tracking() as t:
+            consulta("b-precalentada")
+
+        self.assertEqual(origen_datos(t), "cache")
+
+    def test_sin_tracking_activo_no_falla(self):
+        @cache_result
+        def consulta(x):
+            return x
+
+        self.assertEqual(consulta("c-sin-tracking"), "c-sin-tracking")
