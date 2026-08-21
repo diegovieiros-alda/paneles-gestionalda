@@ -2,10 +2,14 @@
 desayunos. No incluye coste/margen/presupuesto (no existen en Odoo) ni
 regional/submarca/tipo (no existen en el PMS, solo zona y sociedad).
 
-"desayunos" (cantidad) y "penetracion" excluyen colaborador (no son huéspedes
-alojados contados en "alojados"); "produccion" y "precioMedio" lo incluyen
-(es dinero real) — ver repository._REGIMENES_COLABORADOR y
-.claude/alda-precios-desayuno/SKILL.md."""
+"desayunos"/"produccion"/"precioMedio" incluyen colaborador (es dinero y
+unidades reales); solo "penetracion" lo excluye (no son huéspedes alojados
+contados en "alojados" — colaborador puede superar el 100% si se incluye,
+motivo verificado) — ver repository._REGIMENES_COLABORADOR y
+.claude/alda-precios-desayuno/SKILL.md. Por eso "penetracion" no se puede
+recalcular como desayunos/alojados: usa un numerador distinto al mostrado
+en "desayunos" a propósito (si no, un hotel 100% colaborador mostraría
+"0 desayunos" junto a producción real — confuso, aunque "correcto")."""
 from __future__ import annotations
 
 import datetime
@@ -63,7 +67,7 @@ def get_hoteles(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict:
                 "zona": zona_de(h["property_code"]),
                 "sociedad": companies.get(h["company_id"], "—"),
                 "alojados": a,
-                "desayunos": round(d["cantidad"]),
+                "desayunos": round(d["cantidad_total"]),
                 "penetracion": round(penetracion, 4),
                 "produccion": round(d["produccion"], 2),
                 "precioMedio": round(precio_medio, 2),
@@ -156,7 +160,7 @@ def get_hotel_desayunos(hotel_id: int, fecha_inicio: datetime.date, fecha_fin: d
     precio_medio = _precio_medio(d)
     actual = {
         "alojados": alojados,
-        "desayunos": round(d["cantidad"]),
+        "desayunos": round(d["cantidad_total"]),
         "penetracion": round(penetracion, 4),
         "produccion": round(d["produccion"], 2),
         "precioMedio": round(precio_medio, 2),
@@ -178,7 +182,7 @@ def get_hotel_desayunos(hotel_id: int, fecha_inicio: datetime.date, fecha_fin: d
             {
                 "mes": mes,
                 "alojados": a,
-                "desayunos": round(dm["cantidad"]),
+                "desayunos": round(dm["cantidad_total"]),
                 "penetracion": round(pen, 4),
                 "produccion": round(dm["produccion"], 2),
                 "precioMedio": round(precio, 2),
