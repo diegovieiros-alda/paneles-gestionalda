@@ -1,6 +1,6 @@
-"""Listado de Hoteles con datos reales de Odoo: ocupación y producción de
-desayunos. No incluye coste/margen/presupuesto (no existen en Odoo) ni
-regional/submarca/tipo (no existen en el PMS, solo zona y sociedad).
+"""Listado de Hoteles con datos reales de Odoo: ocupación, producción de
+desayunos y financiero F&B (ingresos/gastos/presupuesto contable). No
+incluye regional/submarca/tipo (no existen en el PMS, solo zona y sociedad).
 
 "desayunos"/"produccion"/"precioMedio" incluyen colaborador (es dinero y
 unidades reales); solo "penetracion" lo excluye (no son huéspedes alojados
@@ -19,6 +19,7 @@ from . import repository
 
 _DESAYUNO_VACIO = {"cantidad": 0.0, "cantidad_total": 0.0, "produccion": 0.0}
 _FNB_VACIO = {"ingresos": 0.0, "unidades": 0.0, "gastos": 0.0}
+_PRESUPUESTO_VACIO = {"presupuestoIngresos": 0.0, "presupuestoGastos": 0.0}
 
 
 def _precio_medio(d: dict) -> float:
@@ -28,13 +29,20 @@ def _precio_medio(d: dict) -> float:
     return (d["produccion"] / d["cantidad_total"]) if d["cantidad_total"] > 0 else 0.0
 
 
-def _fnb_json(f: dict) -> dict:
+def _fnb_json(f: dict, presupuesto: dict = _PRESUPUESTO_VACIO) -> dict:
     """KPIs financieros F&B (ver repository._CUENTA_INGRESO_DESAYUNO): fuente
     contable, no PMS — deliberadamente distinta de produccion/precioMedio de
     arriba (que sí incluyen colaborador). No confundir "precioMedioVenta"
-    (esta sección, contable) con "precioMedio" (producción, PMS)."""
+    (esta sección, contable) con "precioMedio" (producción, PMS).
+
+    cumplimientoIngresos/Gastos: real/presupuesto (1.0 = 100% del
+    presupuesto). None si no hay presupuesto confirmado para ese periodo —
+    "0%" sería engañoso (parece que no se vendió nada, no que falta
+    presupuesto)."""
     ingresos, gastos = f["ingresos"], f["gastos"]
     unidades = f["unidades"]
+    presupuesto_ingresos = presupuesto["presupuestoIngresos"]
+    presupuesto_gastos = presupuesto["presupuestoGastos"]
     return {
         "ingresos": round(ingresos, 2),
         "gastos": round(gastos, 2),
@@ -42,6 +50,10 @@ def _fnb_json(f: dict) -> dict:
         "margenBruto": round((ingresos - gastos) / ingresos, 4) if ingresos > 0 else 0.0,
         "precioMedioVenta": round(ingresos / unidades, 2) if unidades > 0 else 0.0,
         "costeMedioGasto": round(gastos / unidades, 2) if unidades > 0 else 0.0,
+        "presupuestoIngresos": round(presupuesto_ingresos, 2),
+        "presupuestoGastos": round(presupuesto_gastos, 2),
+        "cumplimientoIngresos": round(ingresos / presupuesto_ingresos, 4) if presupuesto_ingresos > 0 else None,
+        "cumplimientoGastos": round(gastos / presupuesto_gastos, 4) if presupuesto_gastos > 0 else None,
     }
 
 
@@ -51,6 +63,7 @@ def get_hoteles(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict:
     alojados = repository.fetch_alojados(fecha_inicio, fecha_fin)
     desayunos = repository.fetch_desayunos(fecha_inicio, fecha_fin)
     fnb = repository.fetch_fnb_desayuno(fecha_inicio, fecha_fin)
+    presupuesto = repository.fetch_presupuesto_desayuno(fecha_inicio, fecha_fin)
 
     resultado = []
     for h in hoteles:
@@ -71,7 +84,7 @@ def get_hoteles(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict:
                 "penetracion": round(penetracion, 4),
                 "produccion": round(d["produccion"], 2),
                 "precioMedio": round(precio_medio, 2),
-                **_fnb_json(fnb.get(h["id"], _FNB_VACIO)),
+                **_fnb_json(fnb.get(h["id"], _FNB_VACIO), presupuesto.get(h["id"], _PRESUPUESTO_VACIO)),
             }
         )
 
@@ -106,9 +119,11 @@ def get_resumen(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict:
     inicio_serie = _hace_n_meses(fecha_fin, 11)
     serie = repository.fetch_serie_mensual(inicio_serie, fecha_fin)
     fnb_por_mes = repository.fetch_fnb_serie_mensual(inicio_serie, fecha_fin)
+    presupuesto_por_mes = repository.fetch_presupuesto_serie_mensual(inicio_serie, fecha_fin)
     for punto in serie:
         f = fnb_por_mes.get(punto["mes"], _FNB_VACIO)
-        punto.update(_fnb_json(f))
+        p = presupuesto_por_mes.get(punto["mes"], _PRESUPUESTO_VACIO)
+        punto.update(_fnb_json(f, p))
     datos["serieMensual"] = serie
     datos["vendedores"] = get_vendedores_desayuno(fecha_inicio, fecha_fin)
     return datos
@@ -142,6 +157,7 @@ def get_hotel_desayunos(hotel_id: int, fecha_inicio: datetime.date, fecha_fin: d
     alojados = repository.fetch_alojados(fecha_inicio, fecha_fin).get(hotel_id, 0)
     d = repository.fetch_desayunos(fecha_inicio, fecha_fin).get(hotel_id, _DESAYUNO_VACIO)
     fnb = repository.fetch_fnb_desayuno(fecha_inicio, fecha_fin).get(hotel_id, _FNB_VACIO)
+    presupuesto = repository.fetch_presupuesto_desayuno(fecha_inicio, fecha_fin).get(hotel_id, _PRESUPUESTO_VACIO)
     penetracion = (d["cantidad"] / alojados) if alojados > 0 else 0.0
     precio_medio = _precio_medio(d)
     actual = {
@@ -150,7 +166,7 @@ def get_hotel_desayunos(hotel_id: int, fecha_inicio: datetime.date, fecha_fin: d
         "penetracion": round(penetracion, 4),
         "produccion": round(d["produccion"], 2),
         "precioMedio": round(precio_medio, 2),
-        **_fnb_json(fnb),
+        **_fnb_json(fnb, presupuesto),
     }
 
     inicio_serie = _hace_n_meses(fecha_fin, 11)

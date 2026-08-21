@@ -9,10 +9,17 @@ import { RangeFilter } from "@/components/dashboard/range-filter";
 import { DataSourceBadge } from "@/components/dashboard/data-source-badge";
 import { DesayunosOrigenDatos } from "@/components/dashboard/desayunos-origen-datos";
 import { HotelDetailHeader } from "@/components/dashboard/hotel-detail-header";
+import { SignedEuro, SignedPct } from "@/components/dashboard/signed-value";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { fetchHotelInfo, fetchHotelDesayunos, type HotelDirectorio, type HotelDesayunos } from "@/lib/hoteles-api";
-import { fmtEuro, fmtNum, fmtPct } from "@/lib/mock-data";
+import { exportarCsv } from "@/lib/export-csv";
+import {
+  ETIQUETA_BADGE_CLASS, ETIQUETA_LABEL, etiquetaCumplimiento, fmtEuro, fmtNum, fmtPct,
+} from "@/lib/mock-data";
 import { rangeForPreset, type RangePreset } from "@/lib/date-range";
+import { Download } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 function mesCorto(iso: string) {
   return new Date(iso).toLocaleDateString("es-ES", { month: "short" });
@@ -83,12 +90,29 @@ export default function HotelDesayunosPage() {
 
             <section>
               <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">F&amp;B · contable (excluye colaborador)</h3>
-              <div className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-5 mt-3">
+              <div className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-6 mt-3">
                 <KpiCard label="Ingresos" value={fmtEuro(data.actual.ingresos)} tone="neutral" />
                 <KpiCard label="Gastos" value={fmtEuro(data.actual.gastos)} tone="neutral" />
-                <KpiCard label="Margen bruto" value={fmtPct(data.actual.margenBruto, 0)} tone={data.actual.margenBruto >= 0.5 ? "positive" : "warning"} />
+                <KpiCard label="Margen bruto" value={<SignedPct value={data.actual.margenBruto} />} tone="neutral" />
                 <KpiCard label="Precio medio venta" value={`${data.actual.precioMedioVenta.toFixed(2)}€`} tone="neutral" />
-                <KpiCard label="Resultado F&B" value={fmtEuro(data.actual.resultadoFB)} tone="neutral" />
+                <KpiCard label="Resultado F&B" value={<SignedEuro value={data.actual.resultadoFB} />} tone="neutral" />
+                <KpiCard
+                  label="Presupuesto (ingresos)"
+                  value={data.actual.presupuestoIngresos > 0 ? fmtEuro(data.actual.presupuestoIngresos) : "—"}
+                  tone="neutral"
+                  footer={
+                    data.actual.cumplimientoIngresos !== null
+                      ? (() => {
+                          const e = etiquetaCumplimiento(data.actual.cumplimientoIngresos);
+                          return e ? (
+                            <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium", ETIQUETA_BADGE_CLASS[e])}>
+                              {fmtPct(data.actual.cumplimientoIngresos, 0)} · {ETIQUETA_LABEL[e]}
+                            </span>
+                          ) : undefined;
+                        })()
+                      : "Sin presupuesto confirmado"
+                  }
+                />
               </div>
             </section>
 
@@ -111,6 +135,23 @@ export default function HotelDesayunosPage() {
             </section>
 
             <section className="overflow-x-auto">
+              <div className="flex justify-end mb-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    exportarCsv(
+                      `desayunos-${hotel?.name ?? hotelId}-${new Date().toISOString().slice(0, 10)}`,
+                      ["Mes", "Alojados", "Desayunos", "Penetración %", "Producción", "Precio medio"],
+                      data.serieMensual.map((m) => [
+                        mesCorto(m.mes), m.alojados, m.desayunos, (m.penetracion * 100).toFixed(1), m.produccion.toFixed(2), m.precioMedio.toFixed(2),
+                      ])
+                    )
+                  }
+                >
+                  <Download className="h-3.5 w-3.5" /> Exportar
+                </Button>
+              </div>
               <table className="w-full text-sm">
                 <thead className="bg-surface-muted/60">
                   <tr>

@@ -8,6 +8,7 @@ export function IngresosGastosChart({ serie }: { serie: SerieMensual[] }) {
   const data = serie.map((s) => ({
     mes: new Date(s.mes).toLocaleDateString("es-ES", { month: "short" }),
     ingresos: s.ingresos,
+    presupuestoIngresos: s.presupuestoIngresos > 0 ? s.presupuestoIngresos : null,
     gastos: s.gastos,
     margenBruto: s.margenBruto,
   }));
@@ -49,6 +50,10 @@ export function IngresosGastosChart({ serie }: { serie: SerieMensual[] }) {
             <Legend wrapperStyle={{ fontSize: 11 }} />
             <Bar yAxisId="euros" dataKey="ingresos" name="Ingresos" fill="var(--color-primary)" radius={[6, 6, 0, 0]} maxBarSize={28} />
             <Bar yAxisId="euros" dataKey="gastos" name="Gastos" fill="var(--color-danger)" radius={[6, 6, 0, 0]} maxBarSize={28} />
+            <Line
+              yAxisId="euros" dataKey="presupuestoIngresos" name="Presupuesto ingresos"
+              stroke="var(--color-muted-foreground)" strokeWidth={2} strokeDasharray="5 4" dot={false} connectNulls
+            />
             <Line yAxisId="pct" dataKey="margenBruto" name="Margen bruto" stroke="var(--color-success)" strokeWidth={2} dot={false} />
           </ComposedChart>
         </ResponsiveContainer>

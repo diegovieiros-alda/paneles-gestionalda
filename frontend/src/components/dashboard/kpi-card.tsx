@@ -1,3 +1,4 @@
+import { type ReactNode } from "react";
 import { ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Area, AreaChart, ResponsiveContainer } from "recharts";
@@ -8,12 +9,12 @@ export function KpiCard({
   label, value, delta, deltaLabel, tone = "neutral", trend, footer,
 }: {
   label: string;
-  value: string;
+  value: ReactNode;
   delta?: number;
   deltaLabel?: string;
   tone?: KpiTone;
   trend?: number[];
-  footer?: string;
+  footer?: ReactNode;
 }) {
   const positive = (delta ?? 0) >= 0;
   const toneRing = {

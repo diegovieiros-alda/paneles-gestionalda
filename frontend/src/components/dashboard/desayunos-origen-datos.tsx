@@ -88,6 +88,21 @@ const FNB_CONTABLE: Fila[] = [
     calculo: "Ingresos − Gastos.",
     verificar: "Cociente, no un dato propio de Odoo.",
   },
+  {
+    campo: "Presupuesto (ingresos/gastos)",
+    origen: "account_move_budget_line + account_move_budget, mismas cuentas contables",
+    calculo:
+      "SUM(credit) − SUM(debit) en la cuenta 70500000020 = presupuesto de ingresos; SUM(debit) − SUM(credit) en 60100000001/60100000002 = presupuesto de gastos. Solo si el presupuesto está en estado 'confirmed' (los 'draft' no cuentan). Se cruza con el hotel vía pms_property.analytic_account_id = account_move_budget_line.hotel_analytic_account_id.",
+    verificar:
+      "En Odoo: módulo de Presupuestos (Accounting Budgets), filtrar por el presupuesto confirmado del hotel y periodo. El signo es el habitual de contabilidad: en una cuenta de ingreso el importe vive en \"credit\", en una de gasto en \"debit\" — no al revés.",
+  },
+  {
+    campo: "Cumplimiento (presupuesto)",
+    origen: "derivado",
+    calculo: "Ingresos reales / Presupuesto de ingresos (o Gastos reales / Presupuesto de gastos).",
+    verificar:
+      "Aparece vacío (—), no en 0%, cuando no hay presupuesto confirmado para ese hotel y periodo — un 0% sugeriría erróneamente que no se vendió nada.",
+  },
 ];
 
 const VENDEDORES: Fila[] = [
@@ -106,8 +121,9 @@ const DERIVADOS: Fila[] = [
     campo: "Facturación potencial",
     origen: "no viene de Odoo — combina datos reales con un objetivo configurado en la app",
     calculo:
-      "(Desayunos × 55% [penetración objetivo] / Penetración actual) × Precio medio venta.",
-    verificar: "Es una proyección, no algo que se pueda buscar en Odoo directamente. El 55% es el objetivo operativo configurado en la app (ver Ajustes), no un dato del PMS.",
+      "Alojados × (55% [penetración objetivo] − Penetración actual), con mínimo 0, × Precio medio venta.",
+    verificar:
+      "Es una proyección, no algo que se pueda buscar en Odoo directamente. El 55% es el objetivo operativo configurado en la app (ver Ajustes), no un dato del PMS. Se calcula por huecos de penetración (alojados), no dividiendo por la penetración actual — dividir se dispara a cifras absurdas cuando la penetración actual es casi cero (bug real corregido 2026-08-21).",
   },
   {
     campo: "Etiqueta (semáforo)",
@@ -180,6 +196,11 @@ export function DesayunosOrigenDatos() {
           <Tabla filas={DERIVADOS} />
         </div>
         <p className="text-[11px] text-muted-foreground border-t border-border pt-3">
+          <b>No implementado:</b> "Presupuesto Revenue" (pms.budget) — ese modelo solo tiene ingreso de habitación
+          (room_revenue), sin ningún campo de desayuno todavía. "Reseñas" y "Elasticidad" tampoco — el propio
+          documento de origen los deja pendientes ("ver más adelante" / "si lo pide Alberto"), sin cálculo definido.
+        </p>
+        <p className="text-[11px] text-muted-foreground">
           Metodología detallada, bugs encontrados y verificados: <code className="font-mono">.claude/alda-precios-desayuno/SKILL.md</code> en el repositorio del proyecto.
         </p>
       </div>

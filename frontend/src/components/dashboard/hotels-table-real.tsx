@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowUpDown, ChevronRight, Search } from "lucide-react";
+import { ArrowUpDown, ChevronRight, Download, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fmtEuro, fmtNum, fmtPct, TARGET_OPORTUNIDAD } from "@/lib/mock-data";
+import { exportarCsv } from "@/lib/export-csv";
+import { Button } from "@/components/ui/button";
 import type { HotelReal } from "@/lib/hoteles-api";
 
 type Key = "name" | "zona" | "sociedad" | "alojados" | "desayunos" | "penetracion" | "produccion" | "precioMedio" | "oportunidad";
@@ -23,6 +25,17 @@ const cols: Array<{ key: Key; label: string; align?: "right"; render: (h: HotelR
   { key: "precioMedio", label: "Precio med.", align: "right", render: (h) => `${h.precioMedio.toFixed(2)}€` },
   { key: "oportunidad", label: "Oportunidad", align: "right", render: (h) => fmtEuro(oportunidad(h)) },
 ];
+
+function exportar(hoteles: HotelReal[]) {
+  exportarCsv(
+    `desayunos-hoteles-${new Date().toISOString().slice(0, 10)}`,
+    ["Hotel", "Zona", "Sociedad", "Alojados", "Desayunos", "Penetración %", "Producción", "Precio medio", "Oportunidad"],
+    hoteles.map((h) => [
+      h.name, h.zona, h.sociedad, h.alojados, h.desayunos,
+      (h.penetracion * 100).toFixed(1), h.produccion.toFixed(2), h.precioMedio.toFixed(2), oportunidad(h).toFixed(2),
+    ])
+  );
+}
 
 export function HotelsTableReal({ hoteles }: { hoteles: HotelReal[] }) {
   const [sort, setSort] = useState<{ key: Key; dir: "asc" | "desc" }>({ key: "produccion", dir: "desc" });
@@ -61,6 +74,9 @@ export function HotelsTableReal({ hoteles }: { hoteles: HotelReal[] }) {
               className="bg-transparent outline-none flex-1"
             />
           </div>
+          <Button variant="outline" size="sm" onClick={() => exportar(rows)}>
+            <Download className="h-3.5 w-3.5" /> Exportar
+          </Button>
         </div>
       </header>
 

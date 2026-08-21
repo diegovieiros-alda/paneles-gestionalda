@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { DashboardShell } from "@/components/dashboard/shell";
 import { HotelsTableReal } from "@/components/dashboard/hotels-table-real";
+import { FnbResumenCards } from "@/components/dashboard/fnb-resumen-cards";
 import { FnbFinancieroTable } from "@/components/dashboard/fnb-financiero-table";
 import { VendedoresPanel } from "@/components/dashboard/vendedores-panel";
 import { DesayunosOrigenDatos } from "@/components/dashboard/desayunos-origen-datos";
@@ -11,6 +12,17 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { fetchDesayunos, type HotelReal, type SerieMensual, type Vendedor } from "@/lib/hoteles-api";
 import { rangeForPreset, type RangePreset } from "@/lib/date-range";
 import { RangeFilter } from "@/components/dashboard/range-filter";
+
+function SectionTitle({ title, subtitle }: { title: string; subtitle?: string }) {
+  return (
+    <div className="pt-2">
+      <h2 className="text-xs font-bold uppercase tracking-wide text-foreground border-b-2 border-foreground/80 pb-1.5">
+        {title}
+      </h2>
+      {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
+    </div>
+  );
+}
 
 export default function DesayunosPage() {
   const [preset, setPreset] = useState<RangePreset>("mes");
@@ -41,7 +53,7 @@ export default function DesayunosPage() {
   return (
     <DashboardShell
       title="Desayunos"
-      subtitle="Producción, penetración y precio medio de desayuno · datos reales de Odoo"
+      subtitle="Producción, penetración y financiero F&B de desayuno · datos reales de Odoo"
       origenDatos={origenDatos}
     >
       <RangeFilter
@@ -64,17 +76,30 @@ export default function DesayunosPage() {
             <Skeleton className="h-96 rounded-xl" />
           </div>
         )}
-        {serieMensual.length > 0 && <EvolutionChartReal serie={serieMensual} />}
-        {hoteles && <HotelsTableReal hoteles={hoteles} />}
-        {hoteles && <FnbFinancieroTable hoteles={hoteles} />}
-        {serieMensual.length > 0 && (
-          <div className="grid gap-6 lg:grid-cols-2">
-            <IngresosGastosChart serie={serieMensual} />
-            <PrecioCosteChart serie={serieMensual} />
-          </div>
+
+        {hoteles && (
+          <>
+            <SectionTitle title="Rendimiento operativo" subtitle="PMS · producción y penetración por hotel (incluye colaborador, salvo penetración)" />
+            {serieMensual.length > 0 && <EvolutionChartReal serie={serieMensual} />}
+            <HotelsTableReal hoteles={hoteles} />
+
+            <SectionTitle title="Financiero F&B" subtitle="Contabilidad · ingresos, gastos, margen y presupuesto (excluye colaborador)" />
+            <FnbResumenCards hoteles={hoteles} />
+            {serieMensual.length > 0 && (
+              <div className="grid gap-6 lg:grid-cols-2">
+                <IngresosGastosChart serie={serieMensual} />
+                <PrecioCosteChart serie={serieMensual} />
+              </div>
+            )}
+            <FnbFinancieroTable hoteles={hoteles} />
+
+            <SectionTitle title="Vendedores" />
+            <VendedoresPanel vendedores={vendedores} />
+
+            <SectionTitle title="Metodología" />
+            <DesayunosOrigenDatos />
+          </>
         )}
-        <VendedoresPanel vendedores={vendedores} />
-        <DesayunosOrigenDatos />
       </div>
     </DashboardShell>
   );

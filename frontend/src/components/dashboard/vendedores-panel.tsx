@@ -1,5 +1,7 @@
-import { Users } from "lucide-react";
+import { Download, Users } from "lucide-react";
 import { fmtEuro, fmtNum } from "@/lib/mock-data";
+import { exportarCsv } from "@/lib/export-csv";
+import { Button } from "@/components/ui/button";
 import type { Vendedor } from "@/lib/hoteles-api";
 
 export function VendedoresPanel({ vendedores }: { vendedores: Vendedor[] }) {
@@ -17,6 +19,21 @@ export function VendedoresPanel({ vendedores }: { vendedores: Vendedor[] }) {
             Quién registró la venta (cadena completa) · {vendedores.length} usuarios distintos
           </p>
         </div>
+        {vendedores.length > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              exportarCsv(
+                `desayunos-vendedores-${new Date().toISOString().slice(0, 10)}`,
+                ["Vendedor", "Líneas", "Importe"],
+                vendedores.map((v) => [v.vendedor, v.lineas, v.importe.toFixed(2)])
+              )
+            }
+          >
+            <Download className="h-3.5 w-3.5" /> Exportar
+          </Button>
+        )}
       </header>
       {top.length === 0 ? (
         <p className="text-sm text-muted-foreground text-center py-6">Sin ventas registradas en el periodo.</p>

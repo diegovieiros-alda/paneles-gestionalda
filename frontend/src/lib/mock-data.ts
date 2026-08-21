@@ -113,10 +113,46 @@ export function etiqueta(valor: number, alerta: number, objetivo: number): Etiqu
   return "verde";
 }
 
-/** Facturación potencial: unidades actuales escaladas a la penetración objetivo, al precio medio de venta. */
-export function facturacionPotencial(desayunos: number, penetracion: number, precioMedioVenta: number): number {
-  if (penetracion <= 0) return 0;
-  const unidadesPotenciales = desayunos * (TARGET_PENETRACION / penetracion);
+export const ETIQUETA_BADGE_CLASS: Record<Etiqueta, string> = {
+  verde: "bg-success/15 text-success",
+  naranja: "bg-warning/15 text-warning",
+  rojo: "bg-danger/15 text-danger",
+};
+
+export const ETIQUETA_LABEL: Record<Etiqueta, string> = {
+  verde: "En objetivo",
+  naranja: "Requiere seguimiento",
+  rojo: "Requiere atención",
+};
+
+export const ETIQUETA_TEXT_CLASS: Record<Etiqueta, string> = {
+  verde: "text-success",
+  naranja: "text-warning",
+  rojo: "text-danger",
+};
+
+/** Cumplimiento de presupuesto (real/presupuesto, 1.0 = 100%) como semáforo: <90% rojo, 90-100% naranja, ≥100% verde. */
+export function etiquetaCumplimiento(cumplimiento: number | null): Etiqueta | null {
+  if (cumplimiento === null) return null;
+  return etiqueta(cumplimiento, 0.9, 1);
+}
+
+/** Signo (+/-) explícito para una cifra que puede ser negativa — fmtEuro/fmtPct ya
+ * incluyen el "-" pero nunca el "+", así que un resultado positivo se confunde con
+ * uno neutro a simple vista. Combinar con ETIQUETA_TEXT_CLASS o un color manual. */
+export function conSigno(n: number, texto: string): string {
+  return n > 0 ? `+${texto}` : texto;
+}
+
+/**
+ * Facturación potencial: huecos de penetración (alojados × (objetivo − actual)) al precio
+ * medio de venta — no unidades actuales escaladas por división, que se dispara a valores
+ * absurdos cuando la penetración actual es casi cero (bug real encontrado 2026-08-21: un
+ * hotel con penetración directa ~0% pero desayunos totales >0 por colaborador daba una
+ * "facturación potencial" de millones). Mismo patrón que hotelOportunidad() de arriba.
+ */
+export function facturacionPotencial(alojados: number, penetracion: number, precioMedioVenta: number): number {
+  const unidadesPotenciales = Math.max(0, alojados * (TARGET_PENETRACION - penetracion));
   return unidadesPotenciales * precioMedioVenta;
 }
 

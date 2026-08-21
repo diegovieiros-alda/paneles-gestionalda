@@ -273,6 +273,50 @@ _FNB_MENSUAL_SQL = """
     ORDER BY 1
 """
 
+# Presupuesto (account.move.budget): mismas cuentas que Ingresos/Gastos
+# reales, para poder comparar. La línea de presupuesto es mensual (fecha
+# siempre día 1) y solo cuenta si el presupuesto está state='confirmed'
+# (los 'draft' no son oficiales). El signo en contabilidad es al revés del
+# que parece intuitivo: en una cuenta de ingreso el importe presupuestado
+# vive en `credit` (balance = debit-credit sale negativo para ingresos);
+# en una cuenta de gasto vive en `debit`. Por eso credit-debit para
+# ingresos y debit-credit para gastos, no al revés.
+# hotel_analytic_account_id = pms_property.analytic_account_id (verificado
+# 2026-08-21) es como se une el presupuesto a un hotel concreto.
+_PRESUPUESTO_SQL = """
+    SELECT
+        p.id,
+        SUM(bl.credit) FILTER (WHERE aa.code = %(cuenta_ingreso)s)
+          - SUM(bl.debit) FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS presupuesto_ingresos,
+        SUM(bl.debit) FILTER (WHERE aa.code = ANY(%(cuentas_gasto)s))
+          - SUM(bl.credit) FILTER (WHERE aa.code = ANY(%(cuentas_gasto)s)) AS presupuesto_gastos
+    FROM account_move_budget_line bl
+    JOIN account_account aa ON aa.id = bl.account_id
+    JOIN account_move_budget b ON b.id = bl.budget_id
+    JOIN pms_property p ON p.analytic_account_id = bl.hotel_analytic_account_id
+    WHERE b.state = 'confirmed'
+      AND date_trunc('month', bl.date) BETWEEN date_trunc('month', %(desde)s) AND date_trunc('month', %(hasta)s)
+      AND (aa.code = %(cuenta_ingreso)s OR aa.code = ANY(%(cuentas_gasto)s))
+    GROUP BY p.id
+"""
+
+_PRESUPUESTO_MENSUAL_SQL = """
+    SELECT
+        date_trunc('month', bl.date)::date,
+        SUM(bl.credit) FILTER (WHERE aa.code = %(cuenta_ingreso)s)
+          - SUM(bl.debit) FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS presupuesto_ingresos,
+        SUM(bl.debit) FILTER (WHERE aa.code = ANY(%(cuentas_gasto)s))
+          - SUM(bl.credit) FILTER (WHERE aa.code = ANY(%(cuentas_gasto)s)) AS presupuesto_gastos
+    FROM account_move_budget_line bl
+    JOIN account_account aa ON aa.id = bl.account_id
+    JOIN account_move_budget b ON b.id = bl.budget_id
+    WHERE b.state = 'confirmed'
+      AND date_trunc('month', bl.date) BETWEEN date_trunc('month', %(desde)s) AND date_trunc('month', %(hasta)s)
+      AND (aa.code = %(cuenta_ingreso)s OR aa.code = ANY(%(cuentas_gasto)s))
+    GROUP BY 1
+    ORDER BY 1
+"""
+
 _VENDEDORES_SQL = """
     SELECT COALESCE(rp.name, ru.login, 'Sin asignar') AS vendedor,
            SUM(aml.price_subtotal) AS importe,
@@ -308,6 +352,49 @@ def fetch_fnb_desayuno(fecha_inicio: datetime.date, fecha_fin: datetime.date) ->
         r[0]: {"ingresos": float(r[1] or 0), "unidades": float(r[2] or 0), "gastos": float(r[3] or 0)}
         for r in rows
         if r[0] is not None
+    }
+
+
+@cache_result
+def fetch_presupuesto_desayuno(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[int, dict]:
+    """Presupuesto de ingresos/gastos de desayuno por hotel (account.move.budget,
+    solo state='confirmed'), mismas cuentas que fetch_fnb_desayuno."""
+    with connections["odoo"].cursor() as cur:
+        cur.execute(
+            _PRESUPUESTO_SQL,
+            {
+                "cuenta_ingreso": _CUENTA_INGRESO_DESAYUNO,
+                "cuentas_gasto": list(_CUENTAS_GASTO_DESAYUNO),
+                "desde": fecha_inicio,
+                "hasta": fecha_fin,
+            },
+        )
+        rows = cur.fetchall()
+    return {
+        r[0]: {"presupuestoIngresos": float(r[1] or 0), "presupuestoGastos": float(r[2] or 0)}
+        for r in rows
+        if r[0] is not None
+    }
+
+
+@cache_result
+def fetch_presupuesto_serie_mensual(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[str, dict]:
+    """Igual que fetch_presupuesto_desayuno pero agregado por mes (cadena
+    completa), para comparar contra lo real en el gráfico de evolución."""
+    with connections["odoo"].cursor() as cur:
+        cur.execute(
+            _PRESUPUESTO_MENSUAL_SQL,
+            {
+                "cuenta_ingreso": _CUENTA_INGRESO_DESAYUNO,
+                "cuentas_gasto": list(_CUENTAS_GASTO_DESAYUNO),
+                "desde": fecha_inicio,
+                "hasta": fecha_fin,
+            },
+        )
+        rows = cur.fetchall()
+    return {
+        r[0].isoformat(): {"presupuestoIngresos": float(r[1] or 0), "presupuestoGastos": float(r[2] or 0)}
+        for r in rows
     }
 
 
