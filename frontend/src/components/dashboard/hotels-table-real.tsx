@@ -104,14 +104,14 @@ export function HotelsTableReal({ hoteles }: { hoteles: HotelReal[] }) {
                     )}
                   >
                     {c.sticky ? (
-                      <Link to={`/hoteles/${h.id}`} className="hover:text-primary">
+                      <Link to={`/desayunos/${h.id}`} className="hover:text-primary">
                         {c.render(h)}
                       </Link>
                     ) : c.render(h)}
                   </td>
                 ))}
                 <td className="pr-3">
-                  <Link to={`/hoteles/${h.id}`} className="text-muted-foreground hover:text-primary inline-flex">
+                  <Link to={`/desayunos/${h.id}`} className="text-muted-foreground hover:text-primary inline-flex">
                     <ChevronRight className="h-4 w-4" />
                   </Link>
                 </td>

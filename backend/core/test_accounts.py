@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 
 from django.test import RequestFactory, SimpleTestCase
 
-from .accounts import asignar_rol_automatico, requiere_superuser
+from .accounts import asignar_rol_automatico, requiere_algun_dashboard, requiere_superuser
 
 
 def _usuario(con_grupos=False):
@@ -82,3 +82,35 @@ class RequiereSuperuserTests(SimpleTestCase):
         response = self.vista(request)
 
         self.assertEqual(response.status_code, 200)
+
+
+class RequiereAlgunDashboardTests(SimpleTestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.vista = requiere_algun_dashboard("desayunos", "bloqueos")(lambda request: MagicMock(status_code=200))
+
+    def test_rechaza_sin_sesion(self):
+        request = self.factory.get("/")
+        request.user = MagicMock(is_authenticated=False)
+
+        self.assertEqual(self.vista(request).status_code, 401)
+
+    def test_rechaza_si_no_tiene_ninguno_de_los_permisos(self):
+        request = self.factory.get("/")
+        request.user = MagicMock(is_authenticated=True, is_superuser=False, has_perm=lambda p: False)
+
+        self.assertEqual(self.vista(request).status_code, 403)
+
+    def test_deja_pasar_con_uno_solo_de_los_permisos(self):
+        request = self.factory.get("/")
+        request.user = MagicMock(
+            is_authenticated=True, is_superuser=False, has_perm=lambda p: p == "core.ver_bloqueos"
+        )
+
+        self.assertEqual(self.vista(request).status_code, 200)
+
+    def test_deja_pasar_a_superusuario_sin_permisos_explicitos(self):
+        request = self.factory.get("/")
+        request.user = MagicMock(is_authenticated=True, is_superuser=True, has_perm=lambda p: False)
+
+        self.assertEqual(self.vista(request).status_code, 200)

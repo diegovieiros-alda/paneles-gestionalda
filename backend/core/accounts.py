@@ -50,6 +50,26 @@ def requiere_dashboard(key: str):
     return decorator
 
 
+def requiere_algun_dashboard(*keys: str):
+    """Como requiere_dashboard, pero exige acceso a al menos uno de varios
+    dashboards — usado por la identidad de hotel (/api/hoteles/<id>/), que ya
+    no tiene permiso propio: se llega desde el listado de cualquier
+    dashboard que muestre hoteles (hoy desayunos y bloqueos)."""
+
+    def decorator(view):
+        @wraps(view)
+        def wrapped(request, *args, **kwargs):
+            if not request.user.is_authenticated:
+                return JsonResponse({"error": "No autenticado"}, status=401)
+            if not (request.user.is_superuser or any(request.user.has_perm(f"core.ver_{k}") for k in keys)):
+                return JsonResponse({"error": "Sin acceso a este dashboard"}, status=403)
+            return view(request, *args, **kwargs)
+
+        return wrapped
+
+    return decorator
+
+
 def requiere_superuser(view):
     """Decorador para vistas: exige sesión iniciada y superusuario (usado
     por la pantalla de administración de usuarios)."""

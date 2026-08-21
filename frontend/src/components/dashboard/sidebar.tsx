@@ -1,6 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import {
-  Target, Building2, TrendingUp, Bell, Settings, Coffee, Sparkles, Ban, Users, type LucideIcon,
+  Target, TrendingUp, Bell, Settings, Coffee, Sparkles, Ban, Users, type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
@@ -12,7 +12,6 @@ const NAV: readonly NavItem[] = [
   { to: "/bloqueos", label: "Bloqueos", icon: Ban, dashboard: "bloqueos" },
   { to: "/desayunos", label: "Desayunos", icon: Coffee, dashboard: "desayunos" },
   { to: "/oportunidades", label: "Oportunidades", icon: Sparkles, dashboard: "oportunidades" },
-  { to: "/hoteles", label: "Hoteles", icon: Building2, dashboard: "hoteles" },
   { to: "/tendencias", label: "Tendencias", icon: TrendingUp, dashboard: "tendencias" },
   { to: "/alertas", label: "Alertas", icon: Bell, dashboard: "alertas" },
   { to: "/ajustes", label: "Ajustes", icon: Settings, dashboard: "ajustes" },

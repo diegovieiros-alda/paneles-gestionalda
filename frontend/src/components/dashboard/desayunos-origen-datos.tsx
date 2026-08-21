@@ -61,7 +61,7 @@ const FNB_CONTABLE: Fila[] = [
     calculo:
       "SUM(price_subtotal) de líneas en esas cuentas, state = 'posted', date en el rango. (60100000003 \"Compras F&B Restauración\" aún no existe en el plan contable.)",
     verificar:
-      "En Odoo: Contabilidad → esas dos cuentas, sumar importe en el rango. Excluidas a propósito: 60910000000 (Rappels), 60700000000/60700000001 (colaborador/empresa externa) — no son coste directo de materia prima.",
+      "En Odoo: Contabilidad → esas dos cuentas, sumar importe en el rango. Excluidas a propósito: 60910000000 (Rappels), 60700000000/60700000001 (colaborador/empresa externa) — no son coste directo de materia prima. Ojo: es la compra registrada ese mes, no el consumo real del periodo (se compra en lotes) — un mes con una compra grande puede salir con margen bruto negativo sin que sea un error.",
   },
   {
     campo: "Margen bruto",

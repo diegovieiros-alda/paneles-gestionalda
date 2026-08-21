@@ -1,8 +1,8 @@
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import DashboardHome from "@/pages/donde-actuar";
 import OportunidadesPage from "@/pages/oportunidades";
-import HotelesIndex from "@/pages/hoteles";
-import HotelDetail from "@/pages/hotel-detail";
+import HotelDesayunosPage from "@/pages/hotel-desayunos";
+import HotelBloqueosPage from "@/pages/hotel-bloqueos";
 import BloqueosPage from "@/pages/bloqueos";
 import DesayunosPage from "@/pages/desayunos";
 import TendenciasPage from "@/pages/tendencias";
@@ -46,13 +46,18 @@ function App() {
 
           {/* Bloqueos y Desayunos están conectados a datos reales de Odoo; el
               resto sigue con datos de ejemplo hasta que se conecten, pero ya
-              son navegables y respetan el rol del usuario. */}
+              son navegables y respetan el rol del usuario.
+
+              No existe una sección "Hoteles" independiente: cada dashboard
+              con datos por hotel trae su propio listado (dentro de la
+              página del dashboard) y su propia ficha de detalle, gateada
+              por el permiso de ese dashboard, no por uno genérico. */}
           <Route path="/" element={<ProtectedRoute dashboard="donde_actuar"><DashboardHome /></ProtectedRoute>} />
           <Route path="/bloqueos" element={<ProtectedRoute dashboard="bloqueos"><BloqueosPage /></ProtectedRoute>} />
+          <Route path="/bloqueos/:hotelId" element={<ProtectedRoute dashboard="bloqueos"><HotelBloqueosPage /></ProtectedRoute>} />
           <Route path="/desayunos" element={<ProtectedRoute dashboard="desayunos"><DesayunosPage /></ProtectedRoute>} />
+          <Route path="/desayunos/:hotelId" element={<ProtectedRoute dashboard="desayunos"><HotelDesayunosPage /></ProtectedRoute>} />
           <Route path="/oportunidades" element={<ProtectedRoute dashboard="oportunidades"><OportunidadesPage /></ProtectedRoute>} />
-          <Route path="/hoteles" element={<ProtectedRoute dashboard="hoteles"><HotelesIndex /></ProtectedRoute>} />
-          <Route path="/hoteles/:hotelId" element={<ProtectedRoute dashboard="hoteles"><HotelDetail /></ProtectedRoute>} />
           <Route path="/tendencias" element={<ProtectedRoute dashboard="tendencias"><TendenciasPage /></ProtectedRoute>} />
           <Route path="/alertas" element={<ProtectedRoute dashboard="alertas"><AlertasPage /></ProtectedRoute>} />
           <Route path="/ajustes" element={<ProtectedRoute dashboard="ajustes"><AjustesPage /></ProtectedRoute>} />

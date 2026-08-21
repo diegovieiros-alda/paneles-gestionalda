@@ -1,4 +1,5 @@
 import { Fragment } from "react";
+import { Link } from "react-router-dom";
 import { type BloqueoHotel } from "@/lib/bloqueos-api";
 import { fmtEuro } from "@/lib/mock-data";
 
@@ -34,7 +35,9 @@ export function HotelBlockCard({ hotel }: { hotel: BloqueoHotel }) {
   return (
     <div className="rounded-xl border border-border bg-surface shadow-soft overflow-hidden">
       <div className="flex items-center justify-between gap-3 px-5 py-3 bg-secondary/60 border-b border-border">
-        <h3 className="text-sm font-semibold text-foreground">{hotel.hotelName}</h3>
+        <Link to={`/bloqueos/${hotel.hotelId}`} className="text-sm font-semibold text-foreground hover:text-primary">
+          {hotel.hotelName}
+        </Link>
         <span className="text-xs text-muted-foreground">
           {kpis.habitacionesBloqueadas} incidencia{kpis.habitacionesBloqueadas !== 1 ? "s" : ""}
           {multiDia && <> · {kpis.nochesBloqueadas} noches bloqueadas</>}

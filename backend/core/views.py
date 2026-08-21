@@ -14,16 +14,12 @@ from .accounts import (
     dashboards_visibles,
     empleado_activo,
     registrar_usuario,
+    requiere_algun_dashboard,
     requiere_dashboard,
 )
 from .bloqueos.service import get_report
 from .cache import origen_datos, tracking
-from .hoteles.service import (
-    get_hotel_desayunos,
-    get_hotel_info,
-    get_hoteles_directorio,
-    get_resumen,
-)
+from .hoteles.service import get_hotel_desayunos, get_hotel_info, get_resumen
 
 logger = logging.getLogger(__name__)
 
@@ -138,22 +134,10 @@ def bloqueos(request):
         return JsonResponse({"error": "No se pudo obtener el informe de bloqueos"}, status=502)
 
 
-@requiere_dashboard("hoteles")
-def hoteles(request):
-    """Directorio de hoteles (identidad: nombre, zona, sociedad). Sin
-    métricas — las métricas de desayuno viven en /api/desayunos/ (permiso
-    "desayunos"), las de bloqueos en /api/bloqueos/ (permiso "bloqueos")."""
-    try:
-        with tracking() as t:
-            data = get_hoteles_directorio()
-        return JsonResponse({"hoteles": data, "origenDatos": origen_datos(t)})
-    except Exception:
-        logger.exception("Error al generar el directorio de hoteles")
-        return JsonResponse({"error": "No se pudo obtener el listado de hoteles"}, status=502)
-
-
-@requiere_dashboard("hoteles")
+@requiere_algun_dashboard("desayunos", "bloqueos")
 def hotel_detalle(request, hotel_id):
+    """Identidad de un hotel (nombre, zona, sociedad) — no tiene permiso
+    propio, se llega desde el listado de desayunos o de bloqueos."""
     try:
         with tracking() as t:
             datos = get_hotel_info(hotel_id)

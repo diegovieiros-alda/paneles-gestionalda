@@ -4,7 +4,6 @@ from . import admin_views, views
 urlpatterns = [
     path('health/', views.health, name='health'),
     path('bloqueos/', views.bloqueos, name='bloqueos'),
-    path('hoteles/', views.hoteles, name='hoteles'),
     path('hoteles/<int:hotel_id>/', views.hotel_detalle, name='hotel_detalle'),
     path('hoteles/<int:hotel_id>/desayunos/', views.hotel_desayunos, name='hotel_desayunos'),
     path('hoteles/<int:hotel_id>/bloqueos/', views.hotel_bloqueos, name='hotel_bloqueos'),

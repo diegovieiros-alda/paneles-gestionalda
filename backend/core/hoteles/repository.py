@@ -257,6 +257,22 @@ _FNB_SQL = """
     GROUP BY aml.pms_property_id
 """
 
+_FNB_MENSUAL_SQL = """
+    SELECT
+        date_trunc('month', aml.date)::date,
+        SUM(aml.price_subtotal) FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS ingresos,
+        SUM(aml.quantity) FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS unidades,
+        SUM(aml.price_subtotal) FILTER (WHERE aa.code = ANY(%(cuentas_gasto)s)) AS gastos
+    FROM account_move_line aml
+    JOIN account_account aa ON aa.id = aml.account_id
+    JOIN account_move am ON am.id = aml.move_id
+    WHERE am.state = 'posted'
+      AND aml.date BETWEEN %(desde)s AND %(hasta)s
+      AND (aa.code = %(cuenta_ingreso)s OR aa.code = ANY(%(cuentas_gasto)s))
+    GROUP BY 1
+    ORDER BY 1
+"""
+
 _VENDEDORES_SQL = """
     SELECT COALESCE(rp.name, ru.login, 'Sin asignar') AS vendedor,
            SUM(aml.price_subtotal) AS importe,
@@ -292,6 +308,27 @@ def fetch_fnb_desayuno(fecha_inicio: datetime.date, fecha_fin: datetime.date) ->
         r[0]: {"ingresos": float(r[1] or 0), "unidades": float(r[2] or 0), "gastos": float(r[3] or 0)}
         for r in rows
         if r[0] is not None
+    }
+
+
+@cache_result
+def fetch_fnb_serie_mensual(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[str, dict]:
+    """Igual que fetch_fnb_desayuno pero agregado por mes (cadena completa),
+    para el gráfico de evolución de ingresos/gastos/margen."""
+    with connections["odoo"].cursor() as cur:
+        cur.execute(
+            _FNB_MENSUAL_SQL,
+            {
+                "cuenta_ingreso": _CUENTA_INGRESO_DESAYUNO,
+                "cuentas_gasto": list(_CUENTAS_GASTO_DESAYUNO),
+                "desde": fecha_inicio,
+                "hasta": fecha_fin,
+            },
+        )
+        rows = cur.fetchall()
+    return {
+        r[0].isoformat(): {"ingresos": float(r[1] or 0), "unidades": float(r[2] or 0), "gastos": float(r[3] or 0)}
+        for r in rows
     }
 
 

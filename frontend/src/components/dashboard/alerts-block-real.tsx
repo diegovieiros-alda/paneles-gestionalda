@@ -28,7 +28,7 @@ export function AlertsBlockReal({ hoteles }: { hoteles: HotelReal[] }) {
           {alerts.map((h) => (
             <Link
               key={h.id}
-              to={`/hoteles/${h.id}`}
+              to={`/desayunos/${h.id}`}
               className="group flex items-center gap-3 rounded-lg border border-border bg-surface-muted/40 hover:bg-accent/50 transition-colors p-3"
             >
               <div className="grid place-items-center h-9 w-9 rounded-md bg-surface border border-border">

@@ -113,7 +113,7 @@ export function FnbFinancieroTable({ hoteles }: { hoteles: HotelReal[] }) {
                       )}
                     >
                       {c.key === "name" ? (
-                        <Link to={`/hoteles/${h.id}`} className="hover:text-primary">
+                        <Link to={`/desayunos/${h.id}`} className="hover:text-primary">
                           {c.render(h)}
                         </Link>
                       ) : (
@@ -127,7 +127,7 @@ export function FnbFinancieroTable({ hoteles }: { hoteles: HotelReal[] }) {
                     </span>
                   </td>
                   <td className="pr-3">
-                    <Link to={`/hoteles/${h.id}`} className="text-muted-foreground hover:text-primary inline-flex">
+                    <Link to={`/desayunos/${h.id}`} className="text-muted-foreground hover:text-primary inline-flex">
                       <ChevronRight className="h-4 w-4" />
                     </Link>
                   </td>

@@ -5,6 +5,8 @@ import { FnbFinancieroTable } from "@/components/dashboard/fnb-financiero-table"
 import { VendedoresPanel } from "@/components/dashboard/vendedores-panel";
 import { DesayunosOrigenDatos } from "@/components/dashboard/desayunos-origen-datos";
 import { EvolutionChartReal } from "@/components/dashboard/evolution-chart-real";
+import { IngresosGastosChart } from "@/components/dashboard/ingresos-gastos-chart";
+import { PrecioCosteChart } from "@/components/dashboard/precio-coste-chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchDesayunos, type HotelReal, type SerieMensual, type Vendedor } from "@/lib/hoteles-api";
 import { rangeForPreset, type RangePreset } from "@/lib/date-range";
@@ -65,6 +67,12 @@ export default function DesayunosPage() {
         {serieMensual.length > 0 && <EvolutionChartReal serie={serieMensual} />}
         {hoteles && <HotelsTableReal hoteles={hoteles} />}
         {hoteles && <FnbFinancieroTable hoteles={hoteles} />}
+        {serieMensual.length > 0 && (
+          <div className="grid gap-6 lg:grid-cols-2">
+            <IngresosGastosChart serie={serieMensual} />
+            <PrecioCosteChart serie={serieMensual} />
+          </div>
+        )}
         <VendedoresPanel vendedores={vendedores} />
         <DesayunosOrigenDatos />
       </div>

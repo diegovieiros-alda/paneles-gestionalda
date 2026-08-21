@@ -98,34 +98,20 @@ def _hace_n_meses(fecha: datetime.date, n: int) -> datetime.date:
 
 def get_resumen(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict:
     """Resumen para la portada: hoteles del periodo (para alertas/ranking/
-    oportunidad) + serie mensual de los últimos 12 meses (para el gráfico de
-    evolución) + top vendedores de desayuno del periodo, en una sola llamada."""
+    oportunidad) + serie mensual de los últimos 12 meses (para los gráficos
+    de evolución) + top vendedores de desayuno del periodo, en una sola
+    llamada. La serie mensual junta PMS (desayunos/producción) y contable
+    (ingresos/gastos/margen) por mes — dos fuentes distintas, ver _fnb_json."""
     datos = get_hoteles(fecha_inicio, fecha_fin)
     inicio_serie = _hace_n_meses(fecha_fin, 11)
-    datos["serieMensual"] = repository.fetch_serie_mensual(inicio_serie, fecha_fin)
+    serie = repository.fetch_serie_mensual(inicio_serie, fecha_fin)
+    fnb_por_mes = repository.fetch_fnb_serie_mensual(inicio_serie, fecha_fin)
+    for punto in serie:
+        f = fnb_por_mes.get(punto["mes"], _FNB_VACIO)
+        punto.update(_fnb_json(f))
+    datos["serieMensual"] = serie
     datos["vendedores"] = get_vendedores_desayuno(fecha_inicio, fecha_fin)
     return datos
-
-
-def get_hoteles_directorio() -> list[dict]:
-    """Directorio simple de hoteles (identidad, sin métricas): nombre, zona,
-    sociedad. Las métricas de desayuno viven en su propia sección/permiso."""
-    hoteles = repository.fetch_hoteles()
-    companies = repository.fetch_companies()
-    resultado = []
-    for h in hoteles:
-        if es_hotel_excluido(h["id"], h["property_code"]):
-            continue
-        resultado.append(
-            {
-                "id": h["id"],
-                "name": h["name"],
-                "zona": zona_de(h["property_code"]),
-                "sociedad": companies.get(h["company_id"], "—"),
-            }
-        )
-    resultado.sort(key=lambda h: h["name"])
-    return resultado
 
 
 def get_hotel_info(hotel_id: int) -> dict | None:

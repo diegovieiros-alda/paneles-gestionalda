@@ -6,15 +6,6 @@ export type HotelDirectorio = {
   origenDatos?: "odoo" | "cache";
 };
 
-export async function fetchHoteles(): Promise<{ hoteles: HotelDirectorio[]; origenDatos?: "odoo" | "cache" }> {
-  const res = await fetch(`/api/hoteles/`);
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new Error(body?.error || `No se pudo cargar el listado de hoteles (${res.status})`);
-  }
-  return res.json();
-}
-
 export async function fetchHotelInfo(id: string | number): Promise<HotelDirectorio> {
   const res = await fetch(`/api/hoteles/${id}/`);
   if (!res.ok) {
@@ -51,7 +42,17 @@ export type DesayunosReport = {
   origenDatos?: "odoo" | "cache";
 };
 
-export type SerieMensual = { mes: string; desayunos: number; produccion: number };
+export type SerieMensual = {
+  mes: string;
+  desayunos: number;
+  produccion: number;
+  ingresos: number;
+  gastos: number;
+  margenBruto: number;
+  precioMedioVenta: number;
+  costeMedioGasto: number;
+  resultadoFB: number;
+};
 
 export type ResumenReport = DesayunosReport & { serieMensual: SerieMensual[]; vendedores?: Vendedor[] };
 

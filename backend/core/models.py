@@ -5,11 +5,15 @@ from django.db import models
 # Claves de dashboard = rutas del frontend (frontend/src/App.tsx). Un rol es
 # un django.contrib.auth.Group al que se le asignan permisos "ver_<key>"
 # desde /admin/ — no hace falta un modelo de "Rol" propio.
+#
+# No existe "hoteles" como dashboard propio: no hay una sección de hoteles
+# independiente, cada dashboard con datos por hotel (desayunos, bloqueos)
+# trae su propio listado y su propia ficha de detalle, gateados por el
+# permiso de ese dashboard — ver accounts.requiere_algun_dashboard.
 DASHBOARDS = [
     ("bloqueos", "Bloqueos"),
     ("donde_actuar", "¿Dónde actuar hoy?"),
     ("oportunidades", "Oportunidades"),
-    ("hoteles", "Hoteles"),
     ("desayunos", "Desayunos"),
     ("tendencias", "Tendencias"),
     ("alertas", "Alertas"),
