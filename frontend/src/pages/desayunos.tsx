@@ -3,6 +3,7 @@ import { DashboardShell } from "@/components/dashboard/shell";
 import { HotelsTableReal } from "@/components/dashboard/hotels-table-real";
 import { FnbFinancieroTable } from "@/components/dashboard/fnb-financiero-table";
 import { VendedoresPanel } from "@/components/dashboard/vendedores-panel";
+import { DesayunosOrigenDatos } from "@/components/dashboard/desayunos-origen-datos";
 import { EvolutionChartReal } from "@/components/dashboard/evolution-chart-real";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchDesayunos, type HotelReal, type SerieMensual, type Vendedor } from "@/lib/hoteles-api";
@@ -65,6 +66,7 @@ export default function DesayunosPage() {
         {hoteles && <HotelsTableReal hoteles={hoteles} />}
         {hoteles && <FnbFinancieroTable hoteles={hoteles} />}
         <VendedoresPanel vendedores={vendedores} />
+        <DesayunosOrigenDatos />
       </div>
     </DashboardShell>
   );
