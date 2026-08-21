@@ -9,7 +9,11 @@ import { RangeFilter } from "@/components/dashboard/range-filter";
 import { DataSourceBadge } from "@/components/dashboard/data-source-badge";
 import { DesayunosOrigenDatos } from "@/components/dashboard/desayunos-origen-datos";
 import { HotelDetailHeader } from "@/components/dashboard/hotel-detail-header";
+import { SectionTitle } from "@/components/dashboard/section-title";
 import { SignedEuro, SignedPct } from "@/components/dashboard/signed-value";
+import { IngresosGastosChart } from "@/components/dashboard/ingresos-gastos-chart";
+import { PrecioCosteChart } from "@/components/dashboard/precio-coste-chart";
+import { VendedoresPanel } from "@/components/dashboard/vendedores-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { fetchHotelInfo, fetchHotelDesayunos, type HotelDirectorio, type HotelDesayunos } from "@/lib/hoteles-api";
@@ -80,6 +84,7 @@ export default function HotelDesayunosPage() {
 
         {data && (
           <>
+            <SectionTitle title="Rendimiento operativo" subtitle="PMS · producción y penetración (incluye colaborador, salvo penetración)" />
             <section className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
               <KpiCard label="Producción" value={fmtEuro(data.actual.produccion)} tone="neutral" />
               <KpiCard label="Alojados" value={fmtNum(data.actual.alojados)} tone="neutral" />
@@ -88,51 +93,53 @@ export default function HotelDesayunosPage() {
               <KpiCard label="Precio medio" value={`${data.actual.precioMedio.toFixed(2)}€`} tone="neutral" />
             </section>
 
-            <section>
-              <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">F&amp;B · contable (excluye colaborador)</h3>
-              <div className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-6 mt-3">
-                <KpiCard label="Ingresos" value={fmtEuro(data.actual.ingresos)} tone="neutral" />
-                <KpiCard label="Gastos" value={fmtEuro(data.actual.gastos)} tone="neutral" />
-                <KpiCard label="Margen bruto" value={<SignedPct value={data.actual.margenBruto} />} tone="neutral" />
-                <KpiCard label="Precio medio venta" value={`${data.actual.precioMedioVenta.toFixed(2)}€`} tone="neutral" />
-                <KpiCard label="Resultado F&B" value={<SignedEuro value={data.actual.resultadoFB} />} tone="neutral" />
-                <KpiCard
-                  label="Presupuesto (ingresos)"
-                  value={data.actual.presupuestoIngresos > 0 ? fmtEuro(data.actual.presupuestoIngresos) : "—"}
-                  tone="neutral"
-                  footer={
-                    data.actual.cumplimientoIngresos !== null
-                      ? (() => {
-                          const e = etiquetaCumplimiento(data.actual.cumplimientoIngresos);
-                          return e ? (
-                            <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium", ETIQUETA_BADGE_CLASS[e])}>
-                              {fmtPct(data.actual.cumplimientoIngresos, 0)} · {ETIQUETA_LABEL[e]}
-                            </span>
-                          ) : undefined;
-                        })()
-                      : "Sin presupuesto confirmado"
-                  }
-                />
-              </div>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+                  <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="mes" tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={fmtEuro} width={80} />
+                  <Tooltip
+                    contentStyle={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 10, fontSize: 12 }}
+                    formatter={(v: number, name: string) => [fmtEuro(v), name]}
+                  />
+                  <Bar dataKey="produccion" name="Producción" fill="var(--color-primary)" radius={[6, 6, 0, 0]} maxBarSize={40} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            <SectionTitle title="Financiero F&B" subtitle="Contabilidad · ingresos, gastos, margen y presupuesto (excluye colaborador)" />
+            <section className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+              <KpiCard label="Ingresos" value={fmtEuro(data.actual.ingresos)} tone="neutral" />
+              <KpiCard label="Gastos" value={fmtEuro(data.actual.gastos)} tone="neutral" />
+              <KpiCard label="Margen bruto" value={<SignedPct value={data.actual.margenBruto} />} tone="neutral" />
+              <KpiCard label="Precio medio venta" value={`${data.actual.precioMedioVenta.toFixed(2)}€`} tone="neutral" />
+              <KpiCard label="Resultado F&B" value={<SignedEuro value={data.actual.resultadoFB} />} tone="neutral" />
+              <KpiCard
+                label="Presupuesto (ingresos)"
+                value={data.actual.presupuestoIngresos > 0 ? fmtEuro(data.actual.presupuestoIngresos) : "—"}
+                tone="neutral"
+                footer={
+                  data.actual.cumplimientoIngresos !== null
+                    ? (() => {
+                        const e = etiquetaCumplimiento(data.actual.cumplimientoIngresos);
+                        return e ? (
+                          <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium", ETIQUETA_BADGE_CLASS[e])}>
+                            {fmtPct(data.actual.cumplimientoIngresos, 0)} · {ETIQUETA_LABEL[e]}
+                          </span>
+                        ) : undefined;
+                      })()
+                    : "Sin presupuesto confirmado"
+                }
+              />
             </section>
 
-            <section>
-              <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">Evolución mensual · últimos 12 meses</h3>
-              <div className="h-64 mt-3">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
-                    <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="mes" tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }} axisLine={false} tickLine={false} tickFormatter={fmtEuro} width={80} />
-                    <Tooltip
-                      contentStyle={{ background: "var(--color-surface)", border: "1px solid var(--color-border)", borderRadius: 10, fontSize: 12 }}
-                      formatter={(v: number, name: string) => [fmtEuro(v), name]}
-                    />
-                    <Bar dataKey="produccion" name="Producción" fill="var(--color-primary)" radius={[6, 6, 0, 0]} maxBarSize={40} />
-                  </BarChart>
-                </ResponsiveContainer>
+            {data.serieMensual.length > 0 && (
+              <div className="grid gap-6 lg:grid-cols-2">
+                <IngresosGastosChart serie={data.serieMensual} />
+                <PrecioCosteChart serie={data.serieMensual} />
               </div>
-            </section>
+            )}
 
             <section className="overflow-x-auto">
               <div className="flex justify-end mb-2">
@@ -142,9 +149,16 @@ export default function HotelDesayunosPage() {
                   onClick={() =>
                     exportarCsv(
                       `desayunos-${hotel?.name ?? hotelId}-${new Date().toISOString().slice(0, 10)}`,
-                      ["Mes", "Alojados", "Desayunos", "Penetración %", "Producción", "Precio medio"],
+                      [
+                        "Mes", "Alojados", "Desayunos", "Penetración %", "Producción", "Precio medio",
+                        "Ingresos", "Gastos", "Margen bruto %", "Presupuesto ingresos", "Cumplimiento %", "Resultado F&B",
+                      ],
                       data.serieMensual.map((m) => [
                         mesCorto(m.mes), m.alojados, m.desayunos, (m.penetracion * 100).toFixed(1), m.produccion.toFixed(2), m.precioMedio.toFixed(2),
+                        m.ingresos.toFixed(2), m.gastos.toFixed(2), (m.margenBruto * 100).toFixed(1),
+                        m.presupuestoIngresos > 0 ? m.presupuestoIngresos.toFixed(2) : "",
+                        m.cumplimientoIngresos !== null ? (m.cumplimientoIngresos * 100).toFixed(1) : "",
+                        m.resultadoFB.toFixed(2),
                       ])
                     )
                   }
@@ -155,8 +169,8 @@ export default function HotelDesayunosPage() {
               <table className="w-full text-sm">
                 <thead className="bg-surface-muted/60">
                   <tr>
-                    {["Mes", "Alojados", "Desayunos", "Penetración", "Producción", "Precio medio"].map((h) => (
-                      <th key={h} className="text-[11px] font-medium text-muted-foreground uppercase px-4 py-3 text-left">{h}</th>
+                    {["Mes", "Alojados", "Desayunos", "Penetración", "Producción", "Precio medio", "Ingresos", "Gastos", "Margen bruto", "Resultado F&B"].map((h) => (
+                      <th key={h} className="text-[11px] font-medium text-muted-foreground uppercase px-4 py-3 text-left whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -169,12 +183,20 @@ export default function HotelDesayunosPage() {
                       <td className="px-4 py-2.5 num">{fmtPct(m.penetracion)}</td>
                       <td className="px-4 py-2.5 num">{fmtEuro(m.produccion)}</td>
                       <td className="px-4 py-2.5 num text-muted-foreground">{m.precioMedio.toFixed(2)}€</td>
+                      <td className="px-4 py-2.5 num">{fmtEuro(m.ingresos)}</td>
+                      <td className="px-4 py-2.5 num">{fmtEuro(m.gastos)}</td>
+                      <td className="px-4 py-2.5 num"><SignedPct value={m.margenBruto} /></td>
+                      <td className="px-4 py-2.5 num"><SignedEuro value={m.resultadoFB} /></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </section>
 
+            <SectionTitle title="Vendedores" />
+            <VendedoresPanel vendedores={data.vendedores ?? []} scope={hotel?.name ?? "este hotel"} />
+
+            <SectionTitle title="Metodología" />
             <DesayunosOrigenDatos />
           </>
         )}

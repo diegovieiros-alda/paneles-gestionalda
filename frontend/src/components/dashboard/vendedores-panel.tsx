@@ -4,7 +4,7 @@ import { exportarCsv } from "@/lib/export-csv";
 import { Button } from "@/components/ui/button";
 import type { Vendedor } from "@/lib/hoteles-api";
 
-export function VendedoresPanel({ vendedores }: { vendedores: Vendedor[] }) {
+export function VendedoresPanel({ vendedores, scope = "cadena completa" }: { vendedores: Vendedor[]; scope?: string }) {
   const top = vendedores.slice(0, 8);
 
   return (
@@ -16,7 +16,7 @@ export function VendedoresPanel({ vendedores }: { vendedores: Vendedor[] }) {
             Vendedores · Desayuno
           </h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Quién registró la venta (cadena completa) · {vendedores.length} usuarios distintos
+            Quién registró la venta ({scope}) · {vendedores.length} usuarios distintos
           </p>
         </div>
         {vendedores.length > 0 && (

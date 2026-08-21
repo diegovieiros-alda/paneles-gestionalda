@@ -12,17 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { fetchDesayunos, type HotelReal, type SerieMensual, type Vendedor } from "@/lib/hoteles-api";
 import { rangeForPreset, type RangePreset } from "@/lib/date-range";
 import { RangeFilter } from "@/components/dashboard/range-filter";
-
-function SectionTitle({ title, subtitle }: { title: string; subtitle?: string }) {
-  return (
-    <div className="pt-2">
-      <h2 className="text-xs font-bold uppercase tracking-wide text-foreground border-b-2 border-foreground/80 pb-1.5">
-        {title}
-      </h2>
-      {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
-    </div>
-  );
-}
+import { SectionTitle } from "@/components/dashboard/section-title";
 
 export default function DesayunosPage() {
   const [preset, setPreset] = useState<RangePreset>("mes");

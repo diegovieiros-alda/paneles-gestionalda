@@ -332,6 +332,58 @@ _VENDEDORES_SQL = """
     ORDER BY 2 DESC
 """
 
+# Variantes por hotel de las tres queries de arriba (fnb mensual, presupuesto
+# mensual, vendedores), para la ficha individual — mismas cuentas y mismas
+# reglas, solo con el filtro de hotel añadido.
+_FNB_MENSUAL_HOTEL_SQL = """
+    SELECT
+        date_trunc('month', aml.date)::date,
+        SUM(aml.price_subtotal) FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS ingresos,
+        SUM(aml.quantity) FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS unidades,
+        SUM(aml.price_subtotal) FILTER (WHERE aa.code = ANY(%(cuentas_gasto)s)) AS gastos
+    FROM account_move_line aml
+    JOIN account_account aa ON aa.id = aml.account_id
+    JOIN account_move am ON am.id = aml.move_id
+    WHERE aml.pms_property_id = %(hotel_id)s AND am.state = 'posted'
+      AND aml.date BETWEEN %(desde)s AND %(hasta)s
+      AND (aa.code = %(cuenta_ingreso)s OR aa.code = ANY(%(cuentas_gasto)s))
+    GROUP BY 1
+    ORDER BY 1
+"""
+
+_PRESUPUESTO_MENSUAL_HOTEL_SQL = """
+    SELECT
+        date_trunc('month', bl.date)::date,
+        SUM(bl.credit) FILTER (WHERE aa.code = %(cuenta_ingreso)s)
+          - SUM(bl.debit) FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS presupuesto_ingresos,
+        SUM(bl.debit) FILTER (WHERE aa.code = ANY(%(cuentas_gasto)s))
+          - SUM(bl.credit) FILTER (WHERE aa.code = ANY(%(cuentas_gasto)s)) AS presupuesto_gastos
+    FROM account_move_budget_line bl
+    JOIN account_account aa ON aa.id = bl.account_id
+    JOIN account_move_budget b ON b.id = bl.budget_id
+    JOIN pms_property p ON p.analytic_account_id = bl.hotel_analytic_account_id
+    WHERE p.id = %(hotel_id)s AND b.state = 'confirmed'
+      AND date_trunc('month', bl.date) BETWEEN date_trunc('month', %(desde)s) AND date_trunc('month', %(hasta)s)
+      AND (aa.code = %(cuenta_ingreso)s OR aa.code = ANY(%(cuentas_gasto)s))
+    GROUP BY 1
+    ORDER BY 1
+"""
+
+_VENDEDORES_HOTEL_SQL = """
+    SELECT COALESCE(rp.name, ru.login, 'Sin asignar') AS vendedor,
+           SUM(aml.price_subtotal) AS importe,
+           COUNT(*) AS lineas
+    FROM account_move_line aml
+    JOIN account_account aa ON aa.id = aml.account_id
+    JOIN account_move am ON am.id = aml.move_id
+    LEFT JOIN res_users ru ON ru.id = aml.create_uid
+    LEFT JOIN res_partner rp ON rp.id = ru.partner_id
+    WHERE aml.pms_property_id = %(hotel_id)s AND aa.code = %(cuenta_ingreso)s AND am.state = 'posted'
+      AND aml.date BETWEEN %(desde)s AND %(hasta)s
+    GROUP BY 1
+    ORDER BY 2 DESC
+"""
+
 
 @cache_result
 def fetch_fnb_desayuno(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[int, dict]:
@@ -427,6 +479,60 @@ def fetch_vendedores_desayuno(fecha_inicio: datetime.date, fecha_fin: datetime.d
         cur.execute(
             _VENDEDORES_SQL,
             {"cuenta_ingreso": _CUENTA_INGRESO_DESAYUNO, "desde": fecha_inicio, "hasta": fecha_fin},
+        )
+        rows = cur.fetchall()
+    return [{"vendedor": r[0], "importe": float(r[1] or 0), "lineas": r[2]} for r in rows]
+
+
+@cache_result
+def fetch_fnb_serie_mensual_hotel(hotel_id: int, fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[str, dict]:
+    """Igual que fetch_fnb_serie_mensual pero para un único hotel (ficha individual)."""
+    with connections["odoo"].cursor() as cur:
+        cur.execute(
+            _FNB_MENSUAL_HOTEL_SQL,
+            {
+                "hotel_id": hotel_id,
+                "cuenta_ingreso": _CUENTA_INGRESO_DESAYUNO,
+                "cuentas_gasto": list(_CUENTAS_GASTO_DESAYUNO),
+                "desde": fecha_inicio,
+                "hasta": fecha_fin,
+            },
+        )
+        rows = cur.fetchall()
+    return {
+        r[0].isoformat(): {"ingresos": float(r[1] or 0), "unidades": float(r[2] or 0), "gastos": float(r[3] or 0)}
+        for r in rows
+    }
+
+
+@cache_result
+def fetch_presupuesto_serie_mensual_hotel(hotel_id: int, fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[str, dict]:
+    """Igual que fetch_presupuesto_serie_mensual pero para un único hotel (ficha individual)."""
+    with connections["odoo"].cursor() as cur:
+        cur.execute(
+            _PRESUPUESTO_MENSUAL_HOTEL_SQL,
+            {
+                "hotel_id": hotel_id,
+                "cuenta_ingreso": _CUENTA_INGRESO_DESAYUNO,
+                "cuentas_gasto": list(_CUENTAS_GASTO_DESAYUNO),
+                "desde": fecha_inicio,
+                "hasta": fecha_fin,
+            },
+        )
+        rows = cur.fetchall()
+    return {
+        r[0].isoformat(): {"presupuestoIngresos": float(r[1] or 0), "presupuestoGastos": float(r[2] or 0)}
+        for r in rows
+    }
+
+
+@cache_result
+def fetch_vendedores_desayuno_hotel(hotel_id: int, fecha_inicio: datetime.date, fecha_fin: datetime.date) -> list[dict]:
+    """Igual que fetch_vendedores_desayuno pero para un único hotel (ficha individual)."""
+    with connections["odoo"].cursor() as cur:
+        cur.execute(
+            _VENDEDORES_HOTEL_SQL,
+            {"hotel_id": hotel_id, "cuenta_ingreso": _CUENTA_INGRESO_DESAYUNO, "desde": fecha_inicio, "hasta": fecha_fin},
         )
         rows = cur.fetchall()
     return [{"vendedor": r[0], "importe": float(r[1] or 0), "lineas": r[2]} for r in rows]

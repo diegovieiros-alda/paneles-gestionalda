@@ -87,7 +87,8 @@ export type MesHotel = {
 
 export type HotelDesayunos = {
   actual: MesHotel & FnbFields;
-  serieMensual: MesHotel[];
+  serieMensual: (MesHotel & FnbFields)[];
+  vendedores?: Vendedor[];
   origenDatos?: "odoo" | "cache";
 };
 

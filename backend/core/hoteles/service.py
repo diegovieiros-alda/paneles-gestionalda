@@ -172,6 +172,8 @@ def get_hotel_desayunos(hotel_id: int, fecha_inicio: datetime.date, fecha_fin: d
     inicio_serie = _hace_n_meses(fecha_fin, 11)
     alojados_mensual = repository.fetch_alojados_mensual_hotel(hotel_id, inicio_serie, fecha_fin)
     desayunos_mensual = repository.fetch_desayunos_mensual_hotel(hotel_id, inicio_serie, fecha_fin)
+    fnb_por_mes = repository.fetch_fnb_serie_mensual_hotel(hotel_id, inicio_serie, fecha_fin)
+    presupuesto_por_mes = repository.fetch_presupuesto_serie_mensual_hotel(hotel_id, inicio_serie, fecha_fin)
 
     meses = sorted(set(alojados_mensual) | set(desayunos_mensual))
     serie = []
@@ -180,6 +182,8 @@ def get_hotel_desayunos(hotel_id: int, fecha_inicio: datetime.date, fecha_fin: d
         dm = desayunos_mensual.get(mes, _DESAYUNO_VACIO)
         pen = (dm["cantidad"] / a) if a > 0 else 0.0
         precio = _precio_medio(dm)
+        f = fnb_por_mes.get(mes, _FNB_VACIO)
+        p = presupuesto_por_mes.get(mes, _PRESUPUESTO_VACIO)
         serie.append(
             {
                 "mes": mes,
@@ -188,7 +192,10 @@ def get_hotel_desayunos(hotel_id: int, fecha_inicio: datetime.date, fecha_fin: d
                 "penetracion": round(pen, 4),
                 "produccion": round(dm["produccion"], 2),
                 "precioMedio": round(precio, 2),
+                **_fnb_json(f, p),
             }
         )
 
-    return {"actual": actual, "serieMensual": serie}
+    vendedores = repository.fetch_vendedores_desayuno_hotel(hotel_id, fecha_inicio, fecha_fin)
+
+    return {"actual": actual, "serieMensual": serie, "vendedores": vendedores}
