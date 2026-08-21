@@ -1,12 +1,26 @@
 """Listado de Hoteles con datos reales de Odoo: ocupación y producción de
 desayunos. No incluye coste/margen/presupuesto (no existen en Odoo) ni
-regional/submarca/tipo (no existen en el PMS, solo zona y sociedad)."""
+regional/submarca/tipo (no existen en el PMS, solo zona y sociedad).
+
+"desayunos" (cantidad) y "penetracion" excluyen colaborador (no son huéspedes
+alojados contados en "alojados"); "produccion" y "precioMedio" lo incluyen
+(es dinero real) — ver repository._REGIMENES_COLABORADOR y
+.claude/alda-precios-desayuno/SKILL.md."""
 from __future__ import annotations
 
 import datetime
 
 from ..bloqueos.engine import es_hotel_excluido, zona_de
 from . import repository
+
+_DESAYUNO_VACIO = {"cantidad": 0.0, "cantidad_total": 0.0, "produccion": 0.0}
+
+
+def _precio_medio(d: dict) -> float:
+    """produccion / cantidad_total (incluye colaborador en ambos lados, ver
+    repository._REGIMENES_COLABORADOR) — no dividir por "cantidad" (directa,
+    sin colaborador), o el precio medio sale inflado."""
+    return (d["produccion"] / d["cantidad_total"]) if d["cantidad_total"] > 0 else 0.0
 
 
 def get_hoteles(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict:
@@ -19,10 +33,10 @@ def get_hoteles(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict:
     for h in hoteles:
         if es_hotel_excluido(h["id"], h["property_code"]):
             continue
-        d = desayunos.get(h["id"], {"cantidad": 0.0, "produccion": 0.0})
+        d = desayunos.get(h["id"], _DESAYUNO_VACIO)
         a = alojados.get(h["id"], 0)
         penetracion = (d["cantidad"] / a) if a > 0 else 0.0
-        precio_medio = (d["produccion"] / d["cantidad"]) if d["cantidad"] > 0 else 0.0
+        precio_medio = _precio_medio(d)
         resultado.append(
             {
                 "id": h["id"],
@@ -111,9 +125,9 @@ def get_hotel_desayunos(hotel_id: int, fecha_inicio: datetime.date, fecha_fin: d
     terminando en fecha_fin, fija, no filtrable). No incluye identidad (ver
     get_hotel_info)."""
     alojados = repository.fetch_alojados(fecha_inicio, fecha_fin).get(hotel_id, 0)
-    d = repository.fetch_desayunos(fecha_inicio, fecha_fin).get(hotel_id, {"cantidad": 0.0, "produccion": 0.0})
+    d = repository.fetch_desayunos(fecha_inicio, fecha_fin).get(hotel_id, _DESAYUNO_VACIO)
     penetracion = (d["cantidad"] / alojados) if alojados > 0 else 0.0
-    precio_medio = (d["produccion"] / d["cantidad"]) if d["cantidad"] > 0 else 0.0
+    precio_medio = _precio_medio(d)
     actual = {
         "alojados": alojados,
         "desayunos": round(d["cantidad"]),
@@ -130,9 +144,9 @@ def get_hotel_desayunos(hotel_id: int, fecha_inicio: datetime.date, fecha_fin: d
     serie = []
     for mes in meses:
         a = alojados_mensual.get(mes, 0)
-        dm = desayunos_mensual.get(mes, {"cantidad": 0.0, "produccion": 0.0})
+        dm = desayunos_mensual.get(mes, _DESAYUNO_VACIO)
         pen = (dm["cantidad"] / a) if a > 0 else 0.0
-        precio = (dm["produccion"] / dm["cantidad"]) if dm["cantidad"] > 0 else 0.0
+        precio = _precio_medio(dm)
         serie.append(
             {
                 "mes": mes,
