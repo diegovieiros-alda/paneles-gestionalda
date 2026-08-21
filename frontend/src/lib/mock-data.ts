@@ -102,6 +102,23 @@ export function getHotel(id: string) {
 
 export const TARGET_PENETRACION = 0.55;
 export const TARGET_OPORTUNIDAD = 0.85;
+export const UMBRAL_PENETRACION = 0.38;
+
+export type Etiqueta = "verde" | "naranja" | "rojo";
+
+/** Semáforo: por debajo de alerta = rojo, entre alerta y objetivo = naranja, por encima de objetivo = verde. */
+export function etiqueta(valor: number, alerta: number, objetivo: number): Etiqueta {
+  if (valor < alerta) return "rojo";
+  if (valor < objetivo) return "naranja";
+  return "verde";
+}
+
+/** Facturación potencial: unidades actuales escaladas a la penetración objetivo, al precio medio de venta. */
+export function facturacionPotencial(desayunos: number, penetracion: number, precioMedioVenta: number): number {
+  if (penetracion <= 0) return 0;
+  const unidadesPotenciales = desayunos * (TARGET_PENETRACION / penetracion);
+  return unidadesPotenciales * precioMedioVenta;
+}
 
 export function hotelOportunidad(h: Hotel) {
   const potenciales = Math.max(0, Math.round(h.alojados * TARGET_OPORTUNIDAD - h.desayunos));

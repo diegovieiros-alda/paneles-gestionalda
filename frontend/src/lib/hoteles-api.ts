@@ -24,13 +24,25 @@ export async function fetchHotelInfo(id: string | number): Promise<HotelDirector
   return res.json();
 }
 
+// ingresos/gastos/margenBruto/precioMedioVenta/costeMedioGasto/resultadoFB
+// vienen de contabilidad (cuenta 70500000020 + cuentas de compra F&B), no
+// de PMS — a diferencia de produccion/precioMedio, excluyen colaborador por
+// completo. Ver backend/core/hoteles/service.py::_fnb_json.
 export type HotelReal = HotelDirectorio & {
   alojados: number;
   desayunos: number;
   penetracion: number;
   produccion: number;
   precioMedio: number;
+  ingresos: number;
+  gastos: number;
+  margenBruto: number;
+  precioMedioVenta: number;
+  costeMedioGasto: number;
+  resultadoFB: number;
 };
+
+export type Vendedor = { vendedor: string; importe: number; lineas: number };
 
 export type DesayunosReport = {
   fechaInicio: string;
@@ -41,7 +53,7 @@ export type DesayunosReport = {
 
 export type SerieMensual = { mes: string; desayunos: number; produccion: number };
 
-export type ResumenReport = DesayunosReport & { serieMensual: SerieMensual[] };
+export type ResumenReport = DesayunosReport & { serieMensual: SerieMensual[]; vendedores?: Vendedor[] };
 
 export async function fetchDesayunos(desde: string, hasta: string): Promise<ResumenReport> {
   const params = new URLSearchParams({ desde, hasta });
@@ -72,7 +84,14 @@ export type MesHotel = {
 };
 
 export type HotelDesayunos = {
-  actual: MesHotel;
+  actual: MesHotel & {
+    ingresos: number;
+    gastos: number;
+    margenBruto: number;
+    precioMedioVenta: number;
+    costeMedioGasto: number;
+    resultadoFB: number;
+  };
   serieMensual: MesHotel[];
   origenDatos?: "odoo" | "cache";
 };

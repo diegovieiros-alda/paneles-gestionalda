@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { DashboardShell } from "@/components/dashboard/shell";
 import { HotelsTableReal } from "@/components/dashboard/hotels-table-real";
+import { FnbFinancieroTable } from "@/components/dashboard/fnb-financiero-table";
+import { VendedoresPanel } from "@/components/dashboard/vendedores-panel";
 import { EvolutionChartReal } from "@/components/dashboard/evolution-chart-real";
 import { Skeleton } from "@/components/ui/skeleton";
-import { fetchDesayunos, type HotelReal, type SerieMensual } from "@/lib/hoteles-api";
+import { fetchDesayunos, type HotelReal, type SerieMensual, type Vendedor } from "@/lib/hoteles-api";
 import { rangeForPreset, type RangePreset } from "@/lib/date-range";
 import { RangeFilter } from "@/components/dashboard/range-filter";
 
@@ -12,6 +14,7 @@ export default function DesayunosPage() {
   const [custom, setCustom] = useState(() => rangeForPreset("mes"));
   const [hoteles, setHoteles] = useState<HotelReal[] | null>(null);
   const [serieMensual, setSerieMensual] = useState<SerieMensual[]>([]);
+  const [vendedores, setVendedores] = useState<Vendedor[]>([]);
   const [origenDatos, setOrigenDatos] = useState<"odoo" | "cache" | undefined>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,6 +28,7 @@ export default function DesayunosPage() {
       .then((data) => {
         setHoteles(data.hoteles);
         setSerieMensual(data.serieMensual);
+        setVendedores(data.vendedores ?? []);
         setOrigenDatos(data.origenDatos);
       })
       .catch((e) => setError(e.message))
@@ -59,6 +63,8 @@ export default function DesayunosPage() {
         )}
         {serieMensual.length > 0 && <EvolutionChartReal serie={serieMensual} />}
         {hoteles && <HotelsTableReal hoteles={hoteles} />}
+        {hoteles && <FnbFinancieroTable hoteles={hoteles} />}
+        <VendedoresPanel vendedores={vendedores} />
       </div>
     </DashboardShell>
   );

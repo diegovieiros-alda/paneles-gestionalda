@@ -14,6 +14,7 @@ from ..bloqueos.engine import es_hotel_excluido, zona_de
 from . import repository
 
 _DESAYUNO_VACIO = {"cantidad": 0.0, "cantidad_total": 0.0, "produccion": 0.0}
+_FNB_VACIO = {"ingresos": 0.0, "unidades": 0.0, "gastos": 0.0}
 
 
 def _precio_medio(d: dict) -> float:
@@ -23,11 +24,29 @@ def _precio_medio(d: dict) -> float:
     return (d["produccion"] / d["cantidad_total"]) if d["cantidad_total"] > 0 else 0.0
 
 
+def _fnb_json(f: dict) -> dict:
+    """KPIs financieros F&B (ver repository._CUENTA_INGRESO_DESAYUNO): fuente
+    contable, no PMS — deliberadamente distinta de produccion/precioMedio de
+    arriba (que sí incluyen colaborador). No confundir "precioMedioVenta"
+    (esta sección, contable) con "precioMedio" (producción, PMS)."""
+    ingresos, gastos = f["ingresos"], f["gastos"]
+    unidades = f["unidades"]
+    return {
+        "ingresos": round(ingresos, 2),
+        "gastos": round(gastos, 2),
+        "resultadoFB": round(ingresos - gastos, 2),
+        "margenBruto": round((ingresos - gastos) / ingresos, 4) if ingresos > 0 else 0.0,
+        "precioMedioVenta": round(ingresos / unidades, 2) if unidades > 0 else 0.0,
+        "costeMedioGasto": round(gastos / unidades, 2) if unidades > 0 else 0.0,
+    }
+
+
 def get_hoteles(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict:
     hoteles = repository.fetch_hoteles()
     companies = repository.fetch_companies()
     alojados = repository.fetch_alojados(fecha_inicio, fecha_fin)
     desayunos = repository.fetch_desayunos(fecha_inicio, fecha_fin)
+    fnb = repository.fetch_fnb_desayuno(fecha_inicio, fecha_fin)
 
     resultado = []
     for h in hoteles:
@@ -48,6 +67,7 @@ def get_hoteles(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict:
                 "penetracion": round(penetracion, 4),
                 "produccion": round(d["produccion"], 2),
                 "precioMedio": round(precio_medio, 2),
+                **_fnb_json(fnb.get(h["id"], _FNB_VACIO)),
             }
         )
 
@@ -57,6 +77,10 @@ def get_hoteles(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict:
         "fechaFin": fecha_fin.isoformat(),
         "hoteles": resultado,
     }
+
+
+def get_vendedores_desayuno(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> list[dict]:
+    return repository.fetch_vendedores_desayuno(fecha_inicio, fecha_fin)
 
 
 def _hace_n_meses(fecha: datetime.date, n: int) -> datetime.date:
@@ -71,10 +95,11 @@ def _hace_n_meses(fecha: datetime.date, n: int) -> datetime.date:
 def get_resumen(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict:
     """Resumen para la portada: hoteles del periodo (para alertas/ranking/
     oportunidad) + serie mensual de los últimos 12 meses (para el gráfico de
-    evolución), en una sola llamada."""
+    evolución) + top vendedores de desayuno del periodo, en una sola llamada."""
     datos = get_hoteles(fecha_inicio, fecha_fin)
     inicio_serie = _hace_n_meses(fecha_fin, 11)
     datos["serieMensual"] = repository.fetch_serie_mensual(inicio_serie, fecha_fin)
+    datos["vendedores"] = get_vendedores_desayuno(fecha_inicio, fecha_fin)
     return datos
 
 
@@ -126,6 +151,7 @@ def get_hotel_desayunos(hotel_id: int, fecha_inicio: datetime.date, fecha_fin: d
     get_hotel_info)."""
     alojados = repository.fetch_alojados(fecha_inicio, fecha_fin).get(hotel_id, 0)
     d = repository.fetch_desayunos(fecha_inicio, fecha_fin).get(hotel_id, _DESAYUNO_VACIO)
+    fnb = repository.fetch_fnb_desayuno(fecha_inicio, fecha_fin).get(hotel_id, _FNB_VACIO)
     penetracion = (d["cantidad"] / alojados) if alojados > 0 else 0.0
     precio_medio = _precio_medio(d)
     actual = {
@@ -134,6 +160,7 @@ def get_hotel_desayunos(hotel_id: int, fecha_inicio: datetime.date, fecha_fin: d
         "penetracion": round(penetracion, 4),
         "produccion": round(d["produccion"], 2),
         "precioMedio": round(precio_medio, 2),
+        **_fnb_json(fnb),
     }
 
     inicio_serie = _hace_n_meses(fecha_fin, 11)

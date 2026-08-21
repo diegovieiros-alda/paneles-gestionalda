@@ -29,6 +29,17 @@ from ..cache import cache_result
 _REGIMENES_DESAYUNO = ("AD", "ADB", "ADE", "ADN", "DESCOL", "DESGRUP", "DESGRUPCOL", "DESNEGCOL", "SAD")
 _REGIMENES_COLABORADOR = ("DESCOL", "DESNEGCOL", "DESGRUPCOL")
 
+# KPIs financieros F&B (Ingresos/Gastos/Margen), definidos por el
+# departamento financiero vía cuenta contable — no por régimen PMS, y
+# excluyen colaborador por completo (ni ingresos ni gastos), a diferencia de
+# "producción" de arriba. Son dos fuentes de verdad distintas a propósito:
+# ver .claude/alda-precios-desayuno/SKILL.md, sección histórico
+# "Desayunos - Campos generales.csv" (2026-08-21).
+_CUENTA_INGRESO_DESAYUNO = "70500000020"  # "Desayunos"
+_CUENTAS_GASTO_DESAYUNO = ("60100000001", "60100000002", "60100000003")  # compras de materias primas F&B
+# Explícitamente excluidas de gastos (no son coste directo de materia
+# prima): 60910000000 (rappel), 60700000000/60700000001 (colaborador/externo).
+
 _HOTELES_SQL = """
     SELECT prop.id, partner.name, prop.pms_property_code, prop.company_id
     FROM pms_property prop
@@ -227,3 +238,71 @@ def fetch_desayunos_mensual_hotel(hotel_id: int, fecha_inicio: datetime.date, fe
         }
         for r in rows
     }
+
+
+# Ingresos y gastos en la misma query (FILTER), por hotel: un único scan de
+# account_move_line acotado a las cuentas que importan, no a todo el mayor.
+_FNB_SQL = """
+    SELECT
+        aml.pms_property_id,
+        SUM(aml.price_subtotal) FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS ingresos,
+        SUM(aml.quantity) FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS unidades,
+        SUM(aml.price_subtotal) FILTER (WHERE aa.code = ANY(%(cuentas_gasto)s)) AS gastos
+    FROM account_move_line aml
+    JOIN account_account aa ON aa.id = aml.account_id
+    JOIN account_move am ON am.id = aml.move_id
+    WHERE am.state = 'posted'
+      AND aml.date BETWEEN %(desde)s AND %(hasta)s
+      AND (aa.code = %(cuenta_ingreso)s OR aa.code = ANY(%(cuentas_gasto)s))
+    GROUP BY aml.pms_property_id
+"""
+
+_VENDEDORES_SQL = """
+    SELECT COALESCE(rp.name, ru.login, 'Sin asignar') AS vendedor,
+           SUM(aml.price_subtotal) AS importe,
+           COUNT(*) AS lineas
+    FROM account_move_line aml
+    JOIN account_account aa ON aa.id = aml.account_id
+    JOIN account_move am ON am.id = aml.move_id
+    LEFT JOIN res_users ru ON ru.id = aml.create_uid
+    LEFT JOIN res_partner rp ON rp.id = ru.partner_id
+    WHERE aa.code = %(cuenta_ingreso)s AND am.state = 'posted'
+      AND aml.date BETWEEN %(desde)s AND %(hasta)s
+    GROUP BY 1
+    ORDER BY 2 DESC
+"""
+
+
+@cache_result
+def fetch_fnb_desayuno(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[int, dict]:
+    """Ingresos/gastos/unidades de desayuno por hotel, vía contabilidad
+    (cuenta 70500000020 y cuentas de compra de materia prima F&B)."""
+    with connections["odoo"].cursor() as cur:
+        cur.execute(
+            _FNB_SQL,
+            {
+                "cuenta_ingreso": _CUENTA_INGRESO_DESAYUNO,
+                "cuentas_gasto": list(_CUENTAS_GASTO_DESAYUNO),
+                "desde": fecha_inicio,
+                "hasta": fecha_fin,
+            },
+        )
+        rows = cur.fetchall()
+    return {
+        r[0]: {"ingresos": float(r[1] or 0), "unidades": float(r[2] or 0), "gastos": float(r[3] or 0)}
+        for r in rows
+        if r[0] is not None
+    }
+
+
+@cache_result
+def fetch_vendedores_desayuno(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> list[dict]:
+    """Top vendedores (usuario que creó la línea contable) por ingresos de
+    desayuno, cadena completa — no por hotel."""
+    with connections["odoo"].cursor() as cur:
+        cur.execute(
+            _VENDEDORES_SQL,
+            {"cuenta_ingreso": _CUENTA_INGRESO_DESAYUNO, "desde": fecha_inicio, "hasta": fecha_fin},
+        )
+        rows = cur.fetchall()
+    return [{"vendedor": r[0], "importe": float(r[1] or 0), "lineas": r[2]} for r in rows]

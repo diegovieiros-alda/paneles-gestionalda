@@ -1,9 +1,7 @@
 import { AlertTriangle, ChevronRight, Percent } from "lucide-react";
 import { Link } from "react-router-dom";
-import { fmtPct } from "@/lib/mock-data";
+import { fmtPct, UMBRAL_PENETRACION } from "@/lib/mock-data";
 import type { HotelReal } from "@/lib/hoteles-api";
-
-const UMBRAL_PENETRACION = 0.38;
 
 export function AlertsBlockReal({ hoteles }: { hoteles: HotelReal[] }) {
   const alerts = hoteles

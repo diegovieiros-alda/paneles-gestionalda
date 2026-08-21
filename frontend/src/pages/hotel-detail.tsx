@@ -102,6 +102,17 @@ function DesayunosPanel({ hotelId }: { hotelId: string }) {
           </section>
 
           <section>
+            <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">F&amp;B · contable (excluye colaborador)</h3>
+            <div className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-5 mt-3">
+              <KpiCard label="Ingresos" value={fmtEuro(data.actual.ingresos)} tone="neutral" />
+              <KpiCard label="Gastos" value={fmtEuro(data.actual.gastos)} tone="neutral" />
+              <KpiCard label="Margen bruto" value={fmtPct(data.actual.margenBruto, 0)} tone={data.actual.margenBruto >= 0.5 ? "positive" : "warning"} />
+              <KpiCard label="Precio medio venta" value={`${data.actual.precioMedioVenta.toFixed(2)}€`} tone="neutral" />
+              <KpiCard label="Resultado F&B" value={fmtEuro(data.actual.resultadoFB)} tone="neutral" />
+            </div>
+          </section>
+
+          <section>
             <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">Evolución mensual · últimos 12 meses</h3>
             <div className="h-64 mt-3">
               <ResponsiveContainer width="100%" height="100%">
