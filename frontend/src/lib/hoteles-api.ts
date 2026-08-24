@@ -36,12 +36,26 @@ export type FnbFields = {
   cumplimientoGastos: number | null;
 };
 
+// Comparación declarado (reserva) vs. check-in confirmado, SOLO fechas
+// pasadas del rango — auditoría de calidad de dato, no se usa para
+// "alojados"/penetración (ver backend/core/hoteles/repository.py::
+// _CALIDAD_CHECKIN_SQL: usar el check-in en vez del declarado da SIEMPRE
+// menos personas, porque el check-in es un registro de viajeros, no un
+// censo de ocupación).
+export type CalidadCheckin = {
+  declarado: number;
+  checkin: number;
+  reservasTotal: number;
+  reservasSinCheckin: number;
+};
+
 export type HotelReal = HotelDirectorio & FnbFields & {
   alojados: number;
   desayunos: number;
   penetracion: number;
   produccion: number;
   precioMedio: number;
+  calidadCheckin: CalidadCheckin;
 };
 
 export type Vendedor = { vendedor: string; importe: number; lineas: number };

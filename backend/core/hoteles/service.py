@@ -57,6 +57,9 @@ def _fnb_json(f: dict, presupuesto: dict = _PRESUPUESTO_VACIO) -> dict:
     }
 
 
+_CALIDAD_CHECKIN_VACIO = {"declarado": 0, "checkin": 0, "reservasTotal": 0, "reservasSinCheckin": 0}
+
+
 def get_hoteles(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict:
     hoteles = repository.fetch_hoteles()
     companies = repository.fetch_companies()
@@ -64,6 +67,7 @@ def get_hoteles(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict:
     desayunos = repository.fetch_desayunos(fecha_inicio, fecha_fin)
     fnb = repository.fetch_fnb_desayuno(fecha_inicio, fecha_fin)
     presupuesto = repository.fetch_presupuesto_desayuno(fecha_inicio, fecha_fin)
+    calidad_checkin = repository.fetch_calidad_checkin(fecha_inicio, fecha_fin)
 
     resultado = []
     for h in hoteles:
@@ -85,6 +89,7 @@ def get_hoteles(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict:
                 "produccion": round(d["produccion"], 2),
                 "precioMedio": round(precio_medio, 2),
                 **_fnb_json(fnb.get(h["id"], _FNB_VACIO), presupuesto.get(h["id"], _PRESUPUESTO_VACIO)),
+                "calidadCheckin": calidad_checkin.get(h["id"], _CALIDAD_CHECKIN_VACIO),
             }
         )
 

@@ -6,6 +6,7 @@ import { FnbResumenCards } from "@/components/dashboard/fnb-resumen-cards";
 import { FnbFinancieroTable } from "@/components/dashboard/fnb-financiero-table";
 import { VendedoresPanel } from "@/components/dashboard/vendedores-panel";
 import { DesayunosOrigenDatos } from "@/components/dashboard/desayunos-origen-datos";
+import { CalidadCheckinTable } from "@/components/dashboard/calidad-checkin-table";
 import { EvolutionChartReal } from "@/components/dashboard/evolution-chart-real";
 import { IngresosGastosChart } from "@/components/dashboard/ingresos-gastos-chart";
 import { PrecioCosteChart } from "@/components/dashboard/precio-coste-chart";
@@ -54,6 +55,7 @@ export default function DesayunosDetallePage() {
             <VendedoresPanel vendedores={vendedores} />
 
             <SectionTitle title="Metodología" />
+            <CalidadCheckinTable hoteles={hoteles} />
             <DesayunosOrigenDatos />
           </>
         )}

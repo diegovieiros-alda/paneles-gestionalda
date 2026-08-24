@@ -61,6 +61,44 @@ _ALOJADOS_SQL = """
     GROUP BY rl.pms_property_id
 """
 
+# Comparación declarado (reserva) vs. check-in confirmado (pms_checkin_partner),
+# solo para AUDITORÍA — no se usa para "alojados"/penetración. Probado contra
+# la BD real (2026-08-24): usar el check-in en vez del declarado da SIEMPRE
+# menos personas (ej. hotel 9, agosto 2026: -15%; agosto 2025: -19%), porque
+# el check-in es un registro de viajeros, no un censo de ocupación — no
+# garantiza una fila por persona alojada (cientos de miles de reservas
+# "normal" ya completadas no tienen ningún check-in). Este informe es para
+# detectar hoteles/periodos con muchas reservas sin check-in registrado, no
+# para sustituir el dato declarado.
+_CALIDAD_CHECKIN_SQL = """
+    WITH checkin_real AS (
+        SELECT cp.reservation_id,
+               count(*) FILTER (
+                   WHERE cp.birthdate_date IS NULL
+                      OR date_part('year', age(COALESCE(cp.checkin, current_date), cp.birthdate_date)) >= 14
+               ) AS adultos_checkin,
+               count(*) FILTER (
+                   WHERE cp.birthdate_date IS NOT NULL
+                     AND date_part('year', age(COALESCE(cp.checkin, current_date), cp.birthdate_date)) < 14
+               ) AS ninos_checkin
+        FROM pms_checkin_partner cp
+        WHERE cp.state IN ('onboard', 'done')
+        GROUP BY cp.reservation_id
+    )
+    SELECT
+        rl.pms_property_id,
+        SUM(COALESCE(r.adults, 0) + COALESCE(r.children_occupying, 0)) AS declarado,
+        SUM(COALESCE(cr.adultos_checkin, 0) + COALESCE(cr.ninos_checkin, 0)) AS checkin,
+        COUNT(DISTINCT r.id) AS reservas_total,
+        COUNT(DISTINCT r.id) FILTER (WHERE cr.reservation_id IS NULL) AS reservas_sin_checkin
+    FROM pms_reservation_line rl
+    JOIN pms_reservation r ON r.id = rl.reservation_id
+    LEFT JOIN checkin_real cr ON cr.reservation_id = rl.reservation_id
+    WHERE rl.date BETWEEN %s AND %s AND rl.overnight_room = true
+      AND r.reservation_type = 'normal' AND rl.state NOT IN ('draft', 'cancel') AND rl.date < CURRENT_DATE
+    GROUP BY rl.pms_property_id
+"""
+
 # CTEs compartidas por las tres queries de desayuno de abajo.
 #   productos_desayuno: qué product_id pertenece a un régimen de desayuno
 #     (catálogo real, no nombre de producto).
@@ -163,6 +201,24 @@ def fetch_alojados(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dic
         cur.execute(_ALOJADOS_SQL, [fecha_inicio, fecha_fin])
         rows = cur.fetchall()
     return {r[0]: int(r[1] or 0) for r in rows}
+
+
+@cache_result
+def fetch_calidad_checkin(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[int, dict]:
+    """Declarado vs. check-in confirmado, solo fechas pasadas del rango (ver
+    _CALIDAD_CHECKIN_SQL) — informe de auditoría, no reemplaza fetch_alojados."""
+    with connections["odoo"].cursor() as cur:
+        cur.execute(_CALIDAD_CHECKIN_SQL, [fecha_inicio, fecha_fin])
+        rows = cur.fetchall()
+    return {
+        r[0]: {
+            "declarado": int(r[1] or 0),
+            "checkin": int(r[2] or 0),
+            "reservasTotal": r[3],
+            "reservasSinCheckin": r[4],
+        }
+        for r in rows
+    }
 
 
 @cache_result
