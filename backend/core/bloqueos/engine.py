@@ -22,13 +22,6 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-# IDs de pms.room.type excluidos del inventario alojativo (parkings, salones,
-# salas...). Misma blacklist que usa el workflow n8n contra esta misma base
-# de datos de Odoo.
-ROOM_TYPE_BLACKLIST: set[int] = {
-    103, 79, 80, 81, 28, 9, 102, 82, 83, 86, 87, 84, 85, 21, 99, 96,
-}
-
 # Hotel(es) excluidos siempre, por id de pms.property (fuera de la cadena).
 # 24 = [307] Hotel Alda Santa Trega.
 HOTEL_IDS_EXCLUIDOS_FIJOS: set[int] = {24}
@@ -63,13 +56,6 @@ MAPEO_ZONAS: dict[str, str] = {
     "901": "Niuco", "902": "Niuco", "903": "Niuco", "904": "Niuco", "905": "Niuco", "906": "Niuco", "907": "Niuco", "908": "Niuco",
     "802": "Restauradores", "803": "Restauradores", "804": "Restauradores", "805": "Restauradores", "807": "Restauradores",
 }
-
-def es_room_type_valido(room_type_id: int | None) -> bool:
-    """False si el tipo de habitación está en la blacklist (parking, salón...)."""
-    if room_type_id is None:
-        return True  # si no viene el campo, no se descarta por precaución
-    return room_type_id not in ROOM_TYPE_BLACKLIST
-
 
 def zona_de(codigo: str | None) -> str:
     return MAPEO_ZONAS.get(codigo, "Zona No Definida") if codigo else "Zona No Definida"
@@ -149,13 +135,11 @@ def compute_report(
             return True  # fallback si no hay catálogo de tipos
         return room_type_id in overnight_type_ids
 
-    # ── Capacidad real por hotel (excluye blacklist, no-overnight, hoteles excluidos) ──
+    # ── Capacidad real por hotel (excluye no-overnight, hoteles excluidos) ──
     capacidad_por_hotel: dict[int, int] = {}
     for room in rooms:
         pid = room.get("property_id")
         if pid is None:
-            continue
-        if not es_room_type_valido(room.get("room_type_id")):
             continue
         if not es_overnight_valido(room.get("room_type_id")):
             continue
@@ -170,8 +154,6 @@ def compute_report(
         if ln.line_state in ("draft", "cancel"):
             continue
         if ln.reservation_type != "normal":
-            continue
-        if ln.room_type_id is not None and ln.room_type_id in ROOM_TYPE_BLACKLIST:
             continue
         if ln.price_day_total is None:
             continue
@@ -197,8 +179,6 @@ def compute_report(
         if ln.reservation_type != "out":
             continue
         if ln.line_state in ("draft", "cancel"):
-            continue
-        if not es_room_type_valido(ln.reservation_room_type_id):
             continue
 
         hotel_id = ln.property_id
