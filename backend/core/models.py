@@ -12,7 +12,6 @@ from django.db import models
 # permiso de ese dashboard — ver accounts.requiere_algun_dashboard.
 DASHBOARDS = [
     ("bloqueos", "Bloqueos"),
-    ("donde_actuar", "¿Dónde actuar hoy?"),
     ("oportunidades", "Oportunidades"),
     ("desayunos", "Desayunos"),
     ("tendencias", "Tendencias"),

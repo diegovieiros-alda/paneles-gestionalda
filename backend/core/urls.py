@@ -8,7 +8,6 @@ urlpatterns = [
     path('hoteles/<int:hotel_id>/desayunos/', views.hotel_desayunos, name='hotel_desayunos'),
     path('hoteles/<int:hotel_id>/bloqueos/', views.hotel_bloqueos, name='hotel_bloqueos'),
     path('desayunos/', views.desayunos, name='desayunos'),
-    path('resumen/', views.resumen, name='resumen'),
     path('auth/csrf/', views.csrf, name='csrf'),
     path('auth/registro/', views.registro, name='registro'),
     path('auth/login/', views.iniciar_sesion, name='login'),

@@ -100,6 +100,11 @@ export function getHotel(id: string) {
   return hotels.find((h) => h.id === id);
 }
 
+// ponytail: sin fuente documentada (no vienen de Odoo ni de un documento de
+// dirección/revenue) — son valores de referencia usados internamente para
+// calcular oportunidad y alertas, no un objetivo oficial confirmado. Antes
+// de comunicarlos como objetivo de la empresa, confirmarlos con el
+// departamento correspondiente.
 export const TARGET_PENETRACION = 0.55;
 export const TARGET_OPORTUNIDAD = 0.85;
 export const UMBRAL_PENETRACION = 0.38;
@@ -151,8 +156,13 @@ export function conSigno(n: number, texto: string): string {
  * hotel con penetración directa ~0% pero desayunos totales >0 por colaborador daba una
  * "facturación potencial" de millones). Mismo patrón que hotelOportunidad() de arriba.
  */
-export function facturacionPotencial(alojados: number, penetracion: number, precioMedioVenta: number): number {
-  const unidadesPotenciales = Math.max(0, alojados * (TARGET_PENETRACION - penetracion));
+export function facturacionPotencial(
+  alojados: number,
+  penetracion: number,
+  precioMedioVenta: number,
+  objetivo: number = TARGET_PENETRACION
+): number {
+  const unidadesPotenciales = Math.max(0, alojados * (objetivo - penetracion));
   return unidadesPotenciales * precioMedioVenta;
 }
 

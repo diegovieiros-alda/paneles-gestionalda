@@ -15,7 +15,7 @@ export default function TendenciasPage() {
   }).sort((a, b) => b.produccion - a.produccion);
 
   return (
-    <DashboardShell title="Tendencias" subtitle="Evolución del servicio · últimos 12 meses">
+    <DashboardShell title="Tendencias" subtitle="Evolución del servicio · últimos 12 meses" origenDatos="ejemplo">
       <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
         <EvolutionChart />
 

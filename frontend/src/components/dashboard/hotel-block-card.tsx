@@ -10,19 +10,31 @@ export function fmtFecha(iso: string) {
   return d.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "2-digit" });
 }
 
+function fmtPctOrGuion(n: number | null) {
+  return n !== null ? `${n}%` : "—";
+}
+
 export function OcupacionBar({ kpis }: { kpis: BloqueoHotel["kpis"] }) {
-  const pctBloq = Math.max(0, 100 - kpis.porcentajeLibre - kpis.porcentajeOcupacion);
+  if (kpis.totalInventario === null) {
+    return (
+      <p className="text-[11px] text-muted-foreground">
+        Sin inventario conocido para este hotel — no se puede calcular la ocupación.
+      </p>
+    );
+  }
+
+  const pctBloq = Math.max(0, 100 - (kpis.porcentajeLibre ?? 0) - (kpis.porcentajeOcupacion ?? 0));
   return (
     <div>
       <div className="flex h-2 rounded-full overflow-hidden bg-border/60">
-        <div className="bg-muted-foreground/30" style={{ width: `${kpis.porcentajeLibre}%` }} />
-        <div className="bg-primary" style={{ width: `${kpis.porcentajeOcupacion}%` }} />
+        <div className="bg-muted-foreground/30" style={{ width: `${kpis.porcentajeLibre ?? 0}%` }} />
+        <div className="bg-primary" style={{ width: `${kpis.porcentajeOcupacion ?? 0}%` }} />
         <div className="bg-danger" style={{ width: `${pctBloq}%` }} />
       </div>
       <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-        <span>Libres <b className="text-foreground num">{kpis.nochesLibres}</b> ({kpis.porcentajeLibre}%)</span>
-        <span>Ocupadas <b className="text-foreground num">{kpis.nochesOcupadas}</b> ({kpis.porcentajeOcupacion}%)</span>
-        <span>Bloqueadas <b className="text-danger num">{kpis.nochesBloqueadas}</b> ({kpis.porcentajeBloqueo}%)</span>
+        <span>Libres <b className="text-foreground num">{kpis.nochesLibres}</b> ({fmtPctOrGuion(kpis.porcentajeLibre)})</span>
+        <span>Ocupadas <b className="text-foreground num">{kpis.nochesOcupadas}</b> ({fmtPctOrGuion(kpis.porcentajeOcupacion)})</span>
+        <span>Bloqueadas <b className="text-danger num">{kpis.nochesBloqueadas}</b> ({fmtPctOrGuion(kpis.porcentajeBloqueo)})</span>
         <span className="ml-auto">Hab.-noche total <b className="text-foreground num">{kpis.totalInventario * kpis.diasEnRango}</b></span>
       </div>
     </div>
@@ -54,7 +66,7 @@ export function HotelBlockCard({ hotel }: { hotel: BloqueoHotel }) {
           </div>
           <div>
             <div className="text-[10px] uppercase tracking-wide text-muted-foreground">% Bloqueo</div>
-            <div className="text-base font-semibold num text-foreground">{kpis.porcentajeBloqueo}%</div>
+            <div className="text-base font-semibold num text-foreground">{fmtPctOrGuion(kpis.porcentajeBloqueo)}</div>
           </div>
           <div className="text-right">
             <div className="text-[10px] uppercase tracking-wide text-danger">Coste oportunidad</div>

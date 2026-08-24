@@ -3,7 +3,7 @@ import { AlertsBlock } from "@/components/dashboard/alerts-block";
 
 export default function AlertasPage() {
   return (
-    <DashboardShell title="Alertas" subtitle="Hoteles que necesitan atención inmediata">
+    <DashboardShell title="Alertas" subtitle="Hoteles que necesitan atención inmediata" origenDatos="ejemplo">
       <div className="p-6 max-w-[1600px] mx-auto">
         <AlertsBlock />
       </div>

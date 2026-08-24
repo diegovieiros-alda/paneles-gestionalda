@@ -1,5 +1,4 @@
-import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
-import DashboardHome from "@/pages/donde-actuar";
+import { BrowserRouter, Routes, Route, Link, Navigate } from "react-router-dom";
 import OportunidadesPage from "@/pages/oportunidades";
 import HotelDesayunosPage from "@/pages/hotel-desayunos";
 import HotelBloqueosPage from "@/pages/hotel-bloqueos";
@@ -11,8 +10,17 @@ import AjustesPage from "@/pages/ajustes";
 import RegistroPage from "@/pages/registro";
 import LoginPage from "@/pages/login";
 import UsuariosPage from "@/pages/usuarios";
-import { AuthProvider } from "@/lib/auth-context";
+import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { ProtectedRoute, SuperuserRoute } from "@/components/dashboard/protected-route";
+import { NAV } from "@/components/dashboard/sidebar";
+
+function Inicio() {
+  const { usuario, cargando } = useAuth();
+  if (cargando) return null;
+  if (!usuario) return <Navigate to="/login" replace />;
+  const primero = NAV.find((n) => usuario.dashboards.includes(n.dashboard));
+  return <Navigate to={primero?.to ?? "/ajustes"} replace />;
+}
 
 function NotFound() {
   return (
@@ -52,7 +60,7 @@ function App() {
               con datos por hotel trae su propio listado (dentro de la
               página del dashboard) y su propia ficha de detalle, gateada
               por el permiso de ese dashboard, no por uno genérico. */}
-          <Route path="/" element={<ProtectedRoute dashboard="donde_actuar"><DashboardHome /></ProtectedRoute>} />
+          <Route path="/" element={<Inicio />} />
           <Route path="/bloqueos" element={<ProtectedRoute dashboard="bloqueos"><BloqueosPage /></ProtectedRoute>} />
           <Route path="/bloqueos/:hotelId" element={<ProtectedRoute dashboard="bloqueos"><HotelBloqueosPage /></ProtectedRoute>} />
           <Route path="/desayunos" element={<ProtectedRoute dashboard="desayunos"><DesayunosPage /></ProtectedRoute>} />

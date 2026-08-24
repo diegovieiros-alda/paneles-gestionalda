@@ -211,7 +211,13 @@ def compute_report(
                 "hotelId": hotel_id,
                 "hotelName": hotel_name,
                 "zona": zona_de(ln.property_code),
-                "capacidadTotal": capacidad_por_hotel.get(hotel_id, 45),
+                # None si el hotel tiene una reserva de bloqueo pero ninguna
+                # habitación suya está en el inventario activo (caso raro:
+                # habitación archivada/eliminada en Odoo) — antes se rellenaba
+                # con un 45 inventado, que contaminaba los % de ocupación/
+                # bloqueo con una capacidad ficticia. Sin capacidad conocida,
+                # esos % no se pueden calcular (ver pct() más abajo).
+                "capacidadTotal": capacidad_por_hotel.get(hotel_id),
                 "adrCalculado": adr_por_hotel.get(hotel_id),
                 "resumenMotivos": {},
             }
@@ -255,12 +261,18 @@ def compute_report(
         bloqueos_hotel = [b for b in bloqueos_por_reserva.values() if b["hotelId"] == hotel_id]
         noches_bloqueadas = sum(b["nochesEnRango"] for b in bloqueos_hotel)
         noches_ocupadas = ocupadas_por_hotel.get(hotel_id, 0)
-        noches_disponibles_total = capacidad_total * dias_en_rango
-        noches_libres = max(0, noches_disponibles_total - noches_ocupadas - noches_bloqueadas)
+        noches_disponibles_total = capacidad_total * dias_en_rango if capacidad_total is not None else None
+        noches_libres = (
+            max(0, noches_disponibles_total - noches_ocupadas - noches_bloqueadas)
+            if noches_disponibles_total is not None
+            else None
+        )
         adr = hotel["adrCalculado"]
 
-        def pct(n: int) -> float:
-            return round((n / noches_disponibles_total) * 100, 1) if noches_disponibles_total > 0 else 0.0
+        def pct(n: int | None) -> float | None:
+            if n is None or not noches_disponibles_total:
+                return None
+            return round((n / noches_disponibles_total) * 100, 1)
 
         detalle_ordenado = sorted(
             (

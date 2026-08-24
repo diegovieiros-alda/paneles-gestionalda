@@ -17,15 +17,18 @@ export type BloqueoHotel = {
   hotelName: string;
   zona: string;
   kpis: {
-    totalInventario: number;
+    // null cuando el hotel no tiene inventario activo conocido (caso raro:
+    // habitación bloqueada que no está en el inventario, p.ej. archivada en
+    // Odoo) — sin capacidad real no se puede calcular un % fiable.
+    totalInventario: number | null;
     diasEnRango: number;
     habitacionesBloqueadas: number;
     nochesBloqueadas: number;
     nochesOcupadas: number;
-    nochesLibres: number;
-    porcentajeBloqueo: number;
-    porcentajeOcupacion: number;
-    porcentajeLibre: number;
+    nochesLibres: number | null;
+    porcentajeBloqueo: number | null;
+    porcentajeOcupacion: number | null;
+    porcentajeLibre: number | null;
     adrUtilizado: number | null;
     perdidaFinancieraEstimada: number | null;
   };

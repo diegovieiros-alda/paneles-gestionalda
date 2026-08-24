@@ -1,14 +1,13 @@
 import { Link, useLocation } from "react-router-dom";
 import {
-  Target, TrendingUp, Bell, Settings, Coffee, Sparkles, Ban, Users, type LucideIcon,
+  TrendingUp, Bell, Settings, Coffee, Sparkles, Ban, Users, type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 
 type NavItem = { to: string; label: string; icon: LucideIcon; dashboard: string };
 
-const NAV: readonly NavItem[] = [
-  { to: "/", label: "¿Dónde actuar hoy?", icon: Target, dashboard: "donde_actuar" },
+export const NAV: readonly NavItem[] = [
   { to: "/bloqueos", label: "Bloqueos", icon: Ban, dashboard: "bloqueos" },
   { to: "/desayunos", label: "Desayunos", icon: Coffee, dashboard: "desayunos" },
   { to: "/oportunidades", label: "Oportunidades", icon: Sparkles, dashboard: "oportunidades" },
@@ -37,7 +36,7 @@ export function Sidebar() {
       </div>
       <nav className="p-3 flex-1 space-y-0.5">
         {nav.map((n) => {
-          const active = n.to === "/" ? pathname === "/" : pathname.startsWith(n.to);
+          const active = pathname.startsWith(n.to);
           const Icon = n.icon;
           return (
             <Link

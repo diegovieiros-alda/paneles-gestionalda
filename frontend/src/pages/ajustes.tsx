@@ -6,24 +6,29 @@ export default function AjustesPage() {
   return (
     <DashboardShell title="Ajustes" subtitle="Objetivos y umbrales de alerta">
       <div className="p-6 space-y-6 max-w-[900px] mx-auto">
-        <Card title="Objetivos" desc="Valores usados para calcular oportunidad y alertas.">
+        <Card
+          title="Objetivos"
+          desc="Valores de referencia configurados en la app para calcular oportunidad y alertas — no son un objetivo oficial confirmado por dirección/revenue."
+        >
           <Row label="Objetivo penetración operativa" value={`${(TARGET_PENETRACION * 100).toFixed(0)}%`} />
           <Row label="Objetivo penetración techo (oportunidad)" value={`${(TARGET_OPORTUNIDAD * 100).toFixed(0)}%`} />
           <Row label="Precio medio objetivo" value="12,00 €" />
           <Row label="Margen mínimo aceptable" value="50%" />
         </Card>
 
-        <Card title="Alertas" desc="Umbrales que disparan una alerta en el panel.">
+        <Card
+          title="Alertas"
+          desc="Umbrales que disparan una alerta en el panel — mismo origen que los objetivos de arriba, sin confirmar oficialmente."
+        >
           <Row label="Penetración crítica" value="< 38%" />
           <Row label="Precio bajo objetivo" value="< 10,00 €" />
           <Row label="Caída vs año anterior" value="< -10%" />
           <Row label="Margen bajo" value="< 48%" />
         </Card>
 
-        <Card title="Sincronización" desc="Origen de datos operativos.">
-          <Row label="Última sincronización" value="Hoy · 09:12" />
-          <Row label="Frecuencia" value="Cada 15 min" />
-          <Row label="Estado" value="Conectado" />
+        <Card title="Sincronización" desc="Cómo se obtienen estos datos.">
+          <Row label="Origen" value="Odoo (solo lectura)" />
+          <Row label="Actualización" value="En cada consulta, con caché de hasta 5 min" />
         </Card>
       </div>
     </DashboardShell>

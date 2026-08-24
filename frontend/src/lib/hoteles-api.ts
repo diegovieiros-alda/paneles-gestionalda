@@ -67,15 +67,6 @@ export async function fetchDesayunos(desde: string, hasta: string): Promise<Resu
   return res.json();
 }
 
-export async function fetchResumen(): Promise<ResumenReport> {
-  const res = await fetch(`/api/resumen/`);
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new Error(body?.error || `No se pudo cargar el resumen (${res.status})`);
-  }
-  return res.json();
-}
-
 export type MesHotel = {
   mes: string;
   alojados: number;

@@ -2,16 +2,20 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowUpDown, ChevronRight, Download, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { fmtEuro, fmtNum, fmtPct, TARGET_OPORTUNIDAD } from "@/lib/mock-data";
+import { facturacionPotencial, fmtEuro, fmtNum, fmtPct, TARGET_OPORTUNIDAD } from "@/lib/mock-data";
 import { exportarCsv } from "@/lib/export-csv";
 import { Button } from "@/components/ui/button";
 import type { HotelReal } from "@/lib/hoteles-api";
 
 type Key = "name" | "zona" | "sociedad" | "alojados" | "desayunos" | "penetracion" | "produccion" | "precioMedio" | "oportunidad";
 
+// Misma base que la columna "Penetración" (directa, sin colaborador — ver
+// backend/core/hoteles/service.py): calcular el hueco sobre "desayunos"
+// (incluye colaborador) mezclaría dos cifras con numerador distinto y daría
+// una oportunidad artificialmente baja en hoteles con fuerte venta a
+// colaborador, aunque su penetración directa sea crítica.
 function oportunidad(h: HotelReal) {
-  const potenciales = Math.max(0, Math.round(h.alojados * TARGET_OPORTUNIDAD - h.desayunos));
-  return potenciales * h.precioMedio;
+  return facturacionPotencial(h.alojados, h.penetracion, h.precioMedioVenta, TARGET_OPORTUNIDAD);
 }
 
 const cols: Array<{ key: Key; label: string; align?: "right"; render: (h: HotelReal) => string; sticky?: boolean }> = [

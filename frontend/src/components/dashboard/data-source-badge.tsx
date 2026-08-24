@@ -1,10 +1,25 @@
-import { Database, Radio } from "lucide-react";
+import { Database, FlaskConical, Radio } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type OrigenDatos = "odoo" | "cache";
+export type OrigenDatos = "odoo" | "cache" | "ejemplo";
 
 export function DataSourceBadge({ origen }: { origen?: OrigenDatos }) {
   if (!origen) return null;
+
+  if (origen === "ejemplo") {
+    return (
+      <span
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium",
+          "animate-in fade-in duration-500 border-warning/30 bg-warning/10 text-warning"
+        )}
+        title="Esta sección todavía no está conectada a Odoo: los datos son de ejemplo (generados al azar), no reales."
+      >
+        <FlaskConical className="h-3 w-3" />
+        Datos de ejemplo
+      </span>
+    );
+  }
 
   const enVivo = origen === "odoo";
   return (

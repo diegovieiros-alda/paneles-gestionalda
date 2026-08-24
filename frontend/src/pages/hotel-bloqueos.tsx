@@ -57,9 +57,21 @@ function OcupacionSection({ hotelId }: { hotelId: string }) {
       {data?.hotel && (
         <>
           <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
-            <KpiCard label="Inventario" value={fmtNum(data.hotel.kpis.totalInventario)} tone="neutral" />
-            <KpiCard label="Ocupación" value={`${data.hotel.kpis.porcentajeOcupacion}%`} tone="positive" />
-            <KpiCard label="Libres" value={`${data.hotel.kpis.porcentajeLibre}%`} tone="neutral" />
+            <KpiCard
+              label="Inventario"
+              value={data.hotel.kpis.totalInventario !== null ? fmtNum(data.hotel.kpis.totalInventario) : "—"}
+              tone="neutral"
+            />
+            <KpiCard
+              label="Ocupación"
+              value={data.hotel.kpis.porcentajeOcupacion !== null ? `${data.hotel.kpis.porcentajeOcupacion}%` : "—"}
+              tone="positive"
+            />
+            <KpiCard
+              label="Libres"
+              value={data.hotel.kpis.porcentajeLibre !== null ? `${data.hotel.kpis.porcentajeLibre}%` : "—"}
+              tone="neutral"
+            />
             <KpiCard
               label="ADR aplicado"
               value={data.hotel.kpis.adrUtilizado !== null ? `${data.hotel.kpis.adrUtilizado.toFixed(2)}€` : "—"}

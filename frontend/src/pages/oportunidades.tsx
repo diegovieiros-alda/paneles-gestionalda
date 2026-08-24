@@ -19,7 +19,11 @@ export default function OportunidadesPage() {
   const a = aggregate();
 
   return (
-    <DashboardShell title="Oportunidades" subtitle="Facturación potencial no capturada · ordenado por impacto">
+    <DashboardShell
+      title="Oportunidades"
+      subtitle="Facturación potencial no capturada · ordenado por impacto"
+      origenDatos="ejemplo"
+    >
       <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
         <section className="rounded-xl border border-border bg-gradient-to-br from-primary/8 via-surface to-surface p-6 shadow-soft">
           <div className="grid gap-6 md:grid-cols-3">

@@ -234,18 +234,3 @@ def hotel_bloqueos(request, hotel_id):
             "origenDatos": origen_datos(t),
         }
     )
-
-
-@requiere_dashboard("donde_actuar")
-def resumen(request):
-    hoy = datetime.date.today()
-    fecha_inicio = hoy.replace(day=1)
-
-    try:
-        with tracking() as t:
-            data = get_resumen(fecha_inicio, hoy)
-        data["origenDatos"] = origen_datos(t)
-        return JsonResponse(data)
-    except Exception:
-        logger.exception("Error al generar el resumen general")
-        return JsonResponse({"error": "No se pudo obtener el resumen"}, status=502)
