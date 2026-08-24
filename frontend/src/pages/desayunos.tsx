@@ -8,6 +8,10 @@ import { DesayunosOrigenDatos } from "@/components/dashboard/desayunos-origen-da
 import { EvolutionChartReal } from "@/components/dashboard/evolution-chart-real";
 import { IngresosGastosChart } from "@/components/dashboard/ingresos-gastos-chart";
 import { PrecioCosteChart } from "@/components/dashboard/precio-coste-chart";
+import { ObjetivoPenetracionCard } from "@/components/dashboard/objetivo-penetracion-card";
+import { AlertsBlockReal } from "@/components/dashboard/alerts-block-real";
+import { RankingListReal } from "@/components/dashboard/ranking-list-real";
+import { OpportunityBlockReal } from "@/components/dashboard/opportunity-block-real";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchDesayunos, type HotelReal, type SerieMensual, type Vendedor } from "@/lib/hoteles-api";
 import { rangeForPreset, type RangePreset } from "@/lib/date-range";
@@ -69,6 +73,14 @@ export default function DesayunosPage() {
 
         {hoteles && (
           <>
+            <SectionTitle title="¿Dónde actuar hoy?" subtitle="Hoteles a priorizar, ordenados por impacto — elige uno para ver su ficha" />
+            <ObjetivoPenetracionCard hoteles={hoteles} />
+            <div className="grid gap-6 lg:grid-cols-2">
+              <AlertsBlockReal hoteles={hoteles} />
+              <RankingListReal hoteles={hoteles} />
+            </div>
+            <OpportunityBlockReal hoteles={hoteles} />
+
             <SectionTitle title="Rendimiento operativo" subtitle="PMS · producción y penetración por hotel (incluye colaborador, salvo penetración)" />
             {serieMensual.length > 0 && <EvolutionChartReal serie={serieMensual} />}
             <HotelsTableReal hoteles={hoteles} />
