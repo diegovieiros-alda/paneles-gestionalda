@@ -5,11 +5,21 @@ import {
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 
-type NavItem = { to: string; label: string; icon: LucideIcon; dashboard: string };
+type NavChild = { to: string; label: string };
+type NavItem = { to: string; label: string; icon: LucideIcon; dashboard: string; children?: NavChild[] };
 
 export const NAV: readonly NavItem[] = [
   { to: "/bloqueos", label: "Bloqueos", icon: Ban, dashboard: "bloqueos" },
-  { to: "/desayunos", label: "Desayunos", icon: Coffee, dashboard: "desayunos" },
+  {
+    to: "/desayunos",
+    label: "Desayunos",
+    icon: Coffee,
+    dashboard: "desayunos",
+    children: [
+      { to: "/desayunos/donde-actuar", label: "¿Dónde actuar hoy?" },
+      { to: "/desayunos/detalle", label: "Detalle completo" },
+    ],
+  },
   { to: "/oportunidades", label: "Oportunidades", icon: Sparkles, dashboard: "oportunidades" },
   { to: "/tendencias", label: "Tendencias", icon: TrendingUp, dashboard: "tendencias" },
   { to: "/alertas", label: "Alertas", icon: Bell, dashboard: "alertas" },
@@ -39,18 +49,39 @@ export function Sidebar() {
           const active = pathname.startsWith(n.to);
           const Icon = n.icon;
           return (
-            <Link
-              key={n.to}
-              to={n.to}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/80 transition-colors",
-                "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-                active && "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+            <div key={n.to}>
+              <Link
+                to={n.to}
+                className={cn(
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/80 transition-colors",
+                  "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                  active && "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {n.label}
+              </Link>
+              {n.children && active && (
+                <div className="ml-[1.125rem] mt-0.5 mb-1 space-y-0.5 border-l border-sidebar-border pl-3">
+                  {n.children.map((c) => {
+                    const childActive = pathname === c.to;
+                    return (
+                      <Link
+                        key={c.to}
+                        to={c.to}
+                        className={cn(
+                          "block rounded-md px-2 py-1.5 text-xs text-sidebar-foreground/70 transition-colors",
+                          "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                          childActive && "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+                        )}
+                      >
+                        {c.label}
+                      </Link>
+                    );
+                  })}
+                </div>
               )}
-            >
-              <Icon className="h-4 w-4" />
-              {n.label}
-            </Link>
+            </div>
           );
         })}
       </nav>

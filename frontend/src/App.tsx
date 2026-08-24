@@ -4,6 +4,8 @@ import HotelDesayunosPage from "@/pages/hotel-desayunos";
 import HotelBloqueosPage from "@/pages/hotel-bloqueos";
 import BloqueosPage from "@/pages/bloqueos";
 import DesayunosPage from "@/pages/desayunos";
+import DesayunosDondeActuarPage from "@/pages/desayunos-donde-actuar";
+import DesayunosDetallePage from "@/pages/desayunos-detalle";
 import TendenciasPage from "@/pages/tendencias";
 import AlertasPage from "@/pages/alertas";
 import AjustesPage from "@/pages/ajustes";
@@ -64,6 +66,8 @@ function App() {
           <Route path="/bloqueos" element={<ProtectedRoute dashboard="bloqueos"><BloqueosPage /></ProtectedRoute>} />
           <Route path="/bloqueos/:hotelId" element={<ProtectedRoute dashboard="bloqueos"><HotelBloqueosPage /></ProtectedRoute>} />
           <Route path="/desayunos" element={<ProtectedRoute dashboard="desayunos"><DesayunosPage /></ProtectedRoute>} />
+          <Route path="/desayunos/donde-actuar" element={<ProtectedRoute dashboard="desayunos"><DesayunosDondeActuarPage /></ProtectedRoute>} />
+          <Route path="/desayunos/detalle" element={<ProtectedRoute dashboard="desayunos"><DesayunosDetallePage /></ProtectedRoute>} />
           <Route path="/desayunos/:hotelId" element={<ProtectedRoute dashboard="desayunos"><HotelDesayunosPage /></ProtectedRoute>} />
           <Route path="/oportunidades" element={<ProtectedRoute dashboard="oportunidades"><OportunidadesPage /></ProtectedRoute>} />
           <Route path="/tendencias" element={<ProtectedRoute dashboard="tendencias"><TendenciasPage /></ProtectedRoute>} />

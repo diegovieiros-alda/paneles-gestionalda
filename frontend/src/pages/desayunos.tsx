@@ -1,159 +1,103 @@
-import { useEffect, useState } from "react";
-import { Coffee, LayoutList, Target } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Link } from "react-router-dom";
+import { ArrowRight, Coffee, LayoutList, Target, type LucideIcon } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard/shell";
-import { HotelsTableReal } from "@/components/dashboard/hotels-table-real";
-import { FnbResumenCards } from "@/components/dashboard/fnb-resumen-cards";
-import { FnbFinancieroTable } from "@/components/dashboard/fnb-financiero-table";
-import { VendedoresPanel } from "@/components/dashboard/vendedores-panel";
-import { DesayunosOrigenDatos } from "@/components/dashboard/desayunos-origen-datos";
-import { EvolutionChartReal } from "@/components/dashboard/evolution-chart-real";
-import { IngresosGastosChart } from "@/components/dashboard/ingresos-gastos-chart";
-import { PrecioCosteChart } from "@/components/dashboard/precio-coste-chart";
-import { ObjetivoPenetracionCard } from "@/components/dashboard/objetivo-penetracion-card";
-import { AlertsBlockReal } from "@/components/dashboard/alerts-block-real";
-import { RankingListReal } from "@/components/dashboard/ranking-list-real";
-import { OpportunityBlockReal } from "@/components/dashboard/opportunity-block-real";
-import { Skeleton } from "@/components/ui/skeleton";
-import { fetchDesayunos, type HotelReal, type SerieMensual, type Vendedor } from "@/lib/hoteles-api";
-import { rangeForPreset, type RangePreset } from "@/lib/date-range";
-import { RangeFilter } from "@/components/dashboard/range-filter";
-import { SectionTitle } from "@/components/dashboard/section-title";
+import { cn } from "@/lib/utils";
 
-type Tab = "accion" | "detalle";
+type Destino = {
+  to: string;
+  icon: LucideIcon;
+  title: string;
+  desc: string;
+  items: string[];
+  accent: "primary" | "neutral";
+};
 
-const TABS: { key: Tab; label: string; icon: typeof Target }[] = [
-  { key: "accion", label: "¿Dónde actuar hoy?", icon: Target },
-  { key: "detalle", label: "Detalle completo", icon: LayoutList },
+const DESTINOS: Destino[] = [
+  {
+    to: "/desayunos/donde-actuar",
+    icon: Target,
+    title: "¿Dónde actuar hoy?",
+    desc: "Qué hoteles priorizar ahora mismo, con enlace directo a cada uno.",
+    items: [
+      "Objetivo de penetración y cuánto falta",
+      "Hoteles con penetración crítica",
+      "Ranking y facturación potencial no capturada",
+    ],
+    accent: "primary",
+  },
+  {
+    to: "/desayunos/detalle",
+    icon: LayoutList,
+    title: "Detalle completo",
+    desc: "El desglose operativo y financiero, hotel por hotel.",
+    items: [
+      "Producción y penetración (PMS)",
+      "Ingresos, gastos y margen (F&B contable)",
+      "Vendedores y metodología",
+    ],
+    accent: "neutral",
+  },
 ];
 
 export default function DesayunosPage() {
-  const [tab, setTab] = useState<Tab>("accion");
-  const [preset, setPreset] = useState<RangePreset>("mes");
-  const [custom, setCustom] = useState(() => rangeForPreset("mes"));
-  const [hoteles, setHoteles] = useState<HotelReal[] | null>(null);
-  const [serieMensual, setSerieMensual] = useState<SerieMensual[]>([]);
-  const [vendedores, setVendedores] = useState<Vendedor[]>([]);
-  const [origenDatos, setOrigenDatos] = useState<"odoo" | "cache" | undefined>();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const { desde, hasta } = preset === "custom" ? custom : rangeForPreset(preset);
-
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
-    fetchDesayunos(desde, hasta)
-      .then((data) => {
-        setHoteles(data.hoteles);
-        setSerieMensual(data.serieMensual);
-        setVendedores(data.vendedores ?? []);
-        setOrigenDatos(data.origenDatos);
-      })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [desde, hasta]);
-
   return (
-    <DashboardShell
-      title="Desayunos"
-      subtitle="Producción, penetración y financiero F&B de desayuno · datos reales de Odoo"
-      origenDatos={origenDatos}
-    >
-      <RangeFilter
-        preset={preset}
-        custom={custom}
-        onPreset={(p) => {
-          setPreset(p);
-          if (p !== "custom") setCustom(rangeForPreset(p));
-        }}
-        onCustom={setCustom}
-      />
-
-      <div className="p-6 max-w-[1600px] mx-auto space-y-6">
-        <section className="flex gap-3 rounded-xl border border-border bg-surface-muted/40 p-4">
-          <div className="grid place-items-center h-9 w-9 rounded-lg bg-primary/10 text-primary shrink-0">
-            <Coffee className="h-4 w-4" />
+    <DashboardShell title="Desayunos" subtitle="Producción, penetración y financiero F&B de desayuno · datos reales de Odoo">
+      <div className="p-6 max-w-[1000px] mx-auto space-y-8">
+        <section className="flex gap-4">
+          <div className="grid place-items-center h-11 w-11 rounded-xl bg-primary/10 text-primary shrink-0">
+            <Coffee className="h-5 w-5" />
           </div>
-          <div className="text-xs text-muted-foreground leading-relaxed">
-            <p>
-              <b className="text-foreground">Qué es este panel:</b> producción, penetración y resultado financiero (F&amp;B) del
-              desayuno de todos los hoteles, con datos en vivo de Odoo — PMS (lo vendido en recepción/folio) y Contabilidad (lo ya
-              facturado).
-            </p>
-            <p className="mt-1">
-              Usa <b className="text-foreground">¿Dónde actuar hoy?</b> para ver qué hoteles priorizar, o{" "}
-              <b className="text-foreground">Detalle completo</b> para el desglose operativo, financiero y de vendedores por hotel.
+          <div>
+            <h2 className="text-base font-semibold text-foreground">Qué es este panel</h2>
+            <p className="mt-1 text-sm text-muted-foreground leading-relaxed max-w-2xl">
+              Reúne los datos reales de desayuno de todos los hoteles: lo vendido en recepción/folio (PMS) y lo ya
+              facturado en contabilidad — en vivo desde Odoo. Elige por dónde entrar:
             </p>
           </div>
         </section>
 
-        <div className="flex gap-1.5 border-b border-border">
-          {TABS.map((t) => {
-            const Icon = t.icon;
-            const active = tab === t.key;
+        <div className="grid gap-5 sm:grid-cols-2">
+          {DESTINOS.map((d) => {
+            const Icon = d.icon;
+            const primary = d.accent === "primary";
             return (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
+              <Link
+                key={d.to}
+                to={d.to}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors",
-                  active
-                    ? "border-primary text-primary"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
+                  "group relative flex flex-col rounded-2xl border p-6 shadow-soft transition-all duration-200",
+                  "hover:-translate-y-0.5 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                  primary
+                    ? "border-primary/20 bg-gradient-to-br from-primary/[0.07] via-surface to-surface hover:border-primary/40"
+                    : "border-border bg-surface hover:border-foreground/25"
                 )}
               >
-                <Icon className="h-4 w-4" />
-                {t.label}
-              </button>
+                <div
+                  className={cn(
+                    "grid place-items-center h-10 w-10 rounded-lg mb-4",
+                    primary ? "bg-primary/10 text-primary" : "bg-secondary text-secondary-foreground"
+                  )}
+                >
+                  <Icon className="h-5 w-5" />
+                </div>
+                <h3 className="text-lg font-semibold text-foreground">{d.title}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{d.desc}</p>
+                <ul className="mt-4 space-y-1.5">
+                  {d.items.map((it) => (
+                    <li key={it} className="text-xs text-muted-foreground/90 flex gap-2">
+                      <span className={cn("mt-0.5", primary ? "text-primary/70" : "text-foreground/40")}>•</span>
+                      {it}
+                    </li>
+                  ))}
+                </ul>
+                <div className={cn("mt-5 inline-flex items-center gap-1 text-sm font-medium", primary ? "text-primary" : "text-foreground")}>
+                  Entrar
+                  <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                </div>
+              </Link>
             );
           })}
         </div>
-
-        {error && (
-          <div className="rounded-xl border border-danger/30 bg-danger/5 p-4 text-sm text-danger">{error}</div>
-        )}
-        {loading && !hoteles && (
-          <div className="space-y-6">
-            <Skeleton className="h-72 rounded-xl" />
-            <Skeleton className="h-96 rounded-xl" />
-          </div>
-        )}
-
-        {hoteles && tab === "accion" && (
-          <>
-            <ObjetivoPenetracionCard hoteles={hoteles} />
-            <div className="grid gap-6 lg:grid-cols-2">
-              <AlertsBlockReal hoteles={hoteles} />
-              <RankingListReal hoteles={hoteles} />
-            </div>
-            <OpportunityBlockReal hoteles={hoteles} />
-          </>
-        )}
-
-        {hoteles && tab === "detalle" && (
-          <>
-            <SectionTitle title="Rendimiento operativo" subtitle="PMS · producción y penetración por hotel (incluye colaborador, salvo penetración)" />
-            {serieMensual.length > 0 && <EvolutionChartReal serie={serieMensual} />}
-            <HotelsTableReal hoteles={hoteles} />
-
-            <SectionTitle title="Financiero F&B" subtitle="Contabilidad · ingresos, gastos, margen y presupuesto (excluye colaborador)" />
-            <FnbResumenCards hoteles={hoteles} />
-            {serieMensual.length > 0 && (
-              <div className="grid gap-6 lg:grid-cols-2">
-                <IngresosGastosChart serie={serieMensual} />
-                <PrecioCosteChart serie={serieMensual} />
-              </div>
-            )}
-            <FnbFinancieroTable hoteles={hoteles} />
-
-            <SectionTitle title="Vendedores" />
-            <VendedoresPanel vendedores={vendedores} />
-
-            <SectionTitle title="Metodología" />
-            <DesayunosOrigenDatos />
-          </>
-        )}
       </div>
     </DashboardShell>
   );
