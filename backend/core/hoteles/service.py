@@ -1,6 +1,9 @@
 """Listado de Hoteles con datos reales de Odoo: ocupación, producción de
-desayunos y financiero F&B (ingresos/gastos/presupuesto contable). No
-incluye regional/submarca/tipo (no existen en el PMS, solo zona y sociedad).
+desayunos y financiero F&B (ingresos/gastos/presupuesto contable). No incluye
+regional/tipo/segmento (no existen en el PMS ni está previsto añadirlos).
+Submarca sí existe (res_partner.brand_id, ver repository.fetch_submarcas) —
+"Sin submarca" cuando el hotel no tiene marca asignada (43% de los casos,
+verificado 2026-08-24), no se oculta ese hueco.
 
 "desayunos"/"produccion"/"precioMedio" incluyen colaborador (es dinero y
 unidades reales); solo "penetracion" lo excluye (no son huéspedes alojados
@@ -60,11 +63,16 @@ def _fnb_json(f: dict, presupuesto: dict = _PRESUPUESTO_VACIO) -> dict:
 _CALIDAD_CHECKIN_VACIO = {"declarado": 0, "checkin": 0, "reservasTotal": 0, "reservasSinCheckin": 0}
 
 
-def get_hoteles(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict:
+def get_hoteles(
+    fecha_inicio: datetime.date,
+    fecha_fin: datetime.date,
+    tipos_desayuno: tuple[str, ...] | None = None,
+) -> dict:
     hoteles = repository.fetch_hoteles()
     companies = repository.fetch_companies()
+    submarcas = repository.fetch_submarcas()
     alojados = repository.fetch_alojados(fecha_inicio, fecha_fin)
-    desayunos = repository.fetch_desayunos(fecha_inicio, fecha_fin)
+    desayunos = repository.fetch_desayunos(fecha_inicio, fecha_fin, tipos_desayuno)
     fnb = repository.fetch_fnb_desayuno(fecha_inicio, fecha_fin)
     presupuesto = repository.fetch_presupuesto_desayuno(fecha_inicio, fecha_fin)
     calidad_checkin = repository.fetch_calidad_checkin(fecha_inicio, fecha_fin)
@@ -81,8 +89,10 @@ def get_hoteles(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict:
             {
                 "id": h["id"],
                 "name": h["name"],
+                "codigo": h["property_code"],
                 "zona": zona_de(h["property_code"]),
                 "sociedad": companies.get(h["company_id"], "—"),
+                "submarca": submarcas.get(h["id"]) or "Sin submarca",
                 "alojados": a,
                 "desayunos": round(d["cantidad_total"]),
                 "penetracion": round(penetracion, 4),
@@ -114,13 +124,17 @@ def _hace_n_meses(fecha: datetime.date, n: int) -> datetime.date:
     return fecha.replace(year=anio, month=mes, day=1)
 
 
-def get_resumen(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict:
+def get_resumen(
+    fecha_inicio: datetime.date,
+    fecha_fin: datetime.date,
+    tipos_desayuno: tuple[str, ...] | None = None,
+) -> dict:
     """Resumen para la portada: hoteles del periodo (para alertas/ranking/
     oportunidad) + serie mensual de los últimos 12 meses (para los gráficos
     de evolución) + top vendedores de desayuno del periodo, en una sola
     llamada. La serie mensual junta PMS (desayunos/producción) y contable
     (ingresos/gastos/margen) por mes — dos fuentes distintas, ver _fnb_json."""
-    datos = get_hoteles(fecha_inicio, fecha_fin)
+    datos = get_hoteles(fecha_inicio, fecha_fin, tipos_desayuno)
     inicio_serie = _hace_n_meses(fecha_fin, 11)
     serie = repository.fetch_serie_mensual(inicio_serie, fecha_fin)
     fnb_por_mes = repository.fetch_fnb_serie_mensual(inicio_serie, fecha_fin)
@@ -142,11 +156,14 @@ def get_hotel_info(hotel_id: int) -> dict | None:
     if h is None or es_hotel_excluido(h["id"], h["property_code"]):
         return None
     companies = repository.fetch_companies()
+    submarcas = repository.fetch_submarcas()
     return {
         "id": h["id"],
         "name": h["name"],
+        "codigo": h["property_code"],
         "zona": zona_de(h["property_code"]),
         "sociedad": companies.get(h["company_id"], "—"),
+        "submarca": submarcas.get(h["id"]) or "Sin submarca",
     }
 
 

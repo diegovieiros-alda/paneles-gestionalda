@@ -29,6 +29,14 @@ from ..cache import cache_result
 _REGIMENES_DESAYUNO = ("AD", "ADB", "ADE", "ADN", "DESCOL", "DESGRUP", "DESGRUPCOL", "DESNEGCOL", "SAD")
 _REGIMENES_COLABORADOR = ("DESCOL", "DESNEGCOL", "DESGRUPCOL")
 
+# Tipo Desayuno (filtro de negocio, distinto del régimen de arriba): un mismo
+# régimen mezcla productos de tipo distinto (ej. "ADE" tiene tanto "Desayuno
+# Infantil" como "Express Breakfast", verificado 2026-08-24) — se clasifica
+# por NOMBRE del producto, no por régimen. Lo que no encaja en
+# buffet/express/colaborador (Grupos, Negociado, Infantil suelto) cae en
+# "otros" — decisión explícita, no repartirlo en las otras 3.
+_TODOS_TIPOS_DESAYUNO = ("buffet", "express", "colaborador", "otros")
+
 # KPIs financieros F&B (Ingresos/Gastos/Margen), definidos por el
 # departamento financiero vía cuenta contable — no por régimen PMS, y
 # excluyen colaborador por completo (ni ingresos ni gastos), a diferencia de
@@ -47,6 +55,20 @@ _HOTELES_SQL = """
 """
 
 _COMPANIES_SQL = "SELECT id, name FROM res_company"
+
+# Submarca (Basic/Standard/Plus/Nomad): pms_property.partner_id -> res_partner
+# .brand_id -> res_brand.partner_id -> res_partner.name (res_brand no tiene
+# columna "name" propia, la marca es a su vez un partner). No depende de
+# fecha_inicio/fecha_fin. 57 de 132 hoteles no tienen brand_id asignado
+# (verificado 2026-08-24) -> service.get_hoteles() resuelve ese None como
+# "Sin submarca", igual que zona_de() resuelve "Zona No Definida".
+_SUBMARCAS_SQL = """
+    SELECT prop.id, brand_partner.name
+    FROM pms_property prop
+    JOIN res_partner partner ON partner.id = prop.partner_id
+    LEFT JOIN res_brand brand ON brand.id = partner.brand_id
+    LEFT JOIN res_partner brand_partner ON brand_partner.id = brand.partner_id
+"""
 
 # Personas-noche, no habitaciones-noche: una habitación puede alojar varios
 # adultos (p.ej. las propiedades "Rooms", con habitaciones de hasta 4), así
@@ -144,6 +166,56 @@ _DESAYUNOS_SQL = (
 """
 )
 
+# Variante de _CTES_DESAYUNO/_DESAYUNOS_SQL que añade la clasificación por
+# Tipo Desayuno (ver _TODOS_TIPOS_DESAYUNO) y filtra por ella. Deliberadamente
+# UNA QUERY APARTE, no una modificación de las de arriba: así el camino sin
+# filtro (tipos_desayuno=None o los 4 completos) sigue ejecutando la SQL
+# original sin tocar, byte a byte — cero riesgo de cambiar el número de
+# Penetración/Producción que ya usa toda la app cuando no se pide este filtro.
+_CTES_DESAYUNO_CON_TIPO = (
+    _CTES_DESAYUNO
+    + """,
+    -- productos_desayuno puede tener varias filas por product_id (un mismo
+    -- producto puede estar ligado a más de un régimen/room-type-line), por
+    -- eso se deduplica el product_id ANTES de unir con product_template: si
+    -- no, el join de abajo (pty.product_id = fsl.product_id) multiplicaría
+    -- filas de fsl por cada fila duplicada, inflando las sumas por encima
+    -- del total real (bug de cardinalidad verificado 2026-08-24, mismo
+    -- patrón que la CTE "facturado" ya evita para las facturas).
+    producto_tipo AS (
+        SELECT pid.product_id,
+               CASE
+                   WHEN pt.name->>'es_ES' ILIKE '%%express%%' THEN 'express'
+                   WHEN pt.name->>'es_ES' ILIKE '%%buffet%%' THEN 'buffet'
+                   WHEN pt.name->>'es_ES' ILIKE '%%colaborador%%' THEN 'colaborador'
+                   ELSE 'otros'
+               END AS tipo_desayuno
+        FROM (SELECT DISTINCT product_id FROM productos_desayuno) pid
+        JOIN product_product pp ON pp.id = pid.product_id
+        JOIN product_template pt ON pt.id = pp.product_tmpl_id
+    )
+"""
+)
+
+_DESAYUNOS_SQL_CON_TIPO = (
+    _CTES_DESAYUNO_CON_TIPO
+    + """
+    SELECT
+        fsl.pms_property_id,
+        SUM(fsl.product_uom_qty) FILTER (WHERE pd.default_code != ALL(%(colaborador)s)) AS cantidad_directa,
+        SUM(fsl.product_uom_qty) AS cantidad_total,
+        SUM(COALESCE(f.monto_facturado, fsl.price_subtotal)) AS produccion_total
+    FROM folio_sale_line fsl
+    JOIN productos_desayuno pd ON pd.product_id = fsl.product_id
+    JOIN producto_tipo pty ON pty.product_id = fsl.product_id
+    LEFT JOIN facturado f ON f.sale_line_id = fsl.id
+    WHERE fsl.date_order BETWEEN %(desde)s AND %(hasta)s
+      AND fsl.state NOT IN ('draft', 'cancel')
+      AND pty.tipo_desayuno = ANY(%(tipos)s)
+    GROUP BY fsl.pms_property_id
+"""
+)
+
 _SERIE_MENSUAL_SQL = (
     _CTES_DESAYUNO
     + """
@@ -196,6 +268,14 @@ def fetch_companies() -> dict[int, str]:
 
 
 @cache_result
+def fetch_submarcas() -> dict[int, str | None]:
+    with connections["odoo"].cursor() as cur:
+        cur.execute(_SUBMARCAS_SQL)
+        rows = cur.fetchall()
+    return dict(rows)
+
+
+@cache_result
 def fetch_alojados(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[int, int]:
     with connections["odoo"].cursor() as cur:
         cur.execute(_ALOJADOS_SQL, [fecha_inicio, fecha_fin])
@@ -222,17 +302,25 @@ def fetch_calidad_checkin(fecha_inicio: datetime.date, fecha_fin: datetime.date)
 
 
 @cache_result
-def fetch_desayunos(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[int, dict]:
+def fetch_desayunos(
+    fecha_inicio: datetime.date,
+    fecha_fin: datetime.date,
+    tipos_desayuno: tuple[str, ...] | None = None,
+) -> dict[int, dict]:
+    filtrado = tipos_desayuno is not None and set(tipos_desayuno) != set(_TODOS_TIPOS_DESAYUNO)
+    params = {
+        "regimenes": list(_REGIMENES_DESAYUNO),
+        "colaborador": list(_REGIMENES_COLABORADOR),
+        "desde": fecha_inicio,
+        "hasta": fecha_fin,
+    }
+    if filtrado:
+        sql = _DESAYUNOS_SQL_CON_TIPO
+        params["tipos"] = list(tipos_desayuno)
+    else:
+        sql = _DESAYUNOS_SQL
     with connections["odoo"].cursor() as cur:
-        cur.execute(
-            _DESAYUNOS_SQL,
-            {
-                "regimenes": list(_REGIMENES_DESAYUNO),
-                "colaborador": list(_REGIMENES_COLABORADOR),
-                "desde": fecha_inicio,
-                "hasta": fecha_fin,
-            },
-        )
+        cur.execute(sql, params)
         rows = cur.fetchall()
     return {
         r[0]: {"cantidad": float(r[1] or 0), "cantidad_total": float(r[2] or 0), "produccion": float(r[3] or 0)}

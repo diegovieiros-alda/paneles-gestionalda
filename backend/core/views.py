@@ -111,6 +111,22 @@ def _parse_fecha(value: str | None) -> datetime.date | None:
         raise ValueError(f"Fecha inválida: {value!r} (formato esperado YYYY-MM-DD)")
 
 
+_TIPOS_DESAYUNO_VALIDOS = {"buffet", "express", "colaborador", "otros"}
+
+
+def _parse_tipos_desayuno(request) -> tuple[str, ...] | None:
+    """?tipo=buffet,express — None si no se pasa (sin filtro, comportamiento
+    de siempre)."""
+    raw = request.GET.get("tipo")
+    if not raw:
+        return None
+    tipos = tuple(t for t in raw.split(",") if t)
+    invalidos = set(tipos) - _TIPOS_DESAYUNO_VALIDOS
+    if invalidos:
+        raise ValueError(f"Tipo de desayuno inválido: {', '.join(sorted(invalidos))}")
+    return tipos
+
+
 @requiere_dashboard("bloqueos")
 def bloqueos(request):
     try:
@@ -150,7 +166,7 @@ def hotel_detalle(request, hotel_id):
     return JsonResponse({**datos, "origenDatos": origen_datos(t)})
 
 
-def _rango_mes_por_defecto(request):
+def _rango_mes_por_defecto(request, max_dias: int = MAX_RANGO_DIAS):
     try:
         fecha_inicio = _parse_fecha(request.GET.get("desde"))
         fecha_fin = _parse_fecha(request.GET.get("hasta"))
@@ -163,22 +179,33 @@ def _rango_mes_por_defecto(request):
 
     if fecha_fin < fecha_inicio:
         return None, None, JsonResponse({"error": "'hasta' no puede ser anterior a 'desde'"}, status=400)
-    if (fecha_fin - fecha_inicio).days + 1 > MAX_RANGO_DIAS:
+    if (fecha_fin - fecha_inicio).days + 1 > max_dias:
         return None, None, JsonResponse(
-            {"error": f"El rango máximo permitido es de {MAX_RANGO_DIAS} días"}, status=400
+            {"error": f"El rango máximo permitido es de {max_dias} días"}, status=400
         )
     return fecha_inicio, fecha_fin, None
 
 
+# Desayunos admite rangos de hasta un año fiscal (filtro "Año fiscal",
+# 01/10-30/09) — más permisivo que MAX_RANGO_DIAS (92, usado por Bloqueos,
+# que no cambia). get_resumen() ya consulta 12 meses de serieMensual sin
+# problema, así que esta escala ya está probada.
+MAX_RANGO_DIAS_DESAYUNOS = 370
+
+
 @requiere_dashboard("desayunos")
 def desayunos(request):
-    fecha_inicio, fecha_fin, error_response = _rango_mes_por_defecto(request)
+    fecha_inicio, fecha_fin, error_response = _rango_mes_por_defecto(request, MAX_RANGO_DIAS_DESAYUNOS)
     if error_response is not None:
         return error_response
+    try:
+        tipos_desayuno = _parse_tipos_desayuno(request)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400)
 
     try:
         with tracking() as t:
-            data = get_resumen(fecha_inicio, fecha_fin)
+            data = get_resumen(fecha_inicio, fecha_fin, tipos_desayuno)
         data["origenDatos"] = origen_datos(t)
         return JsonResponse(data)
     except Exception:
@@ -188,7 +215,7 @@ def desayunos(request):
 
 @requiere_dashboard("desayunos")
 def hotel_desayunos(request, hotel_id):
-    fecha_inicio, fecha_fin, error_response = _rango_mes_por_defecto(request)
+    fecha_inicio, fecha_fin, error_response = _rango_mes_por_defecto(request, MAX_RANGO_DIAS_DESAYUNOS)
     if error_response is not None:
         return error_response
 
