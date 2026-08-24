@@ -50,10 +50,12 @@ MAPEO_ZONAS: dict[str, str] = {
     "312": "Rias Baixas", "313": "Rias Baixas", "314": "Rias Baixas", "315": "Rias Baixas", "316": "Rias Baixas", "318": "Rias Baixas",
     "319": "Rias Baixas", "806": "Rias Baixas",
     "306": "Galicia Interior", "309": "Galicia Interior", "310": "Galicia Interior", "320": "Galicia Interior",
+    "321": "Galicia Interior",
     "406": "Asturias", "407": "Asturias", "409": "Asturias", "410": "Asturias", "411": "Asturias", "412": "Asturias", "415": "Asturias",
     "417": "Asturias", "419": "Asturias",
     "423": "Costa da Morte", "424": "Costa da Morte", "425": "Costa da Morte",
     "901": "Niuco", "902": "Niuco", "903": "Niuco", "904": "Niuco", "905": "Niuco", "906": "Niuco", "907": "Niuco", "908": "Niuco",
+    "909": "Niuco",
     "802": "Restauradores", "803": "Restauradores", "804": "Restauradores", "805": "Restauradores", "807": "Restauradores",
 }
 
