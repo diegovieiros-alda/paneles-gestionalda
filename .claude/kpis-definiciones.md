@@ -1673,3 +1673,18 @@ WHERE state NOT IN ('draft', 'cancel')
   `repository.py` — `_CUENTAS_GASTO_DESAYUNO` sigue declarando el código
   fantasma `60100000003`, sin efecto en ninguna cifra (verificado: no aporta
   filas), pendiente de una limpieza de bajo riesgo si se decide hacerla.
+- 2026-08-26: **verificado que los dos criterios de "colaborador" coinciden**
+  (duda abierta desde la revisión del filtro Tipo Desayuno, commit
+  `6077b1e`): `_REGIMENES_COLABORADOR` clasifica por código de régimen
+  (`DESCOL`/`DESNEGCOL`/`DESGRUPCOL`), mientras que `_CTES_DESAYUNO_CON_TIPO`
+  clasifica el bucket "colaborador" del filtro Tipo Desayuno por `ILIKE
+  '%colaborador%'` sobre el nombre del producto — dos mecanismos
+  independientes que, en teoría, podían no coincidir para el mismo producto.
+  Verificado contra producción, los 17 productos reales de
+  `productos_desayuno`: **coinciden exactamente** — los 6 productos bajo los
+  tres régimenes colaborador ("Desayuno Colaborador", "Desayuno Infantil
+  Colaborador" ×2, "Desayuno Grupos Colaborador", "Desayuno Grupos
+  Colaborador Infantil", "Desayuno Negociado Colaborador") son también los
+  únicos 6 que el `ILIKE` clasifica como tipo `colaborador`; ningún producto
+  de régimen no-colaborador cae en ese bucket. No hay fallo que corregir —
+  se documenta para no volver a abrir la misma duda sin necesidad.
