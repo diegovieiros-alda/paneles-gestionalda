@@ -1705,3 +1705,12 @@ WHERE state NOT IN ('draft', 'cancel')
     un importe, y no estaba cubierto por el punto 3 — **queda pendiente de
     confirmar** si "unidades" para estos ratios debe ser `SUM(quantity)` a
     secas o si necesita el mismo tipo de ajuste de signo antes de tocarlo.
+- 2026-08-26: **aprobado por administración y mergeado en `master`** el
+  cambio de `_FNB_SQL`/`_FNB_MENSUAL_SQL`/`_FNB_MENSUAL_HOTEL_SQL`/
+  `_VENDEDORES_SQL`/`_VENDEDORES_HOTEL_SQL` a saldo contable (PR #2, rama
+  `fix/fnb-desayuno-saldo-contable`). Las cifras de ingresos, gastos, margen
+  bruto y resultado F&B de desayuno en producción cambian desde este merge
+  según el delta ya documentado más arriba — dejan de estar "pendientes de
+  revalidar", son las vigentes en el dashboard real a partir de ahora. El
+  hallazgo de "unidades" (párrafo anterior) sigue sin corregir y sin
+  aprobar.
