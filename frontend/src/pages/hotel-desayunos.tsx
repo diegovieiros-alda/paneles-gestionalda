@@ -19,15 +19,27 @@ import { Button } from "@/components/ui/button";
 import { fetchHotelInfo, fetchHotelDesayunos, type HotelDirectorio, type HotelDesayunos } from "@/lib/hoteles-api";
 import { exportarCsv } from "@/lib/export-csv";
 import {
-  ETIQUETA_BADGE_CLASS, ETIQUETA_LABEL, etiquetaCumplimiento, fmtEuro, fmtNum, fmtPct,
+  ETIQUETA_BADGE_CLASS, ETIQUETA_LABEL, etiqueta, etiquetaCumplimiento,
+  fmtEuro, fmtNum, fmtPct, TARGET_PENETRACION, UMBRAL_PENETRACION, type Etiqueta,
 } from "@/lib/mock-data";
 import { rangeForPreset, type RangePreset } from "@/lib/date-range";
 import { Download } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { type KpiTone } from "@/components/dashboard/kpi-card";
 
 function mesCorto(iso: string) {
   return new Date(iso).toLocaleDateString("es-ES", { month: "short" });
 }
+
+// Mismo semáforo de 3 niveles que "¿Dónde actuar hoy?" (rojo/naranja/verde,
+// ver etiqueta() en mock-data) — antes esta ficha usaba un umbral propio de
+// solo 2 niveles (>=55% positive, si no warning), que no distinguía un
+// hotel crítico (<38%) de uno en seguimiento (38-55%).
+const TONE_POR_ETIQUETA: Record<Etiqueta, KpiTone> = {
+  verde: "positive",
+  naranja: "warning",
+  rojo: "negative",
+};
 
 export default function HotelDesayunosPage() {
   const { hotelId } = useParams<{ hotelId: string }>();
@@ -89,7 +101,11 @@ export default function HotelDesayunosPage() {
               <KpiCard label="Producción" value={fmtEuro(data.actual.produccion)} tone="neutral" />
               <KpiCard label="Alojados" value={fmtNum(data.actual.alojados)} tone="neutral" />
               <KpiCard label="Desayunos" value={fmtNum(data.actual.desayunos)} tone="neutral" />
-              <KpiCard label="Penetración" value={fmtPct(data.actual.penetracion)} tone={data.actual.penetracion >= 0.55 ? "positive" : "warning"} />
+              <KpiCard
+                label="Penetración"
+                value={fmtPct(data.actual.penetracion)}
+                tone={TONE_POR_ETIQUETA[etiqueta(data.actual.penetracion, UMBRAL_PENETRACION, TARGET_PENETRACION)]}
+              />
               <KpiCard label="Precio medio" value={`${data.actual.precioMedio.toFixed(2)}€`} tone="neutral" />
             </section>
 
