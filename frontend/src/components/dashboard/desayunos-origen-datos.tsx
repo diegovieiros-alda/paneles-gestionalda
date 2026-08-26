@@ -132,7 +132,7 @@ const FNB_CONTABLE: Campo[] = [
     calculo:
       "Ingresos presupuestados = credit − debit en la cuenta 70500000020. Gastos presupuestados = debit − credit en 60100000001/60100000002. Solo cuenta si el presupuesto está en estado confirmed.",
     porque:
-      "El signo es el habitual en contabilidad: en una cuenta de ingreso el importe vive en \"credit\", en una de gasto en \"debit\" — no al revés. Los presupuestos en borrador (draft) no son oficiales y se ignoran.",
+      "El signo es el habitual en contabilidad: en una cuenta de ingreso el importe vive en \"credit\", en una de gasto en \"debit\" — no al revés. Los presupuestos en borrador (draft) no son oficiales y se ignoran. El presupuesto se guarda por mes completo, así que si el rango de fechas elegido no es un mes (o varios meses) completo, no se calcula: mostrar el presupuesto del mes entero junto a un rango parcial daría un dato engañoso.",
     verificar: "Módulo de Presupuestos (Accounting Budgets) → presupuesto confirmado del hotel y periodo.",
   },
   {
@@ -140,7 +140,7 @@ const FNB_CONTABLE: Campo[] = [
     tipo: "derivado",
     queEs: "% del presupuesto ya alcanzado.",
     calculo: "Ingresos reales ÷ Presupuesto de ingresos (mismo cálculo para gastos).",
-    porque: "Se muestra vacío (—), no 0%, cuando no hay presupuesto confirmado — un 0% sugeriría erróneamente que no se vendió nada.",
+    porque: "Se muestra vacío (—), no 0%, cuando no hay presupuesto confirmado (un 0% sugeriría erróneamente que no se vendió nada) o cuando el rango elegido no es un mes completo (ver \"Presupuesto\" arriba).",
   },
 ];
 
