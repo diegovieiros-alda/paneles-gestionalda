@@ -58,13 +58,24 @@ const DESAYUNO_PMS: Campo[] = [
   {
     campo: "Producción",
     tipo: "pms",
-    queEs: "Dinero facturado por desayuno, incluyendo colaborador.",
+    queEs: "Dinero vendido por desayuno según el PMS, incluyendo colaborador — mezcla lo ya facturado con lo aún no facturado.",
     origen: "folio_sale_line + account_move_line si ya hay factura",
     calculo:
       "Importe ya facturado (factura del folio en estado posted) cuando existe; si aún no se ha facturado, el importe de producción del propio folio.",
     porque:
-      "Se prioriza el importe facturado porque es el dato contable definitivo; mientras no se facture, se usa el importe del folio como mejor estimación disponible — nunca se deja en blanco.",
+      "Se prioriza el importe facturado porque es el dato contable definitivo; mientras no se facture, se usa el importe del folio como mejor estimación disponible — nunca se deja en blanco. Ver \"Facturado\"/\"Sin facturar\" para el desglose de esta cifra.",
     verificar: "Si ya está facturada: el importe en la factura del folio. Si no: el importe de la línea en el folio, antes de facturar.",
+  },
+  {
+    campo: "Facturado / Sin facturar",
+    tipo: "pms",
+    queEs: "Desglose de \"Producción\": qué parte ya tiene factura posted vinculada y qué parte todavía no.",
+    origen: "mismas líneas que \"Producción\", separadas en vez de combinadas con un único importe",
+    calculo:
+      "Facturado = SUM del importe de factura de las líneas que sí tienen una factura posted vinculada. Sin facturar = SUM del importe del folio (price_subtotal) de las que no. Facturado + Sin facturar = Producción, siempre.",
+    porque:
+      "\"Producción\" combina ambas cosas en una sola cifra para no dejar nunca un hueco, pero eso oculta cuánto de la venta del periodo está aún pendiente de facturar — útil para ver el retraso de facturación, sobre todo en el mes en curso.",
+    verificar: "Contar cuántas líneas de folio de desayuno del rango no tienen ninguna factura posted vinculada todavía, y su importe.",
   },
   {
     campo: "Precio medio",

@@ -2,6 +2,7 @@ import { DashboardShell } from "@/components/dashboard/shell";
 import { RangeFilter } from "@/components/dashboard/range-filter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HotelsTableReal } from "@/components/dashboard/hotels-table-real";
+import { ProduccionResumenCards } from "@/components/dashboard/produccion-resumen-cards";
 import { FnbResumenCards } from "@/components/dashboard/fnb-resumen-cards";
 import { FnbFinancieroTable } from "@/components/dashboard/fnb-financiero-table";
 import { VendedoresPanel } from "@/components/dashboard/vendedores-panel";
@@ -38,6 +39,7 @@ export default function DesayunosDetallePage() {
         {hoteles && (
           <>
             <SectionTitle title="Rendimiento operativo" subtitle="PMS · producción y penetración por hotel (incluye colaborador, salvo penetración)" />
+            <ProduccionResumenCards hoteles={hoteles} />
             {serieMensual.length > 0 && <EvolutionChartReal serie={serieMensual} />}
             <HotelsTableReal hoteles={hoteles} />
 

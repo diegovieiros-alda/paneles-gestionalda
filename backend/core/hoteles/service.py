@@ -20,7 +20,15 @@ import datetime
 from ..bloqueos.engine import es_hotel_excluido, zona_de
 from . import repository
 
-_DESAYUNO_VACIO = {"cantidad": 0.0, "cantidad_total": 0.0, "produccion": 0.0}
+_DESAYUNO_VACIO = {
+    "cantidad": 0.0,
+    "cantidad_total": 0.0,
+    "cantidad_facturada": 0.0,
+    "cantidad_sin_facturar": 0.0,
+    "produccion": 0.0,
+    "produccion_facturada": 0.0,
+    "produccion_sin_facturar": 0.0,
+}
 _FNB_VACIO = {"ingresos": 0.0, "unidades": 0.0, "gastos": 0.0}
 _PRESUPUESTO_VACIO = {"presupuestoIngresos": 0.0, "presupuestoGastos": 0.0}
 
@@ -30,6 +38,20 @@ def _precio_medio(d: dict) -> float:
     repository._REGIMENES_COLABORADOR) — no dividir por "cantidad" (directa,
     sin colaborador), o el precio medio sale inflado."""
     return (d["produccion"] / d["cantidad_total"]) if d["cantidad_total"] > 0 else 0.0
+
+
+def _facturacion_json(d: dict) -> dict:
+    """Desglose de produccion/cantidad_total según tengan ya factura posted
+    vinculada (facturado) o no (sin_facturar, estimado con el precio del
+    folio — no es un hecho contable todavía). Ver repository._DESAYUNOS_SQL:
+    produccionFacturada + produccionSinFacturar == produccion siempre."""
+    return {
+        "desayunosFacturados": round(d["cantidad_facturada"]),
+        "desayunosSinFacturar": round(d["cantidad_sin_facturar"]),
+        "produccionFacturada": round(d["produccion_facturada"], 2),
+        "produccionSinFacturar": round(d["produccion_sin_facturar"], 2),
+        "porcentajeFacturado": round(d["produccion_facturada"] / d["produccion"], 4) if d["produccion"] > 0 else 0.0,
+    }
 
 
 def _rango_es_mes_natural(desde: datetime.date, hasta: datetime.date) -> bool:
@@ -122,6 +144,7 @@ def get_hoteles(
                 "penetracion": round(penetracion, 4),
                 "produccion": round(d["produccion"], 2),
                 "precioMedio": round(precio_medio, 2),
+                **_facturacion_json(d),
                 **_fnb_json(fnb.get(h["id"], _FNB_VACIO), presupuesto.get(h["id"], _PRESUPUESTO_VACIO), motivo_presupuesto),
                 "calidadCheckin": calidad_checkin.get(h["id"], _CALIDAD_CHECKIN_VACIO),
             }
@@ -218,6 +241,7 @@ def get_hotel_desayunos(hotel_id: int, fecha_inicio: datetime.date, fecha_fin: d
         "penetracion": round(penetracion, 4),
         "produccion": round(d["produccion"], 2),
         "precioMedio": round(precio_medio, 2),
+        **_facturacion_json(d),
         **_fnb_json(fnb, presupuesto, motivo_presupuesto),
     }
 
@@ -244,6 +268,7 @@ def get_hotel_desayunos(hotel_id: int, fecha_inicio: datetime.date, fecha_fin: d
                 "penetracion": round(pen, 4),
                 "produccion": round(dm["produccion"], 2),
                 "precioMedio": round(precio, 2),
+                **_facturacion_json(dm),
                 **_fnb_json(f, p),
             }
         )

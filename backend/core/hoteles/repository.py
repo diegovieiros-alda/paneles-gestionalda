@@ -149,6 +149,16 @@ _CTES_DESAYUNO = """
 # cantidad_directa/cantidad_total: la primera excluye colaborador (para
 # penetración), la segunda lo incluye (para precio medio). produccion_total
 # siempre incluye colaborador — es la cifra de negocio real.
+#
+# facturada/sin_facturar: desglose de produccion_total por si ya tiene
+# factura posted vinculada (f.sale_line_id IS NOT NULL) o no — misma
+# CTE "facturado", solo separada en vez de colapsada con COALESCE.
+# produccion_facturada + produccion_sin_facturar == produccion_total
+# siempre (invariante verificado contra producción 2026-08-27, Sada Marina
+# agosto 2026: 12.980,64 € + 3.345,87 € = 16.326,51 €). "sin_facturar" usa
+# fsl.price_subtotal (precio del folio, aún no hay importe de factura real)
+# — es una estimación, no un hecho contable, igual que ya lo era dentro de
+# produccion_total antes de este desglose.
 _DESAYUNOS_SQL = (
     _CTES_DESAYUNO
     + """
@@ -156,7 +166,11 @@ _DESAYUNOS_SQL = (
         fsl.pms_property_id,
         SUM(fsl.product_uom_qty) FILTER (WHERE pd.default_code != ALL(%(colaborador)s)) AS cantidad_directa,
         SUM(fsl.product_uom_qty) AS cantidad_total,
-        SUM(COALESCE(f.monto_facturado, fsl.price_subtotal)) AS produccion_total
+        SUM(fsl.product_uom_qty) FILTER (WHERE f.sale_line_id IS NOT NULL) AS cantidad_facturada,
+        SUM(fsl.product_uom_qty) FILTER (WHERE f.sale_line_id IS NULL) AS cantidad_sin_facturar,
+        SUM(COALESCE(f.monto_facturado, fsl.price_subtotal)) AS produccion_total,
+        SUM(f.monto_facturado) FILTER (WHERE f.sale_line_id IS NOT NULL) AS produccion_facturada,
+        SUM(fsl.price_subtotal) FILTER (WHERE f.sale_line_id IS NULL) AS produccion_sin_facturar
     FROM folio_sale_line fsl
     JOIN productos_desayuno pd ON pd.product_id = fsl.product_id
     LEFT JOIN facturado f ON f.sale_line_id = fsl.id
@@ -204,7 +218,11 @@ _DESAYUNOS_SQL_CON_TIPO = (
         fsl.pms_property_id,
         SUM(fsl.product_uom_qty) FILTER (WHERE pd.default_code != ALL(%(colaborador)s)) AS cantidad_directa,
         SUM(fsl.product_uom_qty) AS cantidad_total,
-        SUM(COALESCE(f.monto_facturado, fsl.price_subtotal)) AS produccion_total
+        SUM(fsl.product_uom_qty) FILTER (WHERE f.sale_line_id IS NOT NULL) AS cantidad_facturada,
+        SUM(fsl.product_uom_qty) FILTER (WHERE f.sale_line_id IS NULL) AS cantidad_sin_facturar,
+        SUM(COALESCE(f.monto_facturado, fsl.price_subtotal)) AS produccion_total,
+        SUM(f.monto_facturado) FILTER (WHERE f.sale_line_id IS NOT NULL) AS produccion_facturada,
+        SUM(fsl.price_subtotal) FILTER (WHERE f.sale_line_id IS NULL) AS produccion_sin_facturar
     FROM folio_sale_line fsl
     JOIN productos_desayuno pd ON pd.product_id = fsl.product_id
     JOIN producto_tipo pty ON pty.product_id = fsl.product_id
@@ -240,7 +258,11 @@ _DESAYUNOS_MENSUAL_HOTEL_SQL = (
         date_trunc('month', fsl.date_order)::date,
         SUM(fsl.product_uom_qty) FILTER (WHERE pd.default_code != ALL(%(colaborador)s)) AS cantidad_directa,
         SUM(fsl.product_uom_qty) AS cantidad_total,
-        SUM(COALESCE(f.monto_facturado, fsl.price_subtotal)) AS produccion_total
+        SUM(fsl.product_uom_qty) FILTER (WHERE f.sale_line_id IS NOT NULL) AS cantidad_facturada,
+        SUM(fsl.product_uom_qty) FILTER (WHERE f.sale_line_id IS NULL) AS cantidad_sin_facturar,
+        SUM(COALESCE(f.monto_facturado, fsl.price_subtotal)) AS produccion_total,
+        SUM(f.monto_facturado) FILTER (WHERE f.sale_line_id IS NOT NULL) AS produccion_facturada,
+        SUM(fsl.price_subtotal) FILTER (WHERE f.sale_line_id IS NULL) AS produccion_sin_facturar
     FROM folio_sale_line fsl
     JOIN productos_desayuno pd ON pd.product_id = fsl.product_id
     LEFT JOIN facturado f ON f.sale_line_id = fsl.id
@@ -323,7 +345,15 @@ def fetch_desayunos(
         cur.execute(sql, params)
         rows = cur.fetchall()
     return {
-        r[0]: {"cantidad": float(r[1] or 0), "cantidad_total": float(r[2] or 0), "produccion": float(r[3] or 0)}
+        r[0]: {
+            "cantidad": float(r[1] or 0),
+            "cantidad_total": float(r[2] or 0),
+            "cantidad_facturada": float(r[3] or 0),
+            "cantidad_sin_facturar": float(r[4] or 0),
+            "produccion": float(r[5] or 0),
+            "produccion_facturada": float(r[6] or 0),
+            "produccion_sin_facturar": float(r[7] or 0),
+        }
         for r in rows
     }
 
@@ -378,7 +408,11 @@ def fetch_desayunos_mensual_hotel(hotel_id: int, fecha_inicio: datetime.date, fe
         r[0].isoformat(): {
             "cantidad": float(r[1] or 0),
             "cantidad_total": float(r[2] or 0),
-            "produccion": float(r[3] or 0),
+            "cantidad_facturada": float(r[3] or 0),
+            "cantidad_sin_facturar": float(r[4] or 0),
+            "produccion": float(r[5] or 0),
+            "produccion_facturada": float(r[6] or 0),
+            "produccion_sin_facturar": float(r[7] or 0),
         }
         for r in rows
     }
