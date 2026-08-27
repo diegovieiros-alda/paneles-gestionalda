@@ -2,60 +2,48 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowUpDown, ChevronRight, Download, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { facturacionPotencial, fmtEuro, fmtNum, fmtPct, TARGET_OPORTUNIDAD } from "@/lib/mock-data";
+import { fmtEuro, fmtNum, fmtPct } from "@/lib/mock-data";
 import { exportarCsv } from "@/lib/export-csv";
 import { Button } from "@/components/ui/button";
 import type { HotelReal } from "@/lib/hoteles-api";
 
-type Key = "name" | "zona" | "sociedad" | "alojados" | "desayunos" | "penetracion" | "produccion" | "precioMedio" | "oportunidad";
+type Key = "name" | "desayunosFacturados" | "desayunosSinFacturar" | "produccionFacturada" | "produccionSinFacturar" | "porcentajeFacturado";
 
-// Misma base que la columna "Penetración" (directa, sin colaborador — ver
-// backend/core/hoteles/service.py): calcular el hueco sobre "desayunos"
-// (incluye colaborador) mezclaría dos cifras con numerador distinto y daría
-// una oportunidad artificialmente baja en hoteles con fuerte venta a
-// colaborador, aunque su penetración directa sea crítica.
-function oportunidad(h: HotelReal) {
-  return facturacionPotencial(h.alojados, h.penetracion, h.precioMedioVenta, TARGET_OPORTUNIDAD);
-}
-
+// Desglose de Producción (PMS) según la línea de folio tenga ya una factura
+// posted vinculada o no — ver hoteles-api.ts::FacturacionFields. Tabla
+// dedicada, separada de la de Producción: son la misma fuente pero dos
+// preguntas distintas ("cuánto se vendió" vs. "cuánto de eso ya está
+// facturado").
 const cols: Array<{ key: Key; label: string; align?: "right"; render: (h: HotelReal) => string; sticky?: boolean }> = [
   { key: "name", label: "Hotel", render: (h) => h.name, sticky: true },
-  { key: "zona", label: "Zona", render: (h) => h.zona },
-  { key: "sociedad", label: "Sociedad", render: (h) => h.sociedad },
-  { key: "alojados", label: "Alojados", align: "right", render: (h) => fmtNum(h.alojados) },
-  { key: "desayunos", label: "Desayunos", align: "right", render: (h) => fmtNum(h.desayunos) },
-  { key: "penetracion", label: "Penetración", align: "right", render: (h) => fmtPct(h.penetracion) },
-  { key: "produccion", label: "Producción", align: "right", render: (h) => fmtEuro(h.produccion) },
-  { key: "precioMedio", label: "Precio med.", align: "right", render: (h) => `${h.precioMedio.toFixed(2)}€` },
-  { key: "oportunidad", label: "Oportunidad", align: "right", render: (h) => fmtEuro(oportunidad(h)) },
+  { key: "desayunosFacturados", label: "Desayunos facturados", align: "right", render: (h) => fmtNum(h.desayunosFacturados) },
+  { key: "desayunosSinFacturar", label: "Sin facturar", align: "right", render: (h) => fmtNum(h.desayunosSinFacturar) },
+  { key: "produccionFacturada", label: "Producción facturada", align: "right", render: (h) => fmtEuro(h.produccionFacturada) },
+  { key: "produccionSinFacturar", label: "Sin facturar", align: "right", render: (h) => fmtEuro(h.produccionSinFacturar) },
+  { key: "porcentajeFacturado", label: "% Facturado", align: "right", render: (h) => fmtPct(h.porcentajeFacturado, 0) },
 ];
 
 function exportar(hoteles: HotelReal[]) {
   exportarCsv(
-    `desayunos-hoteles-${new Date().toISOString().slice(0, 10)}`,
-    ["Hotel", "Zona", "Sociedad", "Alojados", "Desayunos", "Penetración %", "Producción", "Precio medio", "Oportunidad"],
+    `desayunos-facturados-${new Date().toISOString().slice(0, 10)}`,
+    ["Hotel", "Desayunos facturados", "Desayunos sin facturar", "Producción facturada", "Producción sin facturar", "% Facturado"],
     hoteles.map((h) => [
-      h.name, h.zona, h.sociedad, h.alojados, h.desayunos,
-      (h.penetracion * 100).toFixed(1), h.produccion.toFixed(2), h.precioMedio.toFixed(2), oportunidad(h).toFixed(2),
+      h.name, h.desayunosFacturados, h.desayunosSinFacturar,
+      h.produccionFacturada.toFixed(2), h.produccionSinFacturar.toFixed(2), (h.porcentajeFacturado * 100).toFixed(1),
     ])
   );
 }
 
-export function HotelsTableReal({ hoteles }: { hoteles: HotelReal[] }) {
-  const [sort, setSort] = useState<{ key: Key; dir: "asc" | "desc" }>({ key: "produccion", dir: "desc" });
+export function FacturacionTable({ hoteles }: { hoteles: HotelReal[] }) {
+  const [sort, setSort] = useState<{ key: Key; dir: "asc" | "desc" }>({ key: "produccionFacturada", dir: "desc" });
   const [q, setQ] = useState("");
   const [limit, setLimit] = useState(15);
 
   const rows = useMemo(() => {
-    const filtered = hoteles.filter((h) => {
-      if (!q) return true;
-      const s = q.toLowerCase();
-      return h.name.toLowerCase().includes(s) || h.zona.toLowerCase().includes(s) || h.sociedad.toLowerCase().includes(s);
-    });
+    const filtered = hoteles.filter((h) => !q || h.name.toLowerCase().includes(q.toLowerCase()));
     return filtered.sort((a, b) => {
-      const get = (h: HotelReal) => (sort.key === "oportunidad" ? oportunidad(h) : h[sort.key]);
-      const av = get(a);
-      const bv = get(b);
+      const av = a[sort.key];
+      const bv = b[sort.key];
       if (typeof av === "string") return sort.dir === "asc" ? av.localeCompare(bv as string) : (bv as string).localeCompare(av);
       return sort.dir === "asc" ? (av as number) - (bv as number) : (bv as number) - (av as number);
     });
@@ -65,14 +53,14 @@ export function HotelsTableReal({ hoteles }: { hoteles: HotelReal[] }) {
     <section className="rounded-xl border border-border bg-surface shadow-soft overflow-hidden">
       <header className="flex flex-wrap items-center gap-3 px-5 py-4 border-b border-border">
         <div>
-          <h2 className="text-sm font-semibold text-foreground">Todos los hoteles</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">{rows.length} de {hoteles.length} hoteles</p>
+          <h2 className="text-sm font-semibold text-foreground">Desayunos facturados</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">Qué parte de la producción ya tiene factura, por hotel</p>
         </div>
         <div className="ml-auto flex items-center gap-2">
           <div className="flex items-center gap-2 h-8 rounded-md border border-border bg-surface px-2.5 text-xs w-56">
             <Search className="h-3.5 w-3.5 text-muted-foreground" />
             <input
-              placeholder="Buscar hotel, zona, sociedad…"
+              placeholder="Buscar hotel…"
               value={q}
               onChange={(e) => setQ(e.target.value)}
               className="bg-transparent outline-none flex-1"
@@ -118,9 +106,7 @@ export function HotelsTableReal({ hoteles }: { hoteles: HotelReal[] }) {
                       c.align === "right" ? "text-right" : "text-left",
                       c.sticky
                         ? "sticky left-0 bg-surface group-hover:bg-accent/30 font-medium text-foreground"
-                        : c.key === "zona" || c.key === "sociedad"
-                          ? "text-muted-foreground"
-                          : "text-foreground/90"
+                        : "text-foreground/90"
                     )}
                   >
                     {c.sticky ? (
@@ -143,10 +129,7 @@ export function HotelsTableReal({ hoteles }: { hoteles: HotelReal[] }) {
 
       {limit < rows.length && (
         <div className="p-3 border-t border-border text-center">
-          <button
-            onClick={() => setLimit((l) => l + 25)}
-            className="text-xs text-muted-foreground hover:text-foreground"
-          >
+          <button onClick={() => setLimit((l) => l + 25)} className="text-xs text-muted-foreground hover:text-foreground">
             Mostrar más ({rows.length - limit} restantes)
           </button>
         </div>

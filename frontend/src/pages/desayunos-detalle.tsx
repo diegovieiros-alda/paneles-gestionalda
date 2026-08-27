@@ -2,6 +2,7 @@ import { DashboardShell } from "@/components/dashboard/shell";
 import { RangeFilter } from "@/components/dashboard/range-filter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HotelsTableReal } from "@/components/dashboard/hotels-table-real";
+import { FacturacionTable } from "@/components/dashboard/facturacion-table";
 import { ProduccionResumenCards } from "@/components/dashboard/produccion-resumen-cards";
 import { FnbResumenCards } from "@/components/dashboard/fnb-resumen-cards";
 import { FnbFinancieroTable } from "@/components/dashboard/fnb-financiero-table";
@@ -42,6 +43,7 @@ export default function DesayunosDetallePage() {
             <ProduccionResumenCards hoteles={hoteles} />
             {serieMensual.length > 0 && <EvolutionChartReal serie={serieMensual} />}
             <HotelsTableReal hoteles={hoteles} />
+            <FacturacionTable hoteles={hoteles} />
 
             <SectionTitle title="Financiero F&B" subtitle="Contabilidad · ingresos, gastos, margen y presupuesto (excluye colaborador)" />
             <FnbResumenCards hoteles={hoteles} />

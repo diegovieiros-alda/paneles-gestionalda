@@ -16,7 +16,7 @@ import { PrecioCosteChart } from "@/components/dashboard/precio-coste-chart";
 import { VendedoresPanel } from "@/components/dashboard/vendedores-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { fetchHotelInfo, fetchHotelDesayunos, type HotelDirectorio, type HotelDesayunos } from "@/lib/hoteles-api";
+import { fetchHotelInfo, fetchHotelDesayunos, type HotelDirectorio, type HotelDesayunos, type MesHotel, type FnbFields, type FacturacionFields } from "@/lib/hoteles-api";
 import { exportarCsv } from "@/lib/export-csv";
 import {
   ETIQUETA_BADGE_CLASS, ETIQUETA_LABEL, etiqueta, etiquetaCumplimiento,
@@ -29,6 +29,61 @@ import { type KpiTone } from "@/components/dashboard/kpi-card";
 
 function mesCorto(iso: string) {
   return new Date(iso).toLocaleDateString("es-ES", { month: "short" });
+}
+
+type MesFila = MesHotel & FnbFields & FacturacionFields;
+type Col = { label: string; value: (m: MesFila) => React.ReactNode; csv: (m: MesFila) => string | number };
+
+// Tabla mensual reutilizable: misma estructura (mes + N columnas + exportar),
+// solo cambian las columnas — evita triplicar el markup para Producción,
+// Desayunos facturados y Financiero F&B (antes era una única tabla mezclando
+// las tres cosas).
+function TablaMensual({
+  title, subtitle, cols, serie, exportBase,
+}: { title: string; subtitle?: string; cols: Col[]; serie: MesFila[]; exportBase: string }) {
+  return (
+    <section className="overflow-x-auto">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+        <div>
+          <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+          {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() =>
+            exportarCsv(
+              exportBase,
+              ["Mes", ...cols.map((c) => c.label)],
+              serie.map((m) => [mesCorto(m.mes), ...cols.map((c) => c.csv(m))])
+            )
+          }
+        >
+          <Download className="h-3.5 w-3.5" /> Exportar
+        </Button>
+      </div>
+      <table className="w-full text-sm">
+        <thead className="bg-surface-muted/60">
+          <tr>
+            <th className="text-[11px] font-medium text-muted-foreground uppercase px-4 py-3 text-left whitespace-nowrap">Mes</th>
+            {cols.map((c) => (
+              <th key={c.label} className="text-[11px] font-medium text-muted-foreground uppercase px-4 py-3 text-left whitespace-nowrap">{c.label}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {serie.map((m) => (
+            <tr key={m.mes} className="border-t border-border">
+              <td className="px-4 py-2.5 font-medium text-foreground capitalize">{mesCorto(m.mes)}</td>
+              {cols.map((c) => (
+                <td key={c.label} className="px-4 py-2.5 num">{c.value(m)}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
 }
 
 // Mismo semáforo de 3 niveles que "¿Dónde actuar hoy?" (rojo/naranja/verde,
@@ -164,59 +219,56 @@ export default function HotelDesayunosPage() {
               </div>
             )}
 
-            <section className="overflow-x-auto">
-              <div className="flex justify-end mb-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    exportarCsv(
-                      `desayunos-${hotel?.name ?? hotelId}-${new Date().toISOString().slice(0, 10)}`,
-                      [
-                        "Mes", "Alojados", "Desayunos", "Penetración %", "Producción", "% Facturado", "Precio medio",
-                        "Ingresos", "Gastos", "Margen bruto %", "Presupuesto ingresos", "Cumplimiento %", "Resultado F&B",
-                      ],
-                      data.serieMensual.map((m) => [
-                        mesCorto(m.mes), m.alojados, m.desayunos, (m.penetracion * 100).toFixed(1), m.produccion.toFixed(2),
-                        (m.porcentajeFacturado * 100).toFixed(1), m.precioMedio.toFixed(2),
-                        m.ingresos.toFixed(2), m.gastos.toFixed(2), (m.margenBruto * 100).toFixed(1),
-                        m.presupuestoIngresos > 0 ? m.presupuestoIngresos.toFixed(2) : "",
-                        m.cumplimientoIngresos !== null ? (m.cumplimientoIngresos * 100).toFixed(1) : "",
-                        m.resultadoFB.toFixed(2),
-                      ])
-                    )
-                  }
-                >
-                  <Download className="h-3.5 w-3.5" /> Exportar
-                </Button>
-              </div>
-              <table className="w-full text-sm">
-                <thead className="bg-surface-muted/60">
-                  <tr>
-                    {["Mes", "Alojados", "Desayunos", "Penetración", "Producción", "% Facturado", "Precio medio", "Ingresos", "Gastos", "Margen bruto", "Resultado F&B"].map((h) => (
-                      <th key={h} className="text-[11px] font-medium text-muted-foreground uppercase px-4 py-3 text-left whitespace-nowrap">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.serieMensual.map((m) => (
-                    <tr key={m.mes} className="border-t border-border">
-                      <td className="px-4 py-2.5 font-medium text-foreground capitalize">{mesCorto(m.mes)}</td>
-                      <td className="px-4 py-2.5 num">{fmtNum(m.alojados)}</td>
-                      <td className="px-4 py-2.5 num">{fmtNum(m.desayunos)}</td>
-                      <td className="px-4 py-2.5 num">{fmtPct(m.penetracion)}</td>
-                      <td className="px-4 py-2.5 num">{fmtEuro(m.produccion)}</td>
-                      <td className="px-4 py-2.5 num text-muted-foreground">{fmtPct(m.porcentajeFacturado, 0)}</td>
-                      <td className="px-4 py-2.5 num text-muted-foreground">{m.precioMedio.toFixed(2)}€</td>
-                      <td className="px-4 py-2.5 num">{fmtEuro(m.ingresos)}</td>
-                      <td className="px-4 py-2.5 num">{fmtEuro(m.gastos)}</td>
-                      <td className="px-4 py-2.5 num"><SignedPct value={m.margenBruto} /></td>
-                      <td className="px-4 py-2.5 num"><SignedEuro value={m.resultadoFB} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
+            <TablaMensual
+              title="Producción por mes"
+              subtitle="PMS · incluye colaborador, salvo penetración"
+              exportBase={`desayunos-produccion-${hotel?.name ?? hotelId}-${new Date().toISOString().slice(0, 10)}`}
+              serie={data.serieMensual}
+              cols={[
+                { label: "Alojados", value: (m) => fmtNum(m.alojados), csv: (m) => m.alojados },
+                { label: "Desayunos", value: (m) => fmtNum(m.desayunos), csv: (m) => m.desayunos },
+                { label: "Penetración", value: (m) => fmtPct(m.penetracion), csv: (m) => (m.penetracion * 100).toFixed(1) },
+                { label: "Producción", value: (m) => fmtEuro(m.produccion), csv: (m) => m.produccion.toFixed(2) },
+                { label: "Precio medio", value: (m) => `${m.precioMedio.toFixed(2)}€`, csv: (m) => m.precioMedio.toFixed(2) },
+              ]}
+            />
+
+            <TablaMensual
+              title="Desayunos facturados por mes"
+              subtitle="Qué parte de la producción ya tiene factura"
+              exportBase={`desayunos-facturados-${hotel?.name ?? hotelId}-${new Date().toISOString().slice(0, 10)}`}
+              serie={data.serieMensual}
+              cols={[
+                { label: "Desayunos facturados", value: (m) => fmtNum(m.desayunosFacturados), csv: (m) => m.desayunosFacturados },
+                { label: "Sin facturar", value: (m) => fmtNum(m.desayunosSinFacturar), csv: (m) => m.desayunosSinFacturar },
+                { label: "Producción facturada", value: (m) => fmtEuro(m.produccionFacturada), csv: (m) => m.produccionFacturada.toFixed(2) },
+                { label: "Sin facturar", value: (m) => fmtEuro(m.produccionSinFacturar), csv: (m) => m.produccionSinFacturar.toFixed(2) },
+                { label: "% Facturado", value: (m) => fmtPct(m.porcentajeFacturado, 0), csv: (m) => (m.porcentajeFacturado * 100).toFixed(1) },
+              ]}
+            />
+
+            <TablaMensual
+              title="Financiero F&B por mes"
+              subtitle="Contabilidad · excluye colaborador"
+              exportBase={`desayunos-financiero-${hotel?.name ?? hotelId}-${new Date().toISOString().slice(0, 10)}`}
+              serie={data.serieMensual}
+              cols={[
+                { label: "Ingresos", value: (m) => fmtEuro(m.ingresos), csv: (m) => m.ingresos.toFixed(2) },
+                { label: "Gastos", value: (m) => fmtEuro(m.gastos), csv: (m) => m.gastos.toFixed(2) },
+                { label: "Margen bruto", value: (m) => <SignedPct value={m.margenBruto} />, csv: (m) => (m.margenBruto * 100).toFixed(1) },
+                {
+                  label: "Presupuesto ingresos",
+                  value: (m) => (m.presupuestoIngresos > 0 ? fmtEuro(m.presupuestoIngresos) : "—"),
+                  csv: (m) => (m.presupuestoIngresos > 0 ? m.presupuestoIngresos.toFixed(2) : ""),
+                },
+                {
+                  label: "Cumplimiento",
+                  value: (m) => (m.cumplimientoIngresos !== null ? fmtPct(m.cumplimientoIngresos, 0) : "—"),
+                  csv: (m) => (m.cumplimientoIngresos !== null ? (m.cumplimientoIngresos * 100).toFixed(1) : ""),
+                },
+                { label: "Resultado F&B", value: (m) => <SignedEuro value={m.resultadoFB} />, csv: (m) => m.resultadoFB.toFixed(2) },
+              ]}
+            />
 
             <SectionTitle title="Vendedores" />
             <VendedoresPanel vendedores={data.vendedores ?? []} scope={hotel?.name ?? "este hotel"} />
