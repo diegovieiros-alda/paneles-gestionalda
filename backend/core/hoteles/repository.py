@@ -386,12 +386,31 @@ def fetch_desayunos_mensual_hotel(hotel_id: int, fecha_inicio: datetime.date, fe
 
 # Ingresos y gastos en la misma query (FILTER), por hotel: un único scan de
 # account_move_line acotado a las cuentas que importan, no a todo el mayor.
+#
+# Saldo contable (credit-debit / debit-credit), no price_subtotal — verificado
+# contra producción (2026-08-26, ver kpis-definiciones.md punto 3):
+# price_subtotal no invierte signo en abonos (out_refund/in_refund suman en
+# vez de restar) y vale 0 en asientos manuales (move_type='entry', que sí
+# tienen saldo real). Medido en cadena completa, cuenta 70500000020: 24.112
+# líneas out_refund con price_subtotal positivo (388.889,14 €, debería restar)
+# y 35 líneas entry con price_subtotal=0 pero saldo real de 149.237,36 € -
+# con price_subtotal sin corregir, ingresos salía inflado en más de 600.000 €
+# de cadena. Incluye también fetch_vendedores_desayuno/_hotel más abajo (mismo
+# bug, misma cuenta de ingreso).
+#
+# "unidades" (SUM(aml.quantity)) TODAVÍA no tiene esta corrección: tiene el
+# mismo problema de signo en out_refund (verificado, +74.040,17 uds en vez de
+# restar, cadena completa) y no se ha corregido aquí porque afecta al
+# denominador de precioMedioVenta/costeMedioGasto en service._fnb_json, no
+# solo a un importe — cambiarlo mueve esos dos ratios derivados a la vez que
+# el numerador, y no está en el punto 3 de kpis-definiciones.md. Pendiente de
+# decidir y de documentar en el propio documento antes de tocarlo.
 _FNB_SQL = """
     SELECT
         aml.pms_property_id,
-        SUM(aml.price_subtotal) FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS ingresos,
+        SUM(aml.credit - aml.debit) FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS ingresos,
         SUM(aml.quantity) FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS unidades,
-        SUM(aml.price_subtotal) FILTER (WHERE aa.code = ANY(%(cuentas_gasto)s)) AS gastos
+        SUM(aml.debit - aml.credit) FILTER (WHERE aa.code = ANY(%(cuentas_gasto)s)) AS gastos
     FROM account_move_line aml
     JOIN account_account aa ON aa.id = aml.account_id
     JOIN account_move am ON am.id = aml.move_id
@@ -404,9 +423,9 @@ _FNB_SQL = """
 _FNB_MENSUAL_SQL = """
     SELECT
         date_trunc('month', aml.date)::date,
-        SUM(aml.price_subtotal) FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS ingresos,
+        SUM(aml.credit - aml.debit) FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS ingresos,
         SUM(aml.quantity) FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS unidades,
-        SUM(aml.price_subtotal) FILTER (WHERE aa.code = ANY(%(cuentas_gasto)s)) AS gastos
+        SUM(aml.debit - aml.credit) FILTER (WHERE aa.code = ANY(%(cuentas_gasto)s)) AS gastos
     FROM account_move_line aml
     JOIN account_account aa ON aa.id = aml.account_id
     JOIN account_move am ON am.id = aml.move_id
@@ -463,7 +482,7 @@ _PRESUPUESTO_MENSUAL_SQL = """
 
 _VENDEDORES_SQL = """
     SELECT COALESCE(rp.name, ru.login, 'Sin asignar') AS vendedor,
-           SUM(aml.price_subtotal) AS importe,
+           SUM(aml.credit - aml.debit) AS importe,
            COUNT(*) AS lineas
     FROM account_move_line aml
     JOIN account_account aa ON aa.id = aml.account_id
@@ -482,9 +501,9 @@ _VENDEDORES_SQL = """
 _FNB_MENSUAL_HOTEL_SQL = """
     SELECT
         date_trunc('month', aml.date)::date,
-        SUM(aml.price_subtotal) FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS ingresos,
+        SUM(aml.credit - aml.debit) FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS ingresos,
         SUM(aml.quantity) FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS unidades,
-        SUM(aml.price_subtotal) FILTER (WHERE aa.code = ANY(%(cuentas_gasto)s)) AS gastos
+        SUM(aml.debit - aml.credit) FILTER (WHERE aa.code = ANY(%(cuentas_gasto)s)) AS gastos
     FROM account_move_line aml
     JOIN account_account aa ON aa.id = aml.account_id
     JOIN account_move am ON am.id = aml.move_id
@@ -515,7 +534,7 @@ _PRESUPUESTO_MENSUAL_HOTEL_SQL = """
 
 _VENDEDORES_HOTEL_SQL = """
     SELECT COALESCE(rp.name, ru.login, 'Sin asignar') AS vendedor,
-           SUM(aml.price_subtotal) AS importe,
+           SUM(aml.credit - aml.debit) AS importe,
            COUNT(*) AS lineas
     FROM account_move_line aml
     JOIN account_account aa ON aa.id = aml.account_id

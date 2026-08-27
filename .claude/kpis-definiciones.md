@@ -850,14 +850,25 @@ def fetch_ingresos_desayuno_facturacion(fecha_inicio: datetime.date, hasta_exclu
     return {r[0]: float(r[1] or 0) for r in rows}
 ```
 
-**⚠️ Pendiente de revalidar**: el cambio de `price_subtotal` a saldo
-contable y de `invoice_date` a `aml.date` puede mover la cifra (para bien:
-ahora sí incluye asientos manuales reales en esta cuenta, si los hay).
+**Revalidado 2026-08-26**: re-ejecutada la comparación antigua-vs-nueva
+contra producción para Hotel Sada Marina, julio 2026 (cuenta 70500000020,
+sin filtro de `move_type`, como en la versión anterior de este documento):
 
-~~Validado contra: Hotel Sada Marina, julio 2026 → 12.086,57 € (precio medio
-implícito ~6,10 €/unidad frente a las 1.980 unidades facturadas corregidas —
-dentro del rango de precios de desayuno ya visto en otros hoteles).~~ — no
-vigente, recalcular con la consulta corregida.
+| Consulta | Ingresos |
+|---|---|
+| Antigua (`SUM(price_subtotal)`, sin ajuste de signo) | 14.530,95 € |
+| Nueva (`SUM(credit - debit)`) | **12.086,57 €** |
+| Delta | −2.444,38 € (la antigua estaba inflada un 20,2 %) |
+
+La cifra nueva coincide exactamente con la que ya estaba validada en este
+documento (12.086,57 €) — porque la versión de la función que se validó en
+su día ya excluía el signo positivo de los abonos con un `CASE`, antes de
+simplificarse a saldo contable. Lo que sí es nuevo es la comprobación
+explícita de que **la consulta que hoy corre en `repository.py`
+(`_FNB_SQL`, sin ese `CASE` ni filtro de `move_type`)** sí tiene el fallo:
+14.530,95 € es la cifra real que ese código produce para este hotel/mes
+antes de aplicar la corrección. Cifra de este documento **vigente de
+nuevo**.
 
 ---
 
@@ -920,15 +931,40 @@ def fetch_gastos_desayuno_facturacion(fecha_inicio: datetime.date, hasta_exclusi
     return {r[0]: float(r[1] or 0) for r in rows}
 ```
 
-**⚠️ Pendiente de revalidar**: cambio de `price_subtotal` a saldo contable,
-de `invoice_date` a `aml.date`, y ya no se excluyen asientos manuales — la
-cifra puede subir si hay apuntes `entry` reales en esta cuenta.
+**Revalidado 2026-08-26**: Hotel Sada Marina, julio 2026, cuenta
+`60100000001` sola (el alcance de este KPI tal y como está definido aquí):
 
-~~Validado contra: Hotel Sada Marina, julio 2026 → 7.535,80 € (todo
-`in_invoice`, sin `in_refund` en ese mes/hotel concreto — el ajuste de signo
-no se ha podido contrastar todavía con un caso real de abono de proveedor en
-esta cuenta para ese hotel/periodo).~~ — no vigente, recalcular con la
-consulta corregida.
+| Consulta | Gastos |
+|---|---|
+| Antigua (`SUM(price_subtotal)`) | 8.029,48 € |
+| Nueva (`SUM(debit - credit)`) | **7.535,80 €** |
+| Delta | −493,68 € (la antigua estaba inflada un 6,5 %) |
+
+Coincide exactamente con la cifra ya validada (7.535,80 €) — igual que en
+ingresos, la versión que se validó en su día ya excluía el signo de los
+abonos a mano. Cifra **vigente de nuevo**.
+
+**Verificación adicional contra `repository.py` real (no contra este
+documento)**: el código de producción no usa solo `60100000001`, usa las
+tres cuentas (`60100000001/2/3`, decisión abierta 5.4, sin cambios aquí) y
+agrega toda la serie histórica, no solo julio 2026. Con esas tres cuentas,
+todo el histórico, para los tres hoteles de referencia:
+
+| Hotel | Ingresos antiguo | Ingresos nuevo | Delta | Gastos antiguo | Gastos nuevo | Delta |
+|---|---|---|---|---|---|---|
+| Sada Marina | 301.980,50 € | 256.623,26 € | −45.357,24 € (−15,0 %) | 173.884,72 € | 172.772,32 € | −1.112,40 € (−0,6 %) |
+| Alda Palacio Valdés | 123.818,66 € | 111.532,88 € | −12.285,78 € (−9,9 %) | 62.627,44 € | 64.281,53 € | +1.654,09 € (+2,6 %) |
+| Alda Valladolid Sur | 287.974,49 € | 262.011,37 € | −25.963,12 € (−9,0 %) | 139.714,65 € | 138.707,53 € | −1.007,12 € (−0,7 %) |
+
+Los ingresos salían sistemáticamente inflados en los tres hoteles de
+referencia (los abonos de cliente suman en vez de restar). Los gastos se
+mueven en ambas direcciones y por menos: la mayoría de la desviación viene
+de los abonos de proveedor, salvo en Alda Palacio Valdés, donde hay
+4.609,81 € de asientos manuales reales que la consulta antigua no veía.
+Verificado también que `fetch_vendedores_desayuno`/`_hotel` (misma cuenta de
+ingreso, no documentada aquí porque no tiene KPI propio en este documento)
+tenía el mismo fallo — corregida a la vez, la suma de "Vendedores" ya
+reconcilia con "Ingresos" para Sada Marina (256.623,26 € en ambos).
 
 **Nota**: esta cuenta agrega "alimentos y bebidas" en general, no solo
 desayuno — el nombre de la cuenta y su código son los que existen en el plan
@@ -1290,8 +1326,17 @@ meses naturales, y que devuelvan `None` con un motivo explícito
 o un prorrateo. Razón: prorratear por días asume que el presupuesto se
 consume uniformemente dentro del mes, una asunción no verificada y que
 además complicaría comparar contra el gasto/ingreso real (que sí varía
-día a día). **No implementado todavía en el código de este documento** —
-pendiente de confirmar antes de tocar las tres funciones.
+día a día). **No implementado todavía en el código de este documento**.
+
+**Cerrada para el lado de desayuno (2026-08-26)**: aprobada por
+administración y aplicada en `repository.py`/`service.py` reales (PR #7,
+rama `fix/presupuesto-rango-mes-natural`, mergeada) — misma propuesta de
+arriba, sobre `fetch_presupuesto_desayuno` (no sobre `fetch_rn_presupuesto`,
+que es RN/habitaciones, un KPI distinto que este documento nunca implementó
+en `repository.py` y que sigue sin tocar). Ver detalle en el historial de
+cambios. **`fetch_rn_presupuesto` (RN) sigue pendiente** — la decisión de
+negocio era la misma pero solo se ha aplicado al lado de desayuno, que es lo
+único que se pidió.
 
 ### 5.3 — Perímetros mezclados en el precio medio de facturación
 
@@ -1673,3 +1718,52 @@ WHERE state NOT IN ('draft', 'cancel')
   `repository.py` — `_CUENTAS_GASTO_DESAYUNO` sigue declarando el código
   fantasma `60100000003`, sin efecto en ninguna cifra (verificado: no aporta
   filas), pendiente de una limpieza de bajo riesgo si se decide hacerla.
+- 2026-08-26: **trasladado el punto 3 a `repository.py`** (rama
+  `fix/fnb-desayuno-saldo-contable`, PR #2 — ver entrada siguiente para la
+  aprobación y el merge). `_FNB_SQL`, `_FNB_MENSUAL_SQL` y
+  `_FNB_MENSUAL_HOTEL_SQL` cambian
+  `SUM(price_subtotal)` por `SUM(credit - debit)` (ingresos) /
+  `SUM(debit - credit)` (gastos). Extendido también a
+  `_VENDEDORES_SQL`/`_VENDEDORES_HOTEL_SQL` (misma cuenta de ingreso, mismo
+  fallo, sin KPI propio en este documento — se corrige por consistencia:
+  antes de este cambio, "Ingresos" y la suma de "Vendedores" no coincidían
+  en el dashboard real). Comparación antigua-vs-nueva contra producción, ver
+  el detalle completo en las secciones `fetch_ingresos_desayuno_facturacion`
+  y `fetch_gastos_desayuno_facturacion` de arriba; resumen: ingresos salían
+  sistemáticamente inflados (abonos de cliente sumando en vez de restar,
+  −45.357,24 €/−9,9 % a −15,0 % según hotel en los tres de referencia,
+  histórico completo); gastos se movían en ambas direcciones y menos
+  (−1.112,40 € a +1.654,09 €).
+  - **Nuevo hallazgo, no corregido, no estaba en el punto 3 original**: el
+    campo `unidades` de `_FNB_SQL` (`SUM(aml.quantity)`, usado como
+    denominador de `precioMedioVenta`/`costeMedioGasto` en
+    `service._fnb_json`) tiene el mismo problema de signo que
+    `price_subtotal` tenía en ingresos/gastos — verificado: los `out_refund`
+    de la cuenta 70500000020 suman +74.040,17 unidades en vez de restar
+    (cadena completa, todo el histórico). No se ha corregido en este cambio
+    porque afecta al denominador de dos ratios derivados a la vez, no solo a
+    un importe, y no estaba cubierto por el punto 3 — **queda pendiente de
+    confirmar** si "unidades" para estos ratios debe ser `SUM(quantity)` a
+    secas o si necesita el mismo tipo de ajuste de signo antes de tocarlo.
+- 2026-08-26: **aprobado por administración y mergeado en `master`** el
+  cambio de `_FNB_SQL`/`_FNB_MENSUAL_SQL`/`_FNB_MENSUAL_HOTEL_SQL`/
+  `_VENDEDORES_SQL`/`_VENDEDORES_HOTEL_SQL` a saldo contable (PR #2, rama
+  `fix/fnb-desayuno-saldo-contable`). Las cifras de ingresos, gastos, margen
+  bruto y resultado F&B de desayuno en producción cambian desde este merge
+  según el delta ya documentado más arriba — dejan de estar "pendientes de
+  revalidar", son las vigentes en el dashboard real a partir de ahora. El
+  hallazgo de "unidades" (párrafo anterior) sigue sin corregir y sin
+  aprobar.
+- 2026-08-26: **cerrada la decisión 5.2 para desayuno, aprobada por
+  administración y mergeada en `master`** (PR #7, rama
+  `fix/presupuesto-rango-mes-natural`). Opción elegida de las propuestas en
+  5.2: "sin dato" (no `0`, no prorrateo) cuando el rango pedido a
+  `fetch_presupuesto_desayuno` no es un mes (o varios) natural completo —
+  nueva función `service._rango_es_mes_natural` y campo de respuesta
+  `presupuestoMotivo="rango_no_es_mes_natural"`, distinguible de
+  `cumplimiento*=null` sin motivo ("sin presupuesto confirmado"). Ejemplo
+  verificado contra producción: Alda Valladolid Sur, 1-15 julio 2026,
+  mostraba antes 17,76 % de cumplimiento (15 días reales contra el
+  presupuesto del mes completo) — con el fix, sin dato. El mes completo
+  (1-31 julio) no cambia (38,91 %). **No incluye `fetch_rn_presupuesto`**
+  (RN/habitaciones) — sigue pendiente, no se ha tocado.

@@ -19,15 +19,27 @@ import { Button } from "@/components/ui/button";
 import { fetchHotelInfo, fetchHotelDesayunos, type HotelDirectorio, type HotelDesayunos } from "@/lib/hoteles-api";
 import { exportarCsv } from "@/lib/export-csv";
 import {
-  ETIQUETA_BADGE_CLASS, ETIQUETA_LABEL, etiquetaCumplimiento, fmtEuro, fmtNum, fmtPct,
+  ETIQUETA_BADGE_CLASS, ETIQUETA_LABEL, etiqueta, etiquetaCumplimiento,
+  fmtEuro, fmtNum, fmtPct, TARGET_PENETRACION, UMBRAL_PENETRACION, type Etiqueta,
 } from "@/lib/mock-data";
 import { rangeForPreset, type RangePreset } from "@/lib/date-range";
 import { Download } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { type KpiTone } from "@/components/dashboard/kpi-card";
 
 function mesCorto(iso: string) {
   return new Date(iso).toLocaleDateString("es-ES", { month: "short" });
 }
+
+// Mismo semáforo de 3 niveles que "¿Dónde actuar hoy?" (rojo/naranja/verde,
+// ver etiqueta() en mock-data) — antes esta ficha usaba un umbral propio de
+// solo 2 niveles (>=55% positive, si no warning), que no distinguía un
+// hotel crítico (<38%) de uno en seguimiento (38-55%).
+const TONE_POR_ETIQUETA: Record<Etiqueta, KpiTone> = {
+  verde: "positive",
+  naranja: "warning",
+  rojo: "negative",
+};
 
 export default function HotelDesayunosPage() {
   const { hotelId } = useParams<{ hotelId: string }>();
@@ -89,7 +101,11 @@ export default function HotelDesayunosPage() {
               <KpiCard label="Producción" value={fmtEuro(data.actual.produccion)} tone="neutral" />
               <KpiCard label="Alojados" value={fmtNum(data.actual.alojados)} tone="neutral" />
               <KpiCard label="Desayunos" value={fmtNum(data.actual.desayunos)} tone="neutral" />
-              <KpiCard label="Penetración" value={fmtPct(data.actual.penetracion)} tone={data.actual.penetracion >= 0.55 ? "positive" : "warning"} />
+              <KpiCard
+                label="Penetración"
+                value={fmtPct(data.actual.penetracion)}
+                tone={TONE_POR_ETIQUETA[etiqueta(data.actual.penetracion, UMBRAL_PENETRACION, TARGET_PENETRACION)]}
+              />
               <KpiCard label="Precio medio" value={`${data.actual.precioMedio.toFixed(2)}€`} tone="neutral" />
             </section>
 
@@ -120,16 +136,18 @@ export default function HotelDesayunosPage() {
                 value={data.actual.presupuestoIngresos > 0 ? fmtEuro(data.actual.presupuestoIngresos) : "—"}
                 tone="neutral"
                 footer={
-                  data.actual.cumplimientoIngresos !== null
-                    ? (() => {
-                        const e = etiquetaCumplimiento(data.actual.cumplimientoIngresos);
-                        return e ? (
-                          <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium", ETIQUETA_BADGE_CLASS[e])}>
-                            {fmtPct(data.actual.cumplimientoIngresos, 0)} · {ETIQUETA_LABEL[e]}
-                          </span>
-                        ) : undefined;
-                      })()
-                    : "Sin presupuesto confirmado"
+                  data.actual.presupuestoMotivo === "rango_no_es_mes_natural"
+                    ? "Elige un mes completo para ver el cumplimiento"
+                    : data.actual.cumplimientoIngresos !== null
+                      ? (() => {
+                          const e = etiquetaCumplimiento(data.actual.cumplimientoIngresos);
+                          return e ? (
+                            <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium", ETIQUETA_BADGE_CLASS[e])}>
+                              {fmtPct(data.actual.cumplimientoIngresos, 0)} · {ETIQUETA_LABEL[e]}
+                            </span>
+                          ) : undefined;
+                        })()
+                      : "Sin presupuesto confirmado"
                 }
               />
             </section>
