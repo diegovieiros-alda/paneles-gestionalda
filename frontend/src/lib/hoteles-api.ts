@@ -56,7 +56,22 @@ export type CalidadCheckin = {
   reservasSinCheckin: number;
 };
 
-export type HotelReal = HotelDirectorio & FnbFields & {
+// Desglose de "produccion"/"desayunos" (PMS) según ya tengan factura posted
+// vinculada o no — producciónFacturada + producciónSinFacturar == producción
+// siempre (ver backend/core/hoteles/service.py::_facturacion_json).
+// "SinFacturar" usa el precio del folio como estimación (aún no hay importe
+// de factura real) — no confundir con "Financiero F&B" (FnbFields), que es
+// la cuenta contable completa (todas las líneas ya facturadas, sin producto
+// ni colaborador) y tiene su propio alcance y fecha (contable, no de venta).
+export type FacturacionFields = {
+  desayunosFacturados: number;
+  desayunosSinFacturar: number;
+  produccionFacturada: number;
+  produccionSinFacturar: number;
+  porcentajeFacturado: number;
+};
+
+export type HotelReal = HotelDirectorio & FnbFields & FacturacionFields & {
   alojados: number;
   desayunos: number;
   penetracion: number;
@@ -98,8 +113,8 @@ export type MesHotel = {
 };
 
 export type HotelDesayunos = {
-  actual: MesHotel & FnbFields;
-  serieMensual: (MesHotel & FnbFields)[];
+  actual: MesHotel & FnbFields & FacturacionFields;
+  serieMensual: (MesHotel & FnbFields & FacturacionFields)[];
   vendedores?: Vendedor[];
   origenDatos?: "odoo" | "cache";
 };

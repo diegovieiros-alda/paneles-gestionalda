@@ -98,7 +98,12 @@ export default function HotelDesayunosPage() {
           <>
             <SectionTitle title="Rendimiento operativo" subtitle="PMS · producción y penetración (incluye colaborador, salvo penetración)" />
             <section className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
-              <KpiCard label="Producción" value={fmtEuro(data.actual.produccion)} tone="neutral" />
+              <KpiCard
+                label="Producción"
+                value={fmtEuro(data.actual.produccion)}
+                tone="neutral"
+                footer={`Facturado ${fmtEuro(data.actual.produccionFacturada)} (${fmtPct(data.actual.porcentajeFacturado, 0)}) · sin facturar ${fmtEuro(data.actual.produccionSinFacturar)}`}
+              />
               <KpiCard label="Alojados" value={fmtNum(data.actual.alojados)} tone="neutral" />
               <KpiCard label="Desayunos" value={fmtNum(data.actual.desayunos)} tone="neutral" />
               <KpiCard
@@ -168,11 +173,12 @@ export default function HotelDesayunosPage() {
                     exportarCsv(
                       `desayunos-${hotel?.name ?? hotelId}-${new Date().toISOString().slice(0, 10)}`,
                       [
-                        "Mes", "Alojados", "Desayunos", "Penetración %", "Producción", "Precio medio",
+                        "Mes", "Alojados", "Desayunos", "Penetración %", "Producción", "% Facturado", "Precio medio",
                         "Ingresos", "Gastos", "Margen bruto %", "Presupuesto ingresos", "Cumplimiento %", "Resultado F&B",
                       ],
                       data.serieMensual.map((m) => [
-                        mesCorto(m.mes), m.alojados, m.desayunos, (m.penetracion * 100).toFixed(1), m.produccion.toFixed(2), m.precioMedio.toFixed(2),
+                        mesCorto(m.mes), m.alojados, m.desayunos, (m.penetracion * 100).toFixed(1), m.produccion.toFixed(2),
+                        (m.porcentajeFacturado * 100).toFixed(1), m.precioMedio.toFixed(2),
                         m.ingresos.toFixed(2), m.gastos.toFixed(2), (m.margenBruto * 100).toFixed(1),
                         m.presupuestoIngresos > 0 ? m.presupuestoIngresos.toFixed(2) : "",
                         m.cumplimientoIngresos !== null ? (m.cumplimientoIngresos * 100).toFixed(1) : "",
@@ -187,7 +193,7 @@ export default function HotelDesayunosPage() {
               <table className="w-full text-sm">
                 <thead className="bg-surface-muted/60">
                   <tr>
-                    {["Mes", "Alojados", "Desayunos", "Penetración", "Producción", "Precio medio", "Ingresos", "Gastos", "Margen bruto", "Resultado F&B"].map((h) => (
+                    {["Mes", "Alojados", "Desayunos", "Penetración", "Producción", "% Facturado", "Precio medio", "Ingresos", "Gastos", "Margen bruto", "Resultado F&B"].map((h) => (
                       <th key={h} className="text-[11px] font-medium text-muted-foreground uppercase px-4 py-3 text-left whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -200,6 +206,7 @@ export default function HotelDesayunosPage() {
                       <td className="px-4 py-2.5 num">{fmtNum(m.desayunos)}</td>
                       <td className="px-4 py-2.5 num">{fmtPct(m.penetracion)}</td>
                       <td className="px-4 py-2.5 num">{fmtEuro(m.produccion)}</td>
+                      <td className="px-4 py-2.5 num text-muted-foreground">{fmtPct(m.porcentajeFacturado, 0)}</td>
                       <td className="px-4 py-2.5 num text-muted-foreground">{m.precioMedio.toFixed(2)}€</td>
                       <td className="px-4 py-2.5 num">{fmtEuro(m.ingresos)}</td>
                       <td className="px-4 py-2.5 num">{fmtEuro(m.gastos)}</td>

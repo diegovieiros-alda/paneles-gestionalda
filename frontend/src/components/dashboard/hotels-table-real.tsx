@@ -7,7 +7,7 @@ import { exportarCsv } from "@/lib/export-csv";
 import { Button } from "@/components/ui/button";
 import type { HotelReal } from "@/lib/hoteles-api";
 
-type Key = "name" | "zona" | "sociedad" | "alojados" | "desayunos" | "penetracion" | "produccion" | "precioMedio" | "oportunidad";
+type Key = "name" | "zona" | "sociedad" | "alojados" | "desayunos" | "penetracion" | "produccion" | "porcentajeFacturado" | "precioMedio" | "oportunidad";
 
 // Misma base que la columna "Penetración" (directa, sin colaborador — ver
 // backend/core/hoteles/service.py): calcular el hueco sobre "desayunos"
@@ -26,6 +26,7 @@ const cols: Array<{ key: Key; label: string; align?: "right"; render: (h: HotelR
   { key: "desayunos", label: "Desayunos", align: "right", render: (h) => fmtNum(h.desayunos) },
   { key: "penetracion", label: "Penetración", align: "right", render: (h) => fmtPct(h.penetracion) },
   { key: "produccion", label: "Producción", align: "right", render: (h) => fmtEuro(h.produccion) },
+  { key: "porcentajeFacturado", label: "% Facturado", align: "right", render: (h) => fmtPct(h.porcentajeFacturado, 0) },
   { key: "precioMedio", label: "Precio med.", align: "right", render: (h) => `${h.precioMedio.toFixed(2)}€` },
   { key: "oportunidad", label: "Oportunidad", align: "right", render: (h) => fmtEuro(oportunidad(h)) },
 ];
@@ -33,10 +34,11 @@ const cols: Array<{ key: Key; label: string; align?: "right"; render: (h: HotelR
 function exportar(hoteles: HotelReal[]) {
   exportarCsv(
     `desayunos-hoteles-${new Date().toISOString().slice(0, 10)}`,
-    ["Hotel", "Zona", "Sociedad", "Alojados", "Desayunos", "Penetración %", "Producción", "Precio medio", "Oportunidad"],
+    ["Hotel", "Zona", "Sociedad", "Alojados", "Desayunos", "Penetración %", "Producción", "% Facturado", "Precio medio", "Oportunidad"],
     hoteles.map((h) => [
       h.name, h.zona, h.sociedad, h.alojados, h.desayunos,
-      (h.penetracion * 100).toFixed(1), h.produccion.toFixed(2), h.precioMedio.toFixed(2), oportunidad(h).toFixed(2),
+      (h.penetracion * 100).toFixed(1), h.produccion.toFixed(2), (h.porcentajeFacturado * 100).toFixed(1),
+      h.precioMedio.toFixed(2), oportunidad(h).toFixed(2),
     ])
   );
 }

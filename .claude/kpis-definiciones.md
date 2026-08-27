@@ -1812,3 +1812,28 @@ WHERE state NOT IN ('draft', 'cancel')
   presupuesto del mes completo) — con el fix, sin dato. El mes completo
   (1-31 julio) no cambia (38,91 %). **No incluye `fetch_rn_presupuesto`**
   (RN/habitaciones) — sigue pendiente, no se ha tocado.
+- 2026-08-27: **añadido el desglose Facturado / Sin facturar dentro de
+  "Producción"** (pedido explícito: ver "Producción" vs. "Facturación" lado
+  a lado, por hotel y globalmente). `_DESAYUNOS_SQL`/`_DESAYUNOS_SQL_CON_TIPO`/
+  `_DESAYUNOS_MENSUAL_HOTEL_SQL` separan lo que la CTE `facturado` ya
+  distinguía internamente (línea de folio con factura `posted` vinculada o
+  no) en vez de colapsarlo con `COALESCE`: nuevas columnas
+  `cantidad_facturada`/`cantidad_sin_facturar` y
+  `produccion_facturada`/`produccion_sin_facturar`. Invariante verificado
+  contra producción (no solo en el código): facturada + sin_facturar ==
+  total, siempre, en unidades e importe. `service._facturacion_json` añade
+  `desayunosFacturados`/`desayunosSinFacturar`/`produccionFacturada`/
+  `produccionSinFacturar`/`porcentajeFacturado` al JSON de cada hotel (y a
+  la serie mensual por hotel) — el global se calcula en el frontend sumando
+  por hotel, mismo patrón que `FnbResumenCards`, no hay endpoint nuevo.
+  Ejemplo real (Sada Marina, 1-26 agosto 2026, mes en curso): producción
+  16.326,51 €, facturado 12.980,64 € (79,5 %), sin facturar 3.345,87 €
+  (2.857 unidades → 2.274 facturadas, 583 sin facturar). "Sin facturar" usa
+  `price_subtotal` del folio como estimación — no es un hecho contable
+  todavía, mismo aviso que ya llevaba "Producción" antes de este desglose.
+  No se ha tocado `_SERIE_MENSUAL_SQL` (evolución de 12 meses de cadena
+  completa) — el desglose solo llega a la cifra del periodo actual y a la
+  serie mensual por hotel, no al gráfico de tendencia de la portada;
+  ampliarlo si se pide. Requiere aprobación de administración antes de
+  mergear (cambia importes mostrados: "Producción" no cambia de valor, pero
+  aparecen dos cifras nuevas al lado).
