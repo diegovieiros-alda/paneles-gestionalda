@@ -24,7 +24,9 @@ const cols: Array<{ key: Key; label: string; render: (h: HotelReal) => React.Rea
     key: "cumplimientoIngresos",
     label: "Presupuesto",
     render: (h) =>
-      h.presupuestoIngresos > 0 ? (
+      h.presupuestoMotivo === "rango_no_es_mes_natural" ? (
+        <span className="text-muted-foreground/50" title="Elige un mes completo para ver el presupuesto">Elige mes completo</span>
+      ) : h.presupuestoIngresos > 0 ? (
         <span className="text-muted-foreground">{fmtEuro(h.presupuestoIngresos)}</span>
       ) : (
         <span className="text-muted-foreground/50">Sin presupuesto</span>
@@ -34,6 +36,7 @@ const cols: Array<{ key: Key; label: string; render: (h: HotelReal) => React.Rea
     key: "cumplimientoIngresos",
     label: "Cumplimiento",
     render: (h) => {
+      if (h.presupuestoMotivo === "rango_no_es_mes_natural") return <span className="text-muted-foreground/50">—</span>;
       const e = etiquetaCumplimiento(h.cumplimientoIngresos);
       if (!e || h.cumplimientoIngresos === null) return <span className="text-muted-foreground/50">—</span>;
       return (

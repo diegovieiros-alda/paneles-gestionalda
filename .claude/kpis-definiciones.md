@@ -1734,3 +1734,13 @@ WHERE state NOT IN ('draft', 'cancel')
   de esa ventana; hay que limpiar `django_cache/` o cambiar de rango al
   verificar un fix recién aplicado en `manage.py shell`, o el resultado
   "viejo" puede parecer erróneamente que el fix no tuvo efecto.)
+- 2026-08-26: **aprobado por administración y mergeado en `master`** el
+  cambio de `_FNB_SQL`/`_FNB_MENSUAL_SQL`/`_FNB_MENSUAL_HOTEL_SQL`/
+  `_VENDEDORES_SQL`/`_VENDEDORES_HOTEL_SQL` a saldo contable (PR #2, rama
+  `fix/fnb-desayuno-saldo-contable`). Las cifras de ingresos, gastos, margen
+  bruto y resultado F&B de desayuno en producción cambian desde este merge
+  según el delta ya documentado más arriba — dejan de estar "pendientes de
+  revalidar", son las vigentes en el dashboard real a partir de ahora. El
+  hallazgo de "unidades" (párrafo anterior) sigue sin corregir y sin
+  aprobar en el momento de esta entrada — corregido después, ver la entrada
+  de arriba fechada el mismo día (PR #8).
