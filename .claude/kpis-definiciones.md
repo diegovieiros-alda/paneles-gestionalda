@@ -1760,6 +1760,35 @@ WHERE state NOT IN ('draft', 'cancel')
     un importe, y no estaba cubierto por el punto 3 — **queda pendiente de
     confirmar** si "unidades" para estos ratios debe ser `SUM(quantity)` a
     secas o si necesita el mismo tipo de ajuste de signo antes de tocarlo.
+- 2026-08-26: **corregido "unidades"**, decisión tomada: solo cuentan
+  `out_invoice`/`out_refund` (con signo — `out_refund` resta), el resto de
+  `move_type` (incluido `entry`) aporta 0. Los asientos manuales tienen
+  `quantity = 1` por defecto en cada línea (verificado, no es una unidad de
+  desayuno real) — antes de este cambio sumaban como si fueran ventas.
+  `_FNB_SQL`/`_FNB_MENSUAL_SQL`/`_FNB_MENSUAL_HOTEL_SQL` pasan de
+  `SUM(quantity)` a `SUM(CASE move_type WHEN 'out_invoice' THEN quantity
+  WHEN 'out_refund' THEN -quantity ELSE 0 END)`. Verificado contra
+  producción, histórico completo, hoteles de referencia:
+
+  | Hotel | Unidades antes | Unidades después | Delta |
+  |---|---|---|---|
+  | Sada Marina | 56.024 | 47.276 | −8.748 (−15,6%) |
+  | Alda Palacio Valdés | 22.250 | 19.942 | −2.308 (−10,4%) |
+  | Alda Valladolid Sur | 44.834 | 40.452 | −4.382 (−9,8%) |
+
+  Afecta a `precioMedioVenta` y `costeMedioGasto` (ambos suben, mismo
+  numerador entre un denominador más pequeño). No es uniforme mes a mes:
+  Sada Marina julio 2026 no se mueve (4,60 €/2,87 €, ese hotel/mes no tuvo
+  abonos ni asientos manuales en la cuenta de ingreso), pero Alda
+  Valladolid Sur julio 2026 sí — 65 unidades de abono sobre 1.203 pasan a
+  1.073 unidades netas, y `precioMedioVenta` sube de 6,26 € a **7,02 €**
+  (`costeMedioGasto` de 2,06 € a 2,31 €). (Nota de proceso: al verificar
+  esto se detectó que `django_cache/` — caché de disco de 5 min, ver
+  `core/cache.py` — puede servir un resultado calculado antes de aplicar un
+  cambio en `repository.py` si se reutiliza el mismo rango de fechas dentro
+  de esa ventana; hay que limpiar `django_cache/` o cambiar de rango al
+  verificar un fix recién aplicado en `manage.py shell`, o el resultado
+  "viejo" puede parecer erróneamente que el fix no tuvo efecto.)
 - 2026-08-26: **aprobado por administración y mergeado en `master`** el
   cambio de `_FNB_SQL`/`_FNB_MENSUAL_SQL`/`_FNB_MENSUAL_HOTEL_SQL`/
   `_VENDEDORES_SQL`/`_VENDEDORES_HOTEL_SQL` a saldo contable (PR #2, rama
@@ -1768,7 +1797,8 @@ WHERE state NOT IN ('draft', 'cancel')
   según el delta ya documentado más arriba — dejan de estar "pendientes de
   revalidar", son las vigentes en el dashboard real a partir de ahora. El
   hallazgo de "unidades" (párrafo anterior) sigue sin corregir y sin
-  aprobar.
+  aprobar en el momento de esta entrada — corregido después, ver la entrada
+  de arriba fechada el mismo día (PR #8).
 - 2026-08-26: **cerrada la decisión 5.2 para desayuno, aprobada por
   administración y mergeada en `master`** (PR #7, rama
   `fix/presupuesto-rango-mes-natural`). Opción elegida de las propuestas en
