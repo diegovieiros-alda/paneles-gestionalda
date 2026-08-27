@@ -398,18 +398,20 @@ def fetch_desayunos_mensual_hotel(hotel_id: int, fecha_inicio: datetime.date, fe
 # de cadena. Incluye también fetch_vendedores_desayuno/_hotel más abajo (mismo
 # bug, misma cuenta de ingreso).
 #
-# "unidades" (SUM(aml.quantity)) TODAVÍA no tiene esta corrección: tiene el
-# mismo problema de signo en out_refund (verificado, +74.040,17 uds en vez de
-# restar, cadena completa) y no se ha corregido aquí porque afecta al
-# denominador de precioMedioVenta/costeMedioGasto en service._fnb_json, no
-# solo a un importe — cambiarlo mueve esos dos ratios derivados a la vez que
-# el numerador, y no está en el punto 3 de kpis-definiciones.md. Pendiente de
-# decidir y de documentar en el propio documento antes de tocarlo.
+# "unidades" (denominador de precioMedioVenta/costeMedioGasto en
+# service._fnb_json): mismo problema de signo que ingresos/gastos tenían con
+# price_subtotal, verificado en cadena completa sobre la cuenta de ingreso —
+# out_refund suma +74.040,17 uds en vez de restar, y las 35 líneas 'entry'
+# (asientos manuales) aportan 1 unidad fantasma cada una (quantity=1 por
+# defecto, no representan un desayuno vendido). Corregido: solo
+# out_invoice/out_refund cuentan, con signo (CASE), 'entry' y cualquier otro
+# move_type aportan 0.
 _FNB_SQL = """
     SELECT
         aml.pms_property_id,
         SUM(aml.credit - aml.debit) FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS ingresos,
-        SUM(aml.quantity) FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS unidades,
+        SUM(CASE am.move_type WHEN 'out_invoice' THEN aml.quantity WHEN 'out_refund' THEN -aml.quantity ELSE 0 END)
+          FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS unidades,
         SUM(aml.debit - aml.credit) FILTER (WHERE aa.code = ANY(%(cuentas_gasto)s)) AS gastos
     FROM account_move_line aml
     JOIN account_account aa ON aa.id = aml.account_id
@@ -424,7 +426,8 @@ _FNB_MENSUAL_SQL = """
     SELECT
         date_trunc('month', aml.date)::date,
         SUM(aml.credit - aml.debit) FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS ingresos,
-        SUM(aml.quantity) FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS unidades,
+        SUM(CASE am.move_type WHEN 'out_invoice' THEN aml.quantity WHEN 'out_refund' THEN -aml.quantity ELSE 0 END)
+          FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS unidades,
         SUM(aml.debit - aml.credit) FILTER (WHERE aa.code = ANY(%(cuentas_gasto)s)) AS gastos
     FROM account_move_line aml
     JOIN account_account aa ON aa.id = aml.account_id
@@ -502,7 +505,8 @@ _FNB_MENSUAL_HOTEL_SQL = """
     SELECT
         date_trunc('month', aml.date)::date,
         SUM(aml.credit - aml.debit) FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS ingresos,
-        SUM(aml.quantity) FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS unidades,
+        SUM(CASE am.move_type WHEN 'out_invoice' THEN aml.quantity WHEN 'out_refund' THEN -aml.quantity ELSE 0 END)
+          FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS unidades,
         SUM(aml.debit - aml.credit) FILTER (WHERE aa.code = ANY(%(cuentas_gasto)s)) AS gastos
     FROM account_move_line aml
     JOIN account_account aa ON aa.id = aml.account_id
