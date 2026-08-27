@@ -440,9 +440,27 @@ def fetch_desayunos_mensual_hotel(hotel_id: int, fecha_inicio: datetime.date, fe
 # defecto, no representan un desayuno vendido). Corregido: solo
 # out_invoice/out_refund cuentan, con signo (CASE), 'entry' y cualquier otro
 # move_type aportan 0.
+#
+# Fallback por cuenta analítica (2026-08-27, hallazgo trasladado desde
+# kpis-definiciones.md): aml.pms_property_id viene NULL en asientos del
+# diario "Operaciones Varias" (periodificaciones, move_type='entry') que no
+# se registran contra un hotel PMS directamente. Antes, esas líneas se
+# agrupaban bajo pms_property_id=NULL y fetch_fnb_desayuno las descartaba
+# (`if r[0] is not None`) — silenciosamente, ni error ni aviso. La mayoría
+# sí tiene aml.hotel_analytic_account_id relleno (mismo campo que ya usa
+# _PRESUPUESTO_SQL para unir presupuesto a hotel), así que se resuelve por
+# ahí como alternativa. Verificado contra producción: cuenta 70500000020
+# (ingresos) no tiene ninguna línea afectada; cuenta 60100000001 (gastos)
+# sí — 81 líneas con aml.pms_property_id NULL, de las cuales 76 se resuelven
+# con este fallback (5 quedan sin hotel resoluble, asientos de cierre de
+# 2022-12-31 sin analítica tampoco). Los 3 hoteles de referencia (Sada
+# Marina/Alda Palacio Valdés/Alda Valladolid Sur) no tienen ninguna línea
+# afectada — el fallback no les cambia nada. Sí cambian, entre otros,
+# Alda Alborán Rooms (id 81, −83,72 € en gastos, histórico completo) y
+# Alda Don Carlos (id 105, −59,72 €).
 _FNB_SQL = """
     SELECT
-        aml.pms_property_id,
+        COALESCE(aml.pms_property_id, pp.id),
         SUM(aml.credit - aml.debit) FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS ingresos,
         SUM(CASE am.move_type WHEN 'out_invoice' THEN aml.quantity WHEN 'out_refund' THEN -aml.quantity ELSE 0 END)
           FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS unidades,
@@ -450,10 +468,11 @@ _FNB_SQL = """
     FROM account_move_line aml
     JOIN account_account aa ON aa.id = aml.account_id
     JOIN account_move am ON am.id = aml.move_id
+    LEFT JOIN pms_property pp ON pp.analytic_account_id = aml.hotel_analytic_account_id AND aml.pms_property_id IS NULL
     WHERE am.state = 'posted'
       AND aml.date BETWEEN %(desde)s AND %(hasta)s
       AND (aa.code = %(cuenta_ingreso)s OR aa.code = ANY(%(cuentas_gasto)s))
-    GROUP BY aml.pms_property_id
+    GROUP BY COALESCE(aml.pms_property_id, pp.id)
 """
 
 _FNB_MENSUAL_SQL = """
@@ -545,7 +564,8 @@ _FNB_MENSUAL_HOTEL_SQL = """
     FROM account_move_line aml
     JOIN account_account aa ON aa.id = aml.account_id
     JOIN account_move am ON am.id = aml.move_id
-    WHERE aml.pms_property_id = %(hotel_id)s AND am.state = 'posted'
+    LEFT JOIN pms_property pp ON pp.analytic_account_id = aml.hotel_analytic_account_id AND aml.pms_property_id IS NULL
+    WHERE COALESCE(aml.pms_property_id, pp.id) = %(hotel_id)s AND am.state = 'posted'
       AND aml.date BETWEEN %(desde)s AND %(hasta)s
       AND (aa.code = %(cuenta_ingreso)s OR aa.code = ANY(%(cuentas_gasto)s))
     GROUP BY 1
@@ -579,7 +599,8 @@ _VENDEDORES_HOTEL_SQL = """
     JOIN account_move am ON am.id = aml.move_id
     LEFT JOIN res_users ru ON ru.id = aml.create_uid
     LEFT JOIN res_partner rp ON rp.id = ru.partner_id
-    WHERE aml.pms_property_id = %(hotel_id)s AND aa.code = %(cuenta_ingreso)s AND am.state = 'posted'
+    LEFT JOIN pms_property pp ON pp.analytic_account_id = aml.hotel_analytic_account_id AND aml.pms_property_id IS NULL
+    WHERE COALESCE(aml.pms_property_id, pp.id) = %(hotel_id)s AND aa.code = %(cuenta_ingreso)s AND am.state = 'posted'
       AND aml.date BETWEEN %(desde)s AND %(hasta)s
     GROUP BY 1
     ORDER BY 2 DESC

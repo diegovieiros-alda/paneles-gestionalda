@@ -741,26 +741,28 @@ periodo, y aun así con holgura (ver validación).
   que restar a mano las líneas de `out_refund`, o el total sale inflado (caso
   real: sin la corrección, Sada Marina julio 2026 daba 2.620 unidades en vez
   de 1.980 — un 32% de más).
-- **Aviso pendiente de comprobar (punto 6)**: el `INNER JOIN pms_property p
-  ON p.id = am.pms_property_id` descarta sin avisar cualquier factura sin
-  hotel asignado. Antes de dar por buena la cobertura de este KPI, contar
-  cuántas líneas de la cuenta `70500000020` tienen `am.pms_property_id IS
-  NULL` en el rango que se vaya a usar (consulta en el apéndice de
-  auditoría al final del documento).
+- **Resuelto (2026-08-27, ver punto de historial "fallback por analítica")**:
+  el `INNER JOIN pms_property p ON p.id = am.pms_property_id` sí descartaba
+  sin avisar apuntes sin hotel asignado — confirmado contra producción.
+  Corregido con un fallback vía `aml.hotel_analytic_account_id` (mismo campo
+  que ya usa el presupuesto). Cuenta `70500000020` (ingresos): 0 líneas
+  afectadas en toda la cadena. La cuenta de gastos sí tiene líneas
+  afectadas — ver la sección de gastos más abajo.
 
 ```python
 _UD_DESAYUNOS_FACTURACION_SQL = """
-    SELECT p.id AS pms_property_id,
+    SELECT COALESCE(am.pms_property_id, pp.id) AS pms_property_id,
            SUM(CASE WHEN am.move_type = 'out_refund' THEN -aml.quantity ELSE aml.quantity END) AS unidades
     FROM account_move_line aml
     JOIN account_account acc ON acc.id = aml.account_id
     JOIN account_move am ON am.id = aml.move_id
-    JOIN pms_property p ON p.id = am.pms_property_id
+    LEFT JOIN pms_property pp ON pp.analytic_account_id = aml.hotel_analytic_account_id AND am.pms_property_id IS NULL
     WHERE acc.code = '70500000020'
       AND am.state = 'posted'
       AND aml.product_id IN %(productos_desayuno)s
       AND am.invoice_date >= %(desde)s AND am.invoice_date < %(hasta_exclusivo)s
-    GROUP BY p.id
+      AND COALESCE(am.pms_property_id, pp.id) IS NOT NULL
+    GROUP BY COALESCE(am.pms_property_id, pp.id)
 """
 
 @cache_result
@@ -824,22 +826,24 @@ tuvieran importe.
   existe para facturas, no para asientos manuales).
 - Sin filtro de `product_id`: la cuenta contable ya identifica el desayuno
   por sí sola.
-- **Aviso pendiente de comprobar (punto 6)**: mismo aviso que en unidades de
-  facturación — el `INNER JOIN pms_property` descarta sin avisar cualquier
-  apunte sin hotel asignado. Contar antes de dar la cobertura por buena.
+- **Resuelto (2026-08-27)**: mismo fallback que en unidades de facturación —
+  cuenta `70500000020`, 0 líneas afectadas en toda la cadena (verificado).
+  Se aplica el `LEFT JOIN` con fallback igualmente, por consistencia y por
+  si aparecen apuntes sin hotel en el futuro.
 
 ```python
 _INGRESOS_DESAYUNO_FACTURACION_SQL = """
-    SELECT p.id AS pms_property_id,
+    SELECT COALESCE(am.pms_property_id, pp.id) AS pms_property_id,
            SUM(aml.credit - aml.debit) AS importe
     FROM account_move_line aml
     JOIN account_account acc ON acc.id = aml.account_id
     JOIN account_move am ON am.id = aml.move_id
-    JOIN pms_property p ON p.id = am.pms_property_id
+    LEFT JOIN pms_property pp ON pp.analytic_account_id = aml.hotel_analytic_account_id AND am.pms_property_id IS NULL
     WHERE acc.code = '70500000020'
       AND am.state = 'posted'
       AND aml.date >= %(desde)s AND aml.date < %(hasta_exclusivo)s
-    GROUP BY p.id
+      AND COALESCE(am.pms_property_id, pp.id) IS NOT NULL
+    GROUP BY COALESCE(am.pms_property_id, pp.id)
 """
 
 @cache_result
@@ -903,24 +907,30 @@ el lado de compras:
 - Filtro de fecha por `aml.date`, no `invoice_date`.
 - Sin filtro de `product_id`: la cuenta contable ya identifica la compra de
   alimentos/bebidas por sí sola.
-- **Aviso pendiente de comprobar (punto 6)**: mismo aviso de `INNER JOIN
-  pms_property` que en los KPIs anteriores — aquí es más relevante todavía,
-  porque en facturas de **compra** no está garantizado que
-  `pms_property_id` venga siempre relleno. Contar antes de dar la cobertura
-  por buena.
+- **Resuelto (2026-08-27) — era el aviso correcto**: en facturas de
+  **compra**, `pms_property_id` NO viene siempre relleno. Confirmado contra
+  producción: cuenta `60100000001`, 81 líneas (todo el histórico, toda la
+  cadena) con `aml.pms_property_id IS NULL`, casi todas del diario
+  "Operaciones Varias" (`move_type = 'entry'`, periodificaciones). De esas
+  81, 76 se resuelven con el fallback por `aml.hotel_analytic_account_id`;
+  5 quedan sin hotel resoluble (asientos de cierre de 2022-12-31, sin
+  analítica tampoco — se excluyen, no se inventan). Los tres hoteles de
+  referencia de este documento no tienen ninguna línea afectada en esta
+  cuenta.
 
 ```python
 _GASTOS_DESAYUNO_FACTURACION_SQL = """
-    SELECT p.id AS pms_property_id,
+    SELECT COALESCE(am.pms_property_id, pp.id) AS pms_property_id,
            SUM(aml.debit - aml.credit) AS importe
     FROM account_move_line aml
     JOIN account_account acc ON acc.id = aml.account_id
     JOIN account_move am ON am.id = aml.move_id
-    JOIN pms_property p ON p.id = am.pms_property_id
+    LEFT JOIN pms_property pp ON pp.analytic_account_id = aml.hotel_analytic_account_id AND am.pms_property_id IS NULL
     WHERE acc.code = '60100000001'
       AND am.state = 'posted'
       AND aml.date >= %(desde)s AND aml.date < %(hasta_exclusivo)s
-    GROUP BY p.id
+      AND COALESCE(am.pms_property_id, pp.id) IS NOT NULL
+    GROUP BY COALESCE(am.pms_property_id, pp.id)
 """
 
 @cache_result
@@ -1837,3 +1847,51 @@ WHERE state NOT IN ('draft', 'cancel')
   ampliarlo si se pide. Requiere aprobación de administración antes de
   mergear (cambia importes mostrados: "Producción" no cambia de valor, pero
   aparecen dos cifras nuevas al lado).
+- 2026-08-27: **corregido el fallback por analítica en `repository.py`**
+  (rama `fix/fnb-desayuno-hotel-analitica-fallback`, sin mergear todavía —
+  toca importes reales, requiere aprobación de administración). Hallazgo
+  trasladado desde el entorno de solo lectura `alda-ia-taller`
+  (confirmado contra el código y los datos reales antes de aplicarlo, no
+  asumido): `aml.pms_property_id` viene NULL en apuntes del diario
+  "Operaciones Varias" (periodificaciones, `move_type = 'entry'`), y
+  `fetch_fnb_desayuno` los descartaba en silencio (`if r[0] is not None`).
+  El ticket original planteaba la hipótesis de un `INNER JOIN pms_property`
+  sobre `am.pms_property_id` — **no es exactamente así**: el código real usa
+  `aml.pms_property_id` (campo de línea, no de asiento) sin ningún `JOIN`, y
+  descarta el `NULL` en Python, no en SQL. El efecto práctico es el mismo
+  (líneas sin hotel se pierden sin aviso), así que se aplica el mismo
+  fallback propuesto: `aml.hotel_analytic_account_id` → `pms_property
+  .analytic_account_id` (mismo patrón que ya usa el presupuesto). Aplicado
+  en `_FNB_SQL`, `_FNB_MENSUAL_HOTEL_SQL` y `_VENDEDORES_HOTEL_SQL` (no en
+  `_FNB_MENSUAL_SQL` ni `_VENDEDORES_SQL`, que no agrupan por hotel — no les
+  afecta este bug). Verificado contra producción, todo el histórico:
+  - Cuenta `70500000020` (ingresos): **0 líneas afectadas** en toda la
+    cadena — el bug no tiene efecto práctico en ingresos, solo en gastos.
+  - Cuenta `60100000001` (gastos): 81 líneas con `aml.pms_property_id`
+    `NULL`; 76 se resuelven con el fallback, 5 quedan sin hotel resoluble
+    (asientos de cierre `Vario/2022/12/*`, sin analítica tampoco — siguen
+    excluidas, no se inventa un hotel).
+  - Los tres hoteles de referencia (Sada Marina/Alda Palacio Valdés/Alda
+    Valladolid Sur) **no tienen ninguna línea afectada** — el fix no les
+    cambia nada, verificado.
+  - Sí cambian, entre otros: Alda Alborán Rooms (id 81) −83,72 € y Alda Don
+    Carlos (id 105) −59,72 € en gastos, histórico completo.
+  - **Hallazgo colateral, no corregido aquí, documentado para quien
+    mantenga `MAPEO_ZONAS`/`HOTEL_IDS_EXCLUIDOS_FIJOS`**: parte de las
+    entidades recuperables por el fallback no son hoteles reales, son
+    locales de restauración de otras líneas de negocio de Alda ("Garfo e
+    Coitelo", códigos 501/503/505/506; "Taberna Central", código 801) que
+    hoy **ya aparecen** en el listado de hoteles del dashboard (con "Zona No
+    Definida") porque no están en `MAPEO_ZONAS`/`HOTEL_IDS_EXCLUIDOS_FIJOS`
+    — a diferencia de "A Nosa Taberna" (códigos 802-805), que sí está
+    excluido vía la zona "Restauradores". El fix de este punto no crea ese
+    problema (esas entidades ya eran visibles antes, con cifras
+    incompletas); simplemente hace más correctas las cifras de lo que ya se
+    mostraba. Si se decide que "Garfo e Coitelo"/"Taberna Central" no deben
+    aparecer en el dashboard de Desayunos, es un cambio aparte en la lista
+    de exclusión, no en esta corrección.
+  - Aplicado también el mismo fallback a las secciones
+    `fetch_ud_desayunos_facturacion`/`fetch_ingresos_desayuno_facturacion`/
+    `fetch_gastos_desayuno_facturacion` de este documento (cerraba el
+    "aviso pendiente de comprobar" del punto 6 que quedó abierto en la
+    revisión del 2026-08-26).
