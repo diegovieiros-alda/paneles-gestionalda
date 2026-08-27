@@ -1326,8 +1326,17 @@ meses naturales, y que devuelvan `None` con un motivo explícito
 o un prorrateo. Razón: prorratear por días asume que el presupuesto se
 consume uniformemente dentro del mes, una asunción no verificada y que
 además complicaría comparar contra el gasto/ingreso real (que sí varía
-día a día). **No implementado todavía en el código de este documento** —
-pendiente de confirmar antes de tocar las tres funciones.
+día a día). **No implementado todavía en el código de este documento**.
+
+**Cerrada para el lado de desayuno (2026-08-26)**: aprobada por
+administración y aplicada en `repository.py`/`service.py` reales (PR #7,
+rama `fix/presupuesto-rango-mes-natural`, mergeada) — misma propuesta de
+arriba, sobre `fetch_presupuesto_desayuno` (no sobre `fetch_rn_presupuesto`,
+que es RN/habitaciones, un KPI distinto que este documento nunca implementó
+en `repository.py` y que sigue sin tocar). Ver detalle en el historial de
+cambios. **`fetch_rn_presupuesto` (RN) sigue pendiente** — la decisión de
+negocio era la misma pero solo se ha aplicado al lado de desayuno, que es lo
+único que se pidió.
 
 ### 5.3 — Perímetros mezclados en el precio medio de facturación
 
@@ -1350,28 +1359,40 @@ lista) y decidir con datos si el hueco es material. Cada decisión (filtrar
 o no filtrar `fetch_ingresos_desayuno_facturacion`) está bien justificada
 por separado — el problema es combinarlas sin darse cuenta.
 
-### 5.4 — Cuentas de gasto (60100000001 vs. + 002/003)
+### 5.4 — Cuentas de gasto (60100000001 vs. + 002; 60100000003 no existe)
 
 Este documento usa solo `60100000001`. El código real de
 `paneles-gestionalda` (`backend/core/hoteles/repository.py`,
-`_CUENTAS_GASTO_DESAYUNO`) usa **tres**: `60100000001`, `60100000002` y
-`60100000003`. El mismo hotel y mes darían dos cifras distintas de "gastos
-de desayuno" en dos pantallas del mismo producto si esto no se unifica.
+`_CUENTAS_GASTO_DESAYUNO`) declara **tres** códigos: `60100000001`,
+`60100000002` y `60100000003` — pero de esos tres, solo los dos primeros
+existen de verdad en el plan contable (ver retractación más abajo). El
+mismo hotel y mes darían dos cifras distintas de "gastos de desayuno" en
+dos pantallas del mismo producto si esto no se unifica.
 
-**Verificado contra el repo real (evidencia, no solo indicación)**: la
-afirmación de que "`60100000003` aún no existe en el plan contable" no se
-sostiene — el código de producción la consulta activamente junto a las
-otras dos, lo que sugiere que sí existe (o que el dashboard real lleva
-tiempo consultando una cuenta inexistente sin que salte ningún error, lo
-cual también sería una comprobación necesaria).
+**Retractado (2026-08-26) — resuelta la pregunta E del apéndice de
+auditoría**: la entrada anterior afirmaba, sin ejecutar la consulta, que
+"la afirmación de que 60100000003 no existe no se sostiene". Era un error
+de razonamiento (indicación, no evidencia): que el código *consulte* un
+código de cuenta no implica que esa cuenta *exista* — un `JOIN`/`ANY` sobre
+un código que no aparece en `account_account` simplemente no aporta filas,
+sin error. **Verificado ahora contra `account_account` directamente, las
+10 compañías del grupo**: `60100000001` existe en 8 de las 10, `60100000002`
+en 6 de las 10, `60100000003` en **ninguna** — 0 filas. La afirmación
+original ("aún no existe en el plan contable") era correcta.
 
-**Propuesta**: unificar a las tres cuentas (`60100000001`,
-`60100000002`, `60100000003`) en `fetch_gastos_desayuno_facturacion` y
-`fetch_gastos_desayuno_presupuesto`, para igualar el criterio ya en
-producción. **No aplicado todavía** en el código de este documento —
-pendiente de que alguien confirme con contabilidad qué cubre cada una de
-las tres antes de sumarlas sin más (podrían no ser todas "materia prima F&B
-de desayuno" en sentido estricto).
+**Consecuencia práctica**: `_CUENTAS_GASTO_DESAYUNO` en `repository.py`
+incluye un código de cuenta fantasma que nunca aporta nada a ningún
+resultado — no es un bug de cifras (no infla ni desinfla nada, el `JOIN` lo
+descarta solo), pero sí conviene que quien lo mantenga sepa que hoy
+`_CUENTAS_GASTO_DESAYUNO` es, en la práctica, `60100000001` +
+`60100000002`.
+
+**Propuesta, ajustada**: unificar a las **dos** cuentas que existen de
+verdad (`60100000001`, `60100000002`) en `fetch_gastos_desayuno_facturacion`
+y `fetch_gastos_desayuno_presupuesto`, para igualar el criterio ya en
+producción. Sigue pendiente confirmar con contabilidad qué cubre cada una
+de las dos antes de sumarlas sin más (podrían no ser todas "materia prima
+F&B de desayuno" en sentido estricto) — **no aplicado todavía**.
 
 ### 5.5 — `adults + children` vs. `adults + children_occupying`
 
@@ -1450,13 +1471,13 @@ WHERE acc.code = '70500000020'
        OR aml.product_id NOT IN (11, 10794, 198, 327, 328, 3978, 10795, 10810, 10811, 10812, 10813, 10815, 10264));
 ```
 
-**E. ¿Existe realmente la cuenta `60100000003`?** (decisión 5.4 — el
-documento de origen decía que no, el código real de producción la usa)
-```sql
-SELECT id, code, name->>'es_ES' AS nombre, active
-FROM account_account
-WHERE code IN ('60100000001', '60100000002', '60100000003');
-```
+**E. Resuelta (2026-08-26)** — ¿existe realmente la cuenta `60100000003`?
+No: `SELECT code, company_id, count(*) FROM account_account WHERE code LIKE
+'601000000%' GROUP BY code, company_id` sobre las 10 compañías del grupo da
+`60100000001` en 8, `60100000002` en 6, `60100000003` en **0**. (Nota:
+`name` en `account_account` es `varchar` normal en esta instancia, no
+`jsonb` — la consulta original de este apéndice con `name->>'es_ES'`
+fallaría con `operator does not exist`.)
 
 **F. Magnitud del asiento manual en las cuentas de desayuno** (punto 3 —
 comprobar si `move_type = 'entry'` tiene volumen real en estas cuentas antes
@@ -1678,10 +1699,29 @@ WHERE state NOT IN ('draft', 'cancel')
   corregida: de los puntos 2 y 3, solo el **punto 3** (ingresos/gastos F&B
   reales con `price_subtotal` en vez de saldo contable) sigue confirmado
   como fallo presente en `repository.py`; el punto 2 no lo es.
+- 2026-08-26: **retractada la retractación de la decisión 5.4**. Se iba a
+  corregir `frontend/src/components/dashboard/desayunos-origen-datos.tsx`
+  (decía "2 cuentas de gasto, la 60100000003 no existe") dando por buena la
+  entrada anterior de este documento, que afirmaba lo contrario ("la
+  afirmación de que no existe no se sostiene"). Antes de tocar el frontend,
+  se ejecutó por fin la consulta E del apéndice de auditoría (nunca se había
+  llegado a correr): `SELECT code, company_id, count(*) FROM account_account
+  WHERE code LIKE '601000000%' GROUP BY code, company_id`, sobre las 10
+  compañías del grupo. Resultado: `60100000001` existe en 8 compañías,
+  `60100000002` en 6, `60100000003` en **0**. La entrada anterior confundía
+  "el código consulta este código de cuenta" con "el código de cuenta
+  existe" — un `JOIN`/`ANY` sobre un código ausente en `account_account` no
+  da error, simplemente no aporta filas. El texto del frontend **era
+  correcto** y no se ha tocado. Se corrige la sección 5.4 con la evidencia
+  directa; la propuesta de unificación pasa de "las tres cuentas" a "las dos
+  que existen" (`60100000001`/`60100000002`). Sigue sin aplicarse en
+  `repository.py` — `_CUENTAS_GASTO_DESAYUNO` sigue declarando el código
+  fantasma `60100000003`, sin efecto en ninguna cifra (verificado: no aporta
+  filas), pendiente de una limpieza de bajo riesgo si se decide hacerla.
 - 2026-08-26: **trasladado el punto 3 a `repository.py`** (rama
-  `fix/fnb-desayuno-saldo-contable`, sin mergear todavía — pendiente de
-  aprobación del responsable de administración, toca importes reales).
-  `_FNB_SQL`, `_FNB_MENSUAL_SQL` y `_FNB_MENSUAL_HOTEL_SQL` cambian
+  `fix/fnb-desayuno-saldo-contable`, PR #2 — ver entrada siguiente para la
+  aprobación y el merge). `_FNB_SQL`, `_FNB_MENSUAL_SQL` y
+  `_FNB_MENSUAL_HOTEL_SQL` cambian
   `SUM(price_subtotal)` por `SUM(credit - debit)` (ingresos) /
   `SUM(debit - credit)` (gastos). Extendido también a
   `_VENDEDORES_SQL`/`_VENDEDORES_HOTEL_SQL` (misma cuenta de ingreso, mismo
@@ -1744,3 +1784,16 @@ WHERE state NOT IN ('draft', 'cancel')
   hallazgo de "unidades" (párrafo anterior) sigue sin corregir y sin
   aprobar en el momento de esta entrada — corregido después, ver la entrada
   de arriba fechada el mismo día (PR #8).
+- 2026-08-26: **cerrada la decisión 5.2 para desayuno, aprobada por
+  administración y mergeada en `master`** (PR #7, rama
+  `fix/presupuesto-rango-mes-natural`). Opción elegida de las propuestas en
+  5.2: "sin dato" (no `0`, no prorrateo) cuando el rango pedido a
+  `fetch_presupuesto_desayuno` no es un mes (o varios) natural completo —
+  nueva función `service._rango_es_mes_natural` y campo de respuesta
+  `presupuestoMotivo="rango_no_es_mes_natural"`, distinguible de
+  `cumplimiento*=null` sin motivo ("sin presupuesto confirmado"). Ejemplo
+  verificado contra producción: Alda Valladolid Sur, 1-15 julio 2026,
+  mostraba antes 17,76 % de cumplimiento (15 días reales contra el
+  presupuesto del mes completo) — con el fix, sin dato. El mes completo
+  (1-31 julio) no cambia (38,91 %). **No incluye `fetch_rn_presupuesto`**
+  (RN/habitaciones) — sigue pendiente, no se ha tocado.
