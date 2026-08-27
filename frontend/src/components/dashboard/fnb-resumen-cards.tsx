@@ -24,6 +24,9 @@ export function FnbResumenCards({ hoteles }: { hoteles: HotelReal[] }) {
   const presupuestoIngresos = hoteles.reduce((a, h) => a + h.presupuestoIngresos, 0);
   const resultadoFB = ingresos - gastos;
   const margenBruto = ingresos > 0 ? resultadoFB / ingresos : 0;
+  // presupuestoMotivo es igual en todas las filas: depende del rango de fechas
+  // elegido, no del hotel (ver service._rango_es_mes_natural).
+  const rangoParcial = hoteles[0]?.presupuestoMotivo === "rango_no_es_mes_natural";
   const cumplimiento = presupuestoIngresos > 0 ? ingresos / presupuestoIngresos : null;
   const e = etiquetaCumplimiento(cumplimiento);
 
@@ -45,7 +48,9 @@ export function FnbResumenCards({ hoteles }: { hoteles: HotelReal[] }) {
         icon={Target}
         label="Presupuesto (ingresos)"
         sub={
-          e && cumplimiento !== null ? (
+          rangoParcial ? (
+            "Elige un mes completo para ver el cumplimiento"
+          ) : e && cumplimiento !== null ? (
             <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium", ETIQUETA_BADGE_CLASS[e])}>
               {fmtPct(cumplimiento, 0)} · {ETIQUETA_LABEL[e]}
             </span>
@@ -54,7 +59,7 @@ export function FnbResumenCards({ hoteles }: { hoteles: HotelReal[] }) {
           )
         }
       >
-        {presupuestoIngresos > 0 ? fmtEuro(presupuestoIngresos) : "—"}
+        {rangoParcial ? "—" : presupuestoIngresos > 0 ? fmtEuro(presupuestoIngresos) : "—"}
       </Card>
     </section>
   );

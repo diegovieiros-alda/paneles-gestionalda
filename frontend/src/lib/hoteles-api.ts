@@ -23,6 +23,12 @@ export async function fetchHotelInfo(id: string | number): Promise<HotelDirector
 // hay presupuesto confirmado para ese hotel/periodo — 0% sugeriría que no
 // se vendió nada, no que falta presupuesto. Ver
 // backend/core/hoteles/service.py::_fnb_json.
+// presupuestoMotivo: "rango_no_es_mes_natural" cuando el rango elegido no es
+// un mes (o varios meses) completo — presupuestoIngresos/Gastos vienen a 0 y
+// cumplimiento* a null en ese caso, porque comparar un rango parcial contra
+// el presupuesto del mes entero da una cifra engañosa (ver
+// backend/core/hoteles/service.py::_rango_es_mes_natural). Distinto de
+// cumplimiento*=null sin motivo, que significa "sin presupuesto confirmado".
 export type FnbFields = {
   ingresos: number;
   gastos: number;
@@ -34,6 +40,7 @@ export type FnbFields = {
   presupuestoGastos: number;
   cumplimientoIngresos: number | null;
   cumplimientoGastos: number | null;
+  presupuestoMotivo: "rango_no_es_mes_natural" | null;
 };
 
 // Comparación declarado (reserva) vs. check-in confirmado, SOLO fechas

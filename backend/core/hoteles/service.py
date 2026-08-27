@@ -32,7 +32,25 @@ def _precio_medio(d: dict) -> float:
     return (d["produccion"] / d["cantidad_total"]) if d["cantidad_total"] > 0 else 0.0
 
 
-def _fnb_json(f: dict, presupuesto: dict = _PRESUPUESTO_VACIO) -> dict:
+def _rango_es_mes_natural(desde: datetime.date, hasta: datetime.date) -> bool:
+    """True si [desde, hasta] es uno o varios meses naturales completos
+    (desde es día 1, hasta es el último día de su mes).
+
+    kpis-definiciones.md, decisión 5.2: pms_budget/account_move_budget_line
+    guardan la fecha como el día 1 del mes, así que comparar un rango
+    parcial (p.ej. "los últimos 7 días") contra el presupuesto del mes
+    entero da un "cumplimiento" engañoso, sin avisar — parece un dato real
+    cuando en realidad es un problema de alineación de fechas."""
+    if desde.day != 1:
+        return False
+    primer_dia_mes_siguiente = (hasta.replace(day=1) + datetime.timedelta(days=32)).replace(day=1)
+    return hasta == primer_dia_mes_siguiente - datetime.timedelta(days=1)
+
+
+_MOTIVO_RANGO_PARCIAL = "rango_no_es_mes_natural"
+
+
+def _fnb_json(f: dict, presupuesto: dict = _PRESUPUESTO_VACIO, motivo_presupuesto: str | None = None) -> dict:
     """KPIs financieros F&B (ver repository._CUENTA_INGRESO_DESAYUNO): fuente
     contable, no PMS — deliberadamente distinta de produccion/precioMedio de
     arriba (que sí incluyen colaborador). No confundir "precioMedioVenta"
@@ -41,7 +59,10 @@ def _fnb_json(f: dict, presupuesto: dict = _PRESUPUESTO_VACIO) -> dict:
     cumplimientoIngresos/Gastos: real/presupuesto (1.0 = 100% del
     presupuesto). None si no hay presupuesto confirmado para ese periodo —
     "0%" sería engañoso (parece que no se vendió nada, no que falta
-    presupuesto)."""
+    presupuesto). motivo_presupuesto distingue esa razón de la otra posible
+    ("rango_no_es_mes_natural", ver _rango_es_mes_natural) — quien llame ya
+    debe pasar presupuesto={} en ese caso, este parámetro es solo para que
+    el frontend sepa por qué está vacío."""
     ingresos, gastos = f["ingresos"], f["gastos"]
     unidades = f["unidades"]
     presupuesto_ingresos = presupuesto["presupuestoIngresos"]
@@ -57,6 +78,7 @@ def _fnb_json(f: dict, presupuesto: dict = _PRESUPUESTO_VACIO) -> dict:
         "presupuestoGastos": round(presupuesto_gastos, 2),
         "cumplimientoIngresos": round(ingresos / presupuesto_ingresos, 4) if presupuesto_ingresos > 0 else None,
         "cumplimientoGastos": round(gastos / presupuesto_gastos, 4) if presupuesto_gastos > 0 else None,
+        "presupuestoMotivo": motivo_presupuesto,
     }
 
 
@@ -74,7 +96,9 @@ def get_hoteles(
     alojados = repository.fetch_alojados(fecha_inicio, fecha_fin)
     desayunos = repository.fetch_desayunos(fecha_inicio, fecha_fin, tipos_desayuno)
     fnb = repository.fetch_fnb_desayuno(fecha_inicio, fecha_fin)
-    presupuesto = repository.fetch_presupuesto_desayuno(fecha_inicio, fecha_fin)
+    rango_valido = _rango_es_mes_natural(fecha_inicio, fecha_fin)
+    presupuesto = repository.fetch_presupuesto_desayuno(fecha_inicio, fecha_fin) if rango_valido else {}
+    motivo_presupuesto = None if rango_valido else _MOTIVO_RANGO_PARCIAL
     calidad_checkin = repository.fetch_calidad_checkin(fecha_inicio, fecha_fin)
 
     resultado = []
@@ -98,7 +122,7 @@ def get_hoteles(
                 "penetracion": round(penetracion, 4),
                 "produccion": round(d["produccion"], 2),
                 "precioMedio": round(precio_medio, 2),
-                **_fnb_json(fnb.get(h["id"], _FNB_VACIO), presupuesto.get(h["id"], _PRESUPUESTO_VACIO)),
+                **_fnb_json(fnb.get(h["id"], _FNB_VACIO), presupuesto.get(h["id"], _PRESUPUESTO_VACIO), motivo_presupuesto),
                 "calidadCheckin": calidad_checkin.get(h["id"], _CALIDAD_CHECKIN_VACIO),
             }
         )
@@ -179,7 +203,13 @@ def get_hotel_desayunos(hotel_id: int, fecha_inicio: datetime.date, fecha_fin: d
     alojados = repository.fetch_alojados(fecha_inicio, fecha_fin).get(hotel_id, 0)
     d = repository.fetch_desayunos(fecha_inicio, fecha_fin).get(hotel_id, _DESAYUNO_VACIO)
     fnb = repository.fetch_fnb_desayuno(fecha_inicio, fecha_fin).get(hotel_id, _FNB_VACIO)
-    presupuesto = repository.fetch_presupuesto_desayuno(fecha_inicio, fecha_fin).get(hotel_id, _PRESUPUESTO_VACIO)
+    rango_valido = _rango_es_mes_natural(fecha_inicio, fecha_fin)
+    presupuesto = (
+        repository.fetch_presupuesto_desayuno(fecha_inicio, fecha_fin).get(hotel_id, _PRESUPUESTO_VACIO)
+        if rango_valido
+        else _PRESUPUESTO_VACIO
+    )
+    motivo_presupuesto = None if rango_valido else _MOTIVO_RANGO_PARCIAL
     penetracion = (d["cantidad"] / alojados) if alojados > 0 else 0.0
     precio_medio = _precio_medio(d)
     actual = {
@@ -188,7 +218,7 @@ def get_hotel_desayunos(hotel_id: int, fecha_inicio: datetime.date, fecha_fin: d
         "penetracion": round(penetracion, 4),
         "produccion": round(d["produccion"], 2),
         "precioMedio": round(precio_medio, 2),
-        **_fnb_json(fnb, presupuesto),
+        **_fnb_json(fnb, presupuesto, motivo_presupuesto),
     }
 
     inicio_serie = _hace_n_meses(fecha_fin, 11)
