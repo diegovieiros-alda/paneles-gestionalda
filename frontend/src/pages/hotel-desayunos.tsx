@@ -136,16 +136,18 @@ export default function HotelDesayunosPage() {
                 value={data.actual.presupuestoIngresos > 0 ? fmtEuro(data.actual.presupuestoIngresos) : "—"}
                 tone="neutral"
                 footer={
-                  data.actual.cumplimientoIngresos !== null
-                    ? (() => {
-                        const e = etiquetaCumplimiento(data.actual.cumplimientoIngresos);
-                        return e ? (
-                          <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium", ETIQUETA_BADGE_CLASS[e])}>
-                            {fmtPct(data.actual.cumplimientoIngresos, 0)} · {ETIQUETA_LABEL[e]}
-                          </span>
-                        ) : undefined;
-                      })()
-                    : "Sin presupuesto confirmado"
+                  data.actual.presupuestoMotivo === "rango_no_es_mes_natural"
+                    ? "Elige un mes completo para ver el cumplimiento"
+                    : data.actual.cumplimientoIngresos !== null
+                      ? (() => {
+                          const e = etiquetaCumplimiento(data.actual.cumplimientoIngresos);
+                          return e ? (
+                            <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium", ETIQUETA_BADGE_CLASS[e])}>
+                              {fmtPct(data.actual.cumplimientoIngresos, 0)} · {ETIQUETA_LABEL[e]}
+                            </span>
+                          ) : undefined;
+                        })()
+                      : "Sin presupuesto confirmado"
                 }
               />
             </section>
