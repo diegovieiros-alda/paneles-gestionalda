@@ -113,11 +113,19 @@ export function rangeForPreset(preset: Exclude<RangePreset, "custom">): { desde:
       return { desde: iso(desde), hasta: hastaDe(desde, fin) };
     }
     case "fiscal": {
-      // Año fiscal 1 de octubre - 30 de septiembre.
+      // Año fiscal 1 de octubre - 30 de septiembre: a diferencia de Mes/
+      // Q1-Q4, NO se recorta en "ayer" aunque el año en curso no haya
+      // terminado — son los límites oficiales del año fiscal de la
+      // empresa (pedido explícitamente, 2026-08-28: "el año fiscal... es
+      // desde el 1 de octubre al 30 de septiembre", sin más matices). Una
+      // fecha de fin en el futuro no rompe nada: Odoo simplemente no
+      // tiene filas más allá de hoy, así que el resultado real coincide
+      // con lo que ya se mostraba, pero ahora la etiqueta no miente sobre
+      // cuáles son los límites del año fiscal.
       const anioInicio = hoy.getMonth() >= 9 ? hoy.getFullYear() : hoy.getFullYear() - 1;
       const desde = new Date(anioInicio, 9, 1);
       const fin = new Date(anioInicio + 1, 8, 30);
-      return { desde: iso(desde), hasta: hastaDe(desde, fin) };
+      return { desde: iso(desde), hasta: iso(fin) };
     }
   }
 }
