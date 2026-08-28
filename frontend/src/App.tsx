@@ -19,6 +19,7 @@ import UsuariosPage from "@/pages/usuarios";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { AjustesDesayunoProvider } from "@/lib/ajustes-desayuno-context";
 import { ProtectedRoute, SuperuserRoute } from "@/components/dashboard/protected-route";
+import { LoadingScreen } from "@/components/dashboard/loading-screen";
 import { NAV } from "@/components/dashboard/sidebar";
 
 // Todas las rutas de Desayunos comparten los ajustes editables (objetivo de
@@ -34,7 +35,7 @@ function DesayunosRoute({ children }: { children: ReactNode }) {
 
 function Inicio() {
   const { usuario, cargando } = useAuth();
-  if (cargando) return null;
+  if (cargando) return <LoadingScreen />;
   if (!usuario) return <Navigate to="/login" replace />;
   const primero = NAV.find((n) => usuario.dashboards.includes(n.dashboard));
   return <Navigate to={primero?.to ?? "/login"} replace />;
