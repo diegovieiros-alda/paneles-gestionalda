@@ -4,57 +4,60 @@ import { ArrowUpDown, ChevronRight, Download, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   ETIQUETA_BADGE_CLASS, ETIQUETA_LABEL, etiqueta, etiquetaCumplimiento,
-  facturacionPotencial, fmtEuro, fmtPct, UMBRAL_PENETRACION, TARGET_PENETRACION,
+  facturacionPotencial, fmtEuro, fmtPct,
 } from "@/lib/mock-data";
 import { exportarCsv } from "@/lib/export-csv";
 import { SignedEuro, SignedPct } from "@/components/dashboard/signed-value";
 import { Button } from "@/components/ui/button";
+import { useAjustesDesayuno } from "@/lib/ajustes-desayuno-context";
 import type { HotelReal } from "@/lib/hoteles-api";
 
 type Key = "name" | "ingresos" | "cumplimientoIngresos" | "gastos" | "margenBruto" | "precioMedioVenta" | "costeMedioGasto" | "resultadoFB" | "potencial";
 
-function potencial(h: HotelReal) {
-  return facturacionPotencial(h.alojados, h.penetracion, h.precioMedioVenta);
+function potencial(h: HotelReal, objetivoOportunidad: number) {
+  return facturacionPotencial(h.alojados, h.penetracion, h.precioMedioVenta, objetivoOportunidad);
 }
 
-const cols: Array<{ key: Key; label: string; render: (h: HotelReal) => React.ReactNode }> = [
-  { key: "name", label: "Hotel", render: (h) => h.name },
-  { key: "ingresos", label: "Ingresos", render: (h) => fmtEuro(h.ingresos) },
-  {
-    key: "cumplimientoIngresos",
-    label: "Presupuesto",
-    render: (h) =>
-      h.presupuestoMotivo === "rango_no_es_mes_natural" ? (
-        <span className="text-muted-foreground/50" title="Elige un mes completo para ver el presupuesto">Elige mes completo</span>
-      ) : h.presupuestoIngresos > 0 ? (
-        <span className="text-muted-foreground">{fmtEuro(h.presupuestoIngresos)}</span>
-      ) : (
-        <span className="text-muted-foreground/50">Sin presupuesto</span>
-      ),
-  },
-  {
-    key: "cumplimientoIngresos",
-    label: "Cumplimiento",
-    render: (h) => {
-      if (h.presupuestoMotivo === "rango_no_es_mes_natural") return <span className="text-muted-foreground/50">—</span>;
-      const e = etiquetaCumplimiento(h.cumplimientoIngresos);
-      if (!e || h.cumplimientoIngresos === null) return <span className="text-muted-foreground/50">—</span>;
-      return (
-        <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium", ETIQUETA_BADGE_CLASS[e])}>
-          {fmtPct(h.cumplimientoIngresos, 0)}
-        </span>
-      );
+function buildCols(objetivoOportunidad: number): Array<{ key: Key; label: string; render: (h: HotelReal) => React.ReactNode }> {
+  return [
+    { key: "name", label: "Hotel", render: (h) => h.name },
+    { key: "ingresos", label: "Ingresos", render: (h) => fmtEuro(h.ingresos) },
+    {
+      key: "cumplimientoIngresos",
+      label: "Presupuesto",
+      render: (h) =>
+        h.presupuestoMotivo === "rango_no_es_mes_natural" ? (
+          <span className="text-muted-foreground/50" title="Elige un mes completo para ver el presupuesto">Elige mes completo</span>
+        ) : h.presupuestoIngresos > 0 ? (
+          <span className="text-muted-foreground">{fmtEuro(h.presupuestoIngresos)}</span>
+        ) : (
+          <span className="text-muted-foreground/50">Sin presupuesto</span>
+        ),
     },
-  },
-  { key: "gastos", label: "Gastos", render: (h) => fmtEuro(h.gastos) },
-  { key: "margenBruto", label: "Margen bruto", render: (h) => <SignedPct value={h.margenBruto} /> },
-  { key: "precioMedioVenta", label: "Precio medio venta", render: (h) => `${h.precioMedioVenta.toFixed(2)}€` },
-  { key: "costeMedioGasto", label: "Coste medio", render: (h) => `${h.costeMedioGasto.toFixed(2)}€` },
-  { key: "resultadoFB", label: "Resultado F&B", render: (h) => <SignedEuro value={h.resultadoFB} /> },
-  { key: "potencial", label: "Facturación potencial", render: (h) => fmtEuro(potencial(h)) },
-];
+    {
+      key: "cumplimientoIngresos",
+      label: "Cumplimiento",
+      render: (h) => {
+        if (h.presupuestoMotivo === "rango_no_es_mes_natural") return <span className="text-muted-foreground/50">—</span>;
+        const e = etiquetaCumplimiento(h.cumplimientoIngresos);
+        if (!e || h.cumplimientoIngresos === null) return <span className="text-muted-foreground/50">—</span>;
+        return (
+          <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium", ETIQUETA_BADGE_CLASS[e])}>
+            {fmtPct(h.cumplimientoIngresos, 0)}
+          </span>
+        );
+      },
+    },
+    { key: "gastos", label: "Gastos", render: (h) => fmtEuro(h.gastos) },
+    { key: "margenBruto", label: "Margen bruto", render: (h) => <SignedPct value={h.margenBruto} /> },
+    { key: "precioMedioVenta", label: "Precio medio venta", render: (h) => `${h.precioMedioVenta.toFixed(2)}€` },
+    { key: "costeMedioGasto", label: "Coste medio", render: (h) => `${h.costeMedioGasto.toFixed(2)}€` },
+    { key: "resultadoFB", label: "Resultado F&B", render: (h) => <SignedEuro value={h.resultadoFB} /> },
+    { key: "potencial", label: "Facturación potencial", render: (h) => fmtEuro(potencial(h, objetivoOportunidad)) },
+  ];
+}
 
-function exportar(hoteles: HotelReal[]) {
+function exportar(hoteles: HotelReal[], objetivoOportunidad: number) {
   exportarCsv(
     `fnb-desayunos-${new Date().toISOString().slice(0, 10)}`,
     ["Hotel", "Ingresos", "Presupuesto ingresos", "Cumplimiento", "Gastos", "Margen bruto %", "Precio medio venta", "Coste medio", "Resultado F&B", "Facturación potencial"],
@@ -68,26 +71,29 @@ function exportar(hoteles: HotelReal[]) {
       h.precioMedioVenta.toFixed(2),
       h.costeMedioGasto.toFixed(2),
       h.resultadoFB.toFixed(2),
-      potencial(h).toFixed(2),
+      potencial(h, objetivoOportunidad).toFixed(2),
     ])
   );
 }
 
 export function FnbFinancieroTable({ hoteles }: { hoteles: HotelReal[] }) {
+  const { ajustes } = useAjustesDesayuno();
   const [sort, setSort] = useState<{ key: Key; dir: "asc" | "desc" }>({ key: "ingresos", dir: "desc" });
   const [q, setQ] = useState("");
   const [limit, setLimit] = useState(15);
 
+  const cols = useMemo(() => buildCols(ajustes.objetivoOportunidad), [ajustes.objetivoOportunidad]);
+
   const rows = useMemo(() => {
     const filtered = hoteles.filter((h) => !q || h.name.toLowerCase().includes(q.toLowerCase()));
     return filtered.sort((a, b) => {
-      const get = (h: HotelReal) => (sort.key === "potencial" ? potencial(h) : sort.key === "name" ? h.name : h[sort.key] ?? 0);
+      const get = (h: HotelReal) => (sort.key === "potencial" ? potencial(h, ajustes.objetivoOportunidad) : sort.key === "name" ? h.name : h[sort.key] ?? 0);
       const av = get(a);
       const bv = get(b);
       if (typeof av === "string") return sort.dir === "asc" ? av.localeCompare(bv as string) : (bv as string).localeCompare(av);
       return sort.dir === "asc" ? (av as number) - (bv as number) : (bv as number) - (av as number);
     });
-  }, [hoteles, sort, q]);
+  }, [hoteles, sort, q, ajustes.objetivoOportunidad]);
 
   return (
     <section className="rounded-xl border border-border bg-surface shadow-soft overflow-hidden">
@@ -108,7 +114,7 @@ export function FnbFinancieroTable({ hoteles }: { hoteles: HotelReal[] }) {
               className="bg-transparent outline-none flex-1"
             />
           </div>
-          <Button variant="outline" size="sm" onClick={() => exportar(rows)}>
+          <Button variant="outline" size="sm" onClick={() => exportar(rows, ajustes.objetivoOportunidad)}>
             <Download className="h-3.5 w-3.5" /> Exportar
           </Button>
         </div>
@@ -141,7 +147,7 @@ export function FnbFinancieroTable({ hoteles }: { hoteles: HotelReal[] }) {
           </thead>
           <tbody>
             {rows.slice(0, limit).map((h) => {
-              const e = etiqueta(h.penetracion, UMBRAL_PENETRACION, TARGET_PENETRACION);
+              const e = etiqueta(h.penetracion, ajustes.umbralPenetracion, ajustes.objetivoPenetracion);
               return (
                 <tr key={h.id} className="border-t border-border hover:bg-accent/30 transition-colors group">
                   {cols.map((c) => (

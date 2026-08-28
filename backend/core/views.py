@@ -19,7 +19,7 @@ from .accounts import (
 )
 from .bloqueos.service import get_report
 from .cache import origen_datos, tracking
-from .hoteles.service import get_hotel_desayunos, get_hotel_info, get_resumen
+from .hoteles.service import get_ajustes_desayunos, get_hotel_desayunos, get_hotel_info, get_resumen, set_ajustes_desayunos
 
 logger = logging.getLogger(__name__)
 
@@ -261,3 +261,25 @@ def hotel_bloqueos(request, hotel_id):
             "origenDatos": origen_datos(t),
         }
     )
+
+
+@requiere_dashboard("desayunos")
+def desayunos_ajustes(request):
+    """Ajustes editables del dashboard de Desayunos (objetivos/umbrales) —
+    ver hoteles.service.AJUSTES_DESAYUNOS_DEFECTO. Editar exige el mismo
+    permiso que ver el dashboard, no hay un nivel de permiso "editar"
+    propio todavía."""
+    if request.method == "GET":
+        return JsonResponse(get_ajustes_desayunos())
+
+    if request.method in ("PATCH", "POST"):
+        try:
+            cambios = json.loads(request.body or b"{}")
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "JSON inválido"}, status=400)
+        try:
+            return JsonResponse(set_ajustes_desayunos(cambios, request.user))
+        except ValueError as e:
+            return JsonResponse({"error": str(e)}, status=400)
+
+    return JsonResponse({"error": "Método no permitido"}, status=405)

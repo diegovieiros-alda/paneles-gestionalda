@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowUpDown, ChevronRight, Download, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { facturacionPotencial, fmtEuro, fmtNum, fmtPct, TARGET_OPORTUNIDAD } from "@/lib/mock-data";
+import { facturacionPotencial, fmtEuro, fmtNum, fmtPct } from "@/lib/mock-data";
+import { useAjustesDesayuno } from "@/lib/ajustes-desayuno-context";
 import { exportarCsv } from "@/lib/export-csv";
 import { Button } from "@/components/ui/button";
 import type { HotelReal } from "@/lib/hoteles-api";
@@ -14,34 +15,38 @@ type Key = "name" | "zona" | "sociedad" | "alojados" | "desayunos" | "penetracio
 // (incluye colaborador) mezclaría dos cifras con numerador distinto y daría
 // una oportunidad artificialmente baja en hoteles con fuerte venta a
 // colaborador, aunque su penetración directa sea crítica.
-function oportunidad(h: HotelReal) {
-  return facturacionPotencial(h.alojados, h.penetracion, h.precioMedioVenta, TARGET_OPORTUNIDAD);
+function oportunidad(h: HotelReal, objetivoOportunidad: number) {
+  return facturacionPotencial(h.alojados, h.penetracion, h.precioMedioVenta, objetivoOportunidad);
 }
 
-const cols: Array<{ key: Key; label: string; align?: "right"; render: (h: HotelReal) => string; sticky?: boolean }> = [
-  { key: "name", label: "Hotel", render: (h) => h.name, sticky: true },
-  { key: "zona", label: "Zona", render: (h) => h.zona },
-  { key: "sociedad", label: "Sociedad", render: (h) => h.sociedad },
-  { key: "alojados", label: "Alojados", align: "right", render: (h) => fmtNum(h.alojados) },
-  { key: "desayunos", label: "Desayunos", align: "right", render: (h) => fmtNum(h.desayunos) },
-  { key: "penetracion", label: "Penetración", align: "right", render: (h) => fmtPct(h.penetracion) },
-  { key: "produccion", label: "Producción", align: "right", render: (h) => fmtEuro(h.produccion) },
-  { key: "precioMedio", label: "Precio med.", align: "right", render: (h) => `${h.precioMedio.toFixed(2)}€` },
-  { key: "oportunidad", label: "Oportunidad", align: "right", render: (h) => fmtEuro(oportunidad(h)) },
-];
+function buildCols(objetivoOportunidad: number): Array<{ key: Key; label: string; align?: "right"; render: (h: HotelReal) => string; sticky?: boolean }> {
+  return [
+    { key: "name", label: "Hotel", render: (h) => h.name, sticky: true },
+    { key: "zona", label: "Zona", render: (h) => h.zona },
+    { key: "sociedad", label: "Sociedad", render: (h) => h.sociedad },
+    { key: "alojados", label: "Alojados", align: "right", render: (h) => fmtNum(h.alojados) },
+    { key: "desayunos", label: "Desayunos", align: "right", render: (h) => fmtNum(h.desayunos) },
+    { key: "penetracion", label: "Penetración", align: "right", render: (h) => fmtPct(h.penetracion) },
+    { key: "produccion", label: "Producción", align: "right", render: (h) => fmtEuro(h.produccion) },
+    { key: "precioMedio", label: "Precio med.", align: "right", render: (h) => `${h.precioMedio.toFixed(2)}€` },
+    { key: "oportunidad", label: "Oportunidad", align: "right", render: (h) => fmtEuro(oportunidad(h, objetivoOportunidad)) },
+  ];
+}
 
-function exportar(hoteles: HotelReal[]) {
+function exportar(hoteles: HotelReal[], objetivoOportunidad: number) {
   exportarCsv(
     `desayunos-hoteles-${new Date().toISOString().slice(0, 10)}`,
     ["Hotel", "Zona", "Sociedad", "Alojados", "Desayunos", "Penetración %", "Producción", "Precio medio", "Oportunidad"],
     hoteles.map((h) => [
       h.name, h.zona, h.sociedad, h.alojados, h.desayunos,
-      (h.penetracion * 100).toFixed(1), h.produccion.toFixed(2), h.precioMedio.toFixed(2), oportunidad(h).toFixed(2),
+      (h.penetracion * 100).toFixed(1), h.produccion.toFixed(2), h.precioMedio.toFixed(2), oportunidad(h, objetivoOportunidad).toFixed(2),
     ])
   );
 }
 
 export function HotelsTableReal({ hoteles }: { hoteles: HotelReal[] }) {
+  const { ajustes } = useAjustesDesayuno();
+  const cols = useMemo(() => buildCols(ajustes.objetivoOportunidad), [ajustes.objetivoOportunidad]);
   const [sort, setSort] = useState<{ key: Key; dir: "asc" | "desc" }>({ key: "produccion", dir: "desc" });
   const [q, setQ] = useState("");
   const [limit, setLimit] = useState(15);
@@ -53,13 +58,13 @@ export function HotelsTableReal({ hoteles }: { hoteles: HotelReal[] }) {
       return h.name.toLowerCase().includes(s) || h.zona.toLowerCase().includes(s) || h.sociedad.toLowerCase().includes(s);
     });
     return filtered.sort((a, b) => {
-      const get = (h: HotelReal) => (sort.key === "oportunidad" ? oportunidad(h) : h[sort.key]);
+      const get = (h: HotelReal) => (sort.key === "oportunidad" ? oportunidad(h, ajustes.objetivoOportunidad) : h[sort.key]);
       const av = get(a);
       const bv = get(b);
       if (typeof av === "string") return sort.dir === "asc" ? av.localeCompare(bv as string) : (bv as string).localeCompare(av);
       return sort.dir === "asc" ? (av as number) - (bv as number) : (bv as number) - (av as number);
     });
-  }, [hoteles, sort, q]);
+  }, [hoteles, sort, q, ajustes.objetivoOportunidad]);
 
   return (
     <section className="rounded-xl border border-border bg-surface shadow-soft overflow-hidden">
@@ -78,7 +83,7 @@ export function HotelsTableReal({ hoteles }: { hoteles: HotelReal[] }) {
               className="bg-transparent outline-none flex-1"
             />
           </div>
-          <Button variant="outline" size="sm" onClick={() => exportar(rows)}>
+          <Button variant="outline" size="sm" onClick={() => exportar(rows, ajustes.objetivoOportunidad)}>
             <Download className="h-3.5 w-3.5" /> Exportar
           </Button>
         </div>

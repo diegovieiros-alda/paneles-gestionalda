@@ -1,27 +1,43 @@
+import { type ReactNode } from "react";
 import { BrowserRouter, Routes, Route, Link, Navigate } from "react-router-dom";
-import OportunidadesPage from "@/pages/oportunidades";
 import HotelDesayunosPage from "@/pages/hotel-desayunos";
 import HotelBloqueosPage from "@/pages/hotel-bloqueos";
 import BloqueosPage from "@/pages/bloqueos";
+import BloqueosOportunidadesPage from "@/pages/bloqueos-oportunidades";
+import BloqueosTendenciasPage from "@/pages/bloqueos-tendencias";
+import BloqueosAlertasPage from "@/pages/bloqueos-alertas";
+import BloqueosAjustesPage from "@/pages/bloqueos-ajustes";
 import DesayunosPage from "@/pages/desayunos";
-import DesayunosDondeActuarPage from "@/pages/desayunos-donde-actuar";
 import DesayunosDetallePage from "@/pages/desayunos-detalle";
-import TendenciasPage from "@/pages/tendencias";
-import AlertasPage from "@/pages/alertas";
-import AjustesPage from "@/pages/ajustes";
+import DesayunosOportunidadesPage from "@/pages/desayunos-oportunidades";
+import DesayunosTendenciasPage from "@/pages/desayunos-tendencias";
+import DesayunosAlertasPage from "@/pages/desayunos-alertas";
+import DesayunosAjustesPage from "@/pages/desayunos-ajustes";
 import RegistroPage from "@/pages/registro";
 import LoginPage from "@/pages/login";
 import UsuariosPage from "@/pages/usuarios";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { AjustesDesayunoProvider } from "@/lib/ajustes-desayuno-context";
 import { ProtectedRoute, SuperuserRoute } from "@/components/dashboard/protected-route";
 import { NAV } from "@/components/dashboard/sidebar";
+
+// Todas las rutas de Desayunos comparten los ajustes editables (objetivo de
+// penetración, umbral de alerta, objetivo de oportunidad) — un solo fetch
+// para todas, no uno por página.
+function DesayunosRoute({ children }: { children: ReactNode }) {
+  return (
+    <ProtectedRoute dashboard="desayunos">
+      <AjustesDesayunoProvider>{children}</AjustesDesayunoProvider>
+    </ProtectedRoute>
+  );
+}
 
 function Inicio() {
   const { usuario, cargando } = useAuth();
   if (cargando) return null;
   if (!usuario) return <Navigate to="/login" replace />;
   const primero = NAV.find((n) => usuario.dashboards.includes(n.dashboard));
-  return <Navigate to={primero?.to ?? "/ajustes"} replace />;
+  return <Navigate to={primero?.to ?? "/login"} replace />;
 }
 
 function NotFound() {
@@ -64,15 +80,18 @@ function App() {
               por el permiso de ese dashboard, no por uno genérico. */}
           <Route path="/" element={<Inicio />} />
           <Route path="/bloqueos" element={<ProtectedRoute dashboard="bloqueos"><BloqueosPage /></ProtectedRoute>} />
+          <Route path="/bloqueos/oportunidades" element={<ProtectedRoute dashboard="bloqueos"><BloqueosOportunidadesPage /></ProtectedRoute>} />
+          <Route path="/bloqueos/tendencias" element={<ProtectedRoute dashboard="bloqueos"><BloqueosTendenciasPage /></ProtectedRoute>} />
+          <Route path="/bloqueos/alertas" element={<ProtectedRoute dashboard="bloqueos"><BloqueosAlertasPage /></ProtectedRoute>} />
+          <Route path="/bloqueos/ajustes" element={<ProtectedRoute dashboard="bloqueos"><BloqueosAjustesPage /></ProtectedRoute>} />
           <Route path="/bloqueos/:hotelId" element={<ProtectedRoute dashboard="bloqueos"><HotelBloqueosPage /></ProtectedRoute>} />
-          <Route path="/desayunos" element={<ProtectedRoute dashboard="desayunos"><DesayunosPage /></ProtectedRoute>} />
-          <Route path="/desayunos/donde-actuar" element={<ProtectedRoute dashboard="desayunos"><DesayunosDondeActuarPage /></ProtectedRoute>} />
-          <Route path="/desayunos/detalle" element={<ProtectedRoute dashboard="desayunos"><DesayunosDetallePage /></ProtectedRoute>} />
-          <Route path="/desayunos/:hotelId" element={<ProtectedRoute dashboard="desayunos"><HotelDesayunosPage /></ProtectedRoute>} />
-          <Route path="/oportunidades" element={<ProtectedRoute dashboard="oportunidades"><OportunidadesPage /></ProtectedRoute>} />
-          <Route path="/tendencias" element={<ProtectedRoute dashboard="tendencias"><TendenciasPage /></ProtectedRoute>} />
-          <Route path="/alertas" element={<ProtectedRoute dashboard="alertas"><AlertasPage /></ProtectedRoute>} />
-          <Route path="/ajustes" element={<ProtectedRoute dashboard="ajustes"><AjustesPage /></ProtectedRoute>} />
+          <Route path="/desayunos" element={<DesayunosRoute><DesayunosPage /></DesayunosRoute>} />
+          <Route path="/desayunos/detalle" element={<DesayunosRoute><DesayunosDetallePage /></DesayunosRoute>} />
+          <Route path="/desayunos/oportunidades" element={<DesayunosRoute><DesayunosOportunidadesPage /></DesayunosRoute>} />
+          <Route path="/desayunos/tendencias" element={<DesayunosRoute><DesayunosTendenciasPage /></DesayunosRoute>} />
+          <Route path="/desayunos/alertas" element={<DesayunosRoute><DesayunosAlertasPage /></DesayunosRoute>} />
+          <Route path="/desayunos/ajustes" element={<DesayunosRoute><DesayunosAjustesPage /></DesayunosRoute>} />
+          <Route path="/desayunos/:hotelId" element={<DesayunosRoute><HotelDesayunosPage /></DesayunosRoute>} />
           <Route path="/usuarios" element={<SuperuserRoute><UsuariosPage /></SuperuserRoute>} />
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -10,13 +10,19 @@ from django.db import models
 # independiente, cada dashboard con datos por hotel (desayunos, bloqueos)
 # trae su propio listado y su propia ficha de detalle, gateados por el
 # permiso de ese dashboard — ver accounts.requiere_algun_dashboard.
+#
+# 2026-08-27: "oportunidades"/"tendencias"/"alertas"/"ajustes" dejan de ser
+# dashboards propios — pasan a ser secciones dentro de cada dashboard
+# (rutas /desayunos/oportunidades, /bloqueos/alertas, etc.), gateadas por el
+# permiso del dashboard que las contiene, no por un permiso propio. Los
+# permisos "ver_oportunidades"/"ver_tendencias"/"ver_alertas"/"ver_ajustes"
+# quedan huérfanos en la base de datos (Django no los borra solo) pero no
+# los comprueba ya ningún código — verificado antes de este cambio que
+# ningún usuario activo dependía de ellos (grupos "F&B" y "tmz" los tenían,
+# ambos sin miembros).
 DASHBOARDS = [
     ("bloqueos", "Bloqueos"),
-    ("oportunidades", "Oportunidades"),
     ("desayunos", "Desayunos"),
-    ("tendencias", "Tendencias"),
-    ("alertas", "Alertas"),
-    ("ajustes", "Ajustes"),
 ]
 
 
@@ -30,6 +36,30 @@ class DashboardAccess(models.Model):
         managed = False
         default_permissions = ()
         permissions = [(f"ver_{key}", f"Puede ver el dashboard: {label}") for key, label in DASHBOARDS]
+
+
+class DashboardSetting(models.Model):
+    """Ajustes editables de cada dashboard (objetivos/umbrales), antes
+    hardcodeados en el frontend (frontend/src/lib/mock-data.ts:
+    TARGET_PENETRACION, UMBRAL_PENETRACION, TARGET_OPORTUNIDAD). Clave-valor
+    simple: no hace falta más estructura mientras solo Desayunos tenga
+    ajustes reales — ver hoteles/service.py::get_ajustes_desayunos.
+    Editar requiere el mismo permiso que ver el dashboard (no hay un nivel
+    de permiso "editar" propio todavía)."""
+
+    dashboard = models.CharField(max_length=50)
+    clave = models.CharField(max_length=100)
+    valor = models.FloatField()
+    actualizado_en = models.DateTimeField(auto_now=True)
+    actualizado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["dashboard", "clave"], name="unico_ajuste_por_dashboard")]
+
+    def __str__(self):
+        return f"{self.dashboard}.{self.clave} = {self.valor}"
 
 
 class MapeoRolPuesto(models.Model):
