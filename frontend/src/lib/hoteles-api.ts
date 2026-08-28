@@ -1,10 +1,24 @@
 export type HotelDirectorio = {
   id: number;
   name: string;
+  codigo: string;
   zona: string;
   sociedad: string;
+  submarca: string;
   origenDatos?: "odoo" | "cache";
 };
+
+// Ver backend/core/hoteles/repository.py::_TODOS_TIPOS_DESAYUNO — mismos 4
+// valores, backend ya filtra por ellos vía ?tipo=buffet,express (views.py::
+// _parse_tipos_desayuno). "Tipo de Hotel" (Urbano/Mix/Vacacional) y
+// "Segmento de Hotel" no existen aquí a propósito: no existen en Odoo (ni
+// está previsto añadirlos, ver hoteles/service.py cabecera).
+export const TIPOS_DESAYUNO = [
+  { value: "buffet", label: "Buffet" },
+  { value: "express", label: "Express" },
+  { value: "colaborador", label: "Colaborador" },
+  { value: "otros", label: "Otros" },
+] as const;
 
 export async function fetchHotelInfo(id: string | number): Promise<HotelDirectorio> {
   const res = await fetch(`/api/hoteles/${id}/`);
@@ -93,8 +107,9 @@ export type SerieMensual = FnbFields & { mes: string; desayunos: number; producc
 
 export type ResumenReport = DesayunosReport & { serieMensual: SerieMensual[]; vendedores?: Vendedor[] };
 
-export async function fetchDesayunos(desde: string, hasta: string): Promise<ResumenReport> {
+export async function fetchDesayunos(desde: string, hasta: string, tipos?: string[]): Promise<ResumenReport> {
   const params = new URLSearchParams({ desde, hasta });
+  if (tipos && tipos.length) params.set("tipo", tipos.join(","));
   const res = await fetch(`/api/desayunos/?${params}`);
   if (!res.ok) {
     const body = await res.json().catch(() => null);
