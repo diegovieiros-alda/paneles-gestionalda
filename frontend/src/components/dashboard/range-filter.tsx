@@ -20,6 +20,7 @@ export function RangeFilter({
         <button
           key={p.key}
           onClick={() => onPreset(p.key)}
+          title={p.title}
           className={cn(
             "h-8 px-3 rounded-full text-xs font-medium border transition-colors",
             preset === p.key
