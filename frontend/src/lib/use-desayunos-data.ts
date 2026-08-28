@@ -12,8 +12,8 @@ const TODOS_TIPOS = TIPOS_DESAYUNO.map((t) => t.value) as string[];
  * se puede filtrar por zona/submarca sin cambiar la consulta — fuera de
  * alcance aquí. */
 export function useDesayunosData() {
-  const [preset, setPreset] = useState<RangePreset>("mes");
-  const [custom, setCustom] = useState(() => rangeForPreset("mes"));
+  const [preset, setPreset] = useState<RangePreset>("dia");
+  const [custom, setCustom] = useState(() => rangeForPreset("dia"));
   const [hoteles, setHoteles] = useState<HotelReal[] | null>(null);
   const [serieMensual, setSerieMensual] = useState<SerieMensual[]>([]);
   const [turnos, setTurnos] = useState<TurnoDesayuno[]>([]);

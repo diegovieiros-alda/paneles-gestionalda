@@ -1,5 +1,6 @@
 import { DashboardShell } from "@/components/dashboard/shell";
 import { RangeFilter } from "@/components/dashboard/range-filter";
+import { RANGE_PRESETS_DESAYUNOS } from "@/lib/date-range";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EvolutionChartReal } from "@/components/dashboard/evolution-chart-real";
 import { IngresosGastosChart } from "@/components/dashboard/ingresos-gastos-chart";
@@ -11,7 +12,7 @@ export default function DesayunosTendenciasPage() {
 
   return (
     <DashboardShell title="Tendencias" subtitle="Desayunos · evolución de los últimos 12 meses" origenDatos={origenDatos}>
-      <RangeFilter {...rangeProps} />
+      <RangeFilter {...rangeProps} presets={RANGE_PRESETS_DESAYUNOS} />
 
       <div className="p-6 max-w-[1600px] mx-auto space-y-6">
         {error && (
