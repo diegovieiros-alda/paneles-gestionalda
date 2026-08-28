@@ -10,19 +10,12 @@ type NavItem = { to: string; label: string; icon: LucideIcon; dashboard: string;
 // (2026-08-27) — son secciones dentro de cada dashboard, gateadas por el
 // permiso de ese dashboard (no por un permiso propio). Ver
 // backend/core/models.py::DASHBOARDS.
+//
+// Orden del array: App.tsx::Inicio() navega al primero de esta lista al
+// que el usuario tenga acceso al entrar en "/" — Desayunos va primero a
+// propósito (2026-08-28, pedido explícitamente) para que sea la sección
+// por defecto al cargar la página, no solo el orden del menú.
 export const NAV: readonly NavItem[] = [
-  {
-    to: "/bloqueos",
-    label: "Bloqueos",
-    icon: Ban,
-    dashboard: "bloqueos",
-    children: [
-      { to: "/bloqueos/oportunidades", label: "Oportunidades" },
-      { to: "/bloqueos/tendencias", label: "Tendencias" },
-      { to: "/bloqueos/alertas", label: "Alertas" },
-      { to: "/bloqueos/ajustes", label: "Ajustes" },
-    ],
-  },
   {
     to: "/desayunos",
     label: "Desayunos",
@@ -34,6 +27,18 @@ export const NAV: readonly NavItem[] = [
       { to: "/desayunos/tendencias", label: "Tendencias" },
       { to: "/desayunos/alertas", label: "Alertas" },
       { to: "/desayunos/ajustes", label: "Ajustes" },
+    ],
+  },
+  {
+    to: "/bloqueos",
+    label: "Bloqueos",
+    icon: Ban,
+    dashboard: "bloqueos",
+    children: [
+      { to: "/bloqueos/oportunidades", label: "Oportunidades" },
+      { to: "/bloqueos/tendencias", label: "Tendencias" },
+      { to: "/bloqueos/alertas", label: "Alertas" },
+      { to: "/bloqueos/ajustes", label: "Ajustes" },
     ],
   },
 ];
