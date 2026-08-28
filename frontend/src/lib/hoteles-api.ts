@@ -105,6 +105,12 @@ export type TurnoDesayuno = {
   turno: "manana_07_15" | "tarde_15_23" | "noche_23_07";
   canal: "recepcion_hotel" | "automatico" | "central_reservas" | "sin_usuario";
   unidades: number;
+  // Mismo desglose que produccionFacturada/produccionSinFacturar en
+  // FacturacionFields, aplicado a turno/canal en vez de a hotel — la
+  // suma de las dos reconcilia siempre con "Producción" (invariante
+  // verificado contra producción 2026-08-28).
+  produccionFacturada: number;
+  produccionSinFacturar: number;
 };
 
 export type DesayunosReport = {
