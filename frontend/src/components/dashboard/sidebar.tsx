@@ -53,12 +53,11 @@ export function Sidebar() {
 
   return (
     <aside className="hidden lg:flex w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
-      <div className="flex items-center gap-2 px-5 h-16 border-b border-sidebar-border">
-        <div className="grid place-items-center h-8 w-8 rounded-lg bg-primary text-primary-foreground">
-          <Coffee className="h-4 w-4" />
-        </div>
+      <div className="flex items-center gap-2.5 px-5 h-16 border-b border-sidebar-border">
+        <img src="/alda-logo.svg" alt="Alda Hotels" className="h-9 w-9 shrink-0" />
         <div className="leading-tight">
-          <div className="text-sm font-semibold text-sidebar-foreground">Dashboard Alda</div>
+          <div className="text-sm font-semibold text-sidebar-foreground">Dashboard</div>
+          <div className="text-[11px] text-sidebar-foreground/60">Alda Hotels</div>
         </div>
       </div>
       <nav className="p-3 flex-1 space-y-0.5">
