@@ -1,5 +1,6 @@
 import { DashboardShell } from "@/components/dashboard/shell";
 import { RangeFilter } from "@/components/dashboard/range-filter";
+import { HotelFiltersBar } from "@/components/dashboard/hotel-filters-bar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { HotelsTableReal } from "@/components/dashboard/hotels-table-real";
 import { FacturacionTable } from "@/components/dashboard/facturacion-table";
@@ -16,7 +17,7 @@ import { useDesayunosData } from "@/lib/use-desayunos-data";
 // (desayunos-tendencias.tsx), no aquí — esta página es solo la foto del
 // periodo elegido, por hotel.
 export default function DesayunosDetallePage() {
-  const { hoteles, vendedores, origenDatos, loading, error, rangeProps } = useDesayunosData();
+  const { hotelesFiltrados: hoteles, vendedores, origenDatos, loading, error, rangeProps, filterProps } = useDesayunosData();
 
   return (
     <DashboardShell
@@ -25,6 +26,7 @@ export default function DesayunosDetallePage() {
       origenDatos={origenDatos}
     >
       <RangeFilter {...rangeProps} />
+      <HotelFiltersBar {...filterProps} />
 
       <div className="p-6 max-w-[1600px] mx-auto space-y-6">
         {error && (
