@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { fetchDesayunos, TIPOS_DESAYUNO, type HotelReal, type SerieMensual, type TurnoDesayuno } from "@/lib/hoteles-api";
+import { fetchDesayunos, fetchTurnos, TIPOS_DESAYUNO, type HotelReal, type SerieMensual, type TurnoDesayuno } from "@/lib/hoteles-api";
 import { rangeForPreset, type RangePreset } from "@/lib/date-range";
 
 const TODOS_TIPOS = TIPOS_DESAYUNO.map((t) => t.value) as string[];
@@ -16,7 +16,13 @@ export function useDesayunosData() {
   const [custom, setCustom] = useState(() => rangeForPreset("dia"));
   const [hoteles, setHoteles] = useState<HotelReal[] | null>(null);
   const [serieMensual, setSerieMensual] = useState<SerieMensual[]>([]);
+  // Turnos de cadena completa (respeta Producto, ver service.get_resumen)
+  // pero NO Hotel/Zona/Submarca — ese filtro es client-side sobre
+  // `hoteles` y Turnos no tiene desglose por hotel que filtrar en el
+  // navegador. turnosFiltrados (más abajo) cubre ese caso con un fetch
+  // aparte cuando el filtro de hotel está activo.
   const [turnos, setTurnos] = useState<TurnoDesayuno[]>([]);
+  const [turnosFiltrados, setTurnosFiltrados] = useState<TurnoDesayuno[] | null>(null);
   const [origenDatos, setOrigenDatos] = useState<"odoo" | "cache" | undefined>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,11 +76,40 @@ export function useDesayunosData() {
     });
   }, [hoteles, zona, submarca, q]);
 
+  // IDs de los hoteles resultantes del filtro de Hotel (zona/submarca/
+  // búsqueda) — undefined si ese filtro no está activo, para no disparar
+  // el fetch aparte de turnosFiltrados sin necesidad.
+  const hotelIdsActivos = useMemo(() => {
+    if (!zona && !submarca && !q) return undefined;
+    return (hotelesFiltrados ?? []).map((h) => h.id);
+  }, [hotelesFiltrados, zona, submarca, q]);
+
+  useEffect(() => {
+    if (!hotelIdsActivos) {
+      setTurnosFiltrados(null);
+      return;
+    }
+    let vivo = true;
+    const tiposParam = tipos.length < TODOS_TIPOS.length ? tipos : undefined;
+    fetchTurnos(desde, hasta, tiposParam, hotelIdsActivos)
+      .then((data) => {
+        if (vivo) setTurnosFiltrados(data.turnos);
+      })
+      .catch(() => {
+        // Si falla, se queda con el turnos de cadena completa anterior
+        // en vez de romper la página — no es el dato principal.
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [desde, hasta, tipos, hotelIdsActivos]);
+
   return {
     hoteles,
     hotelesFiltrados,
     serieMensual,
-    turnos,
+    turnos: turnosFiltrados ?? turnos,
+    turnosFiltradosPorHotel: !!hotelIdsActivos,
     origenDatos,
     loading,
     error,

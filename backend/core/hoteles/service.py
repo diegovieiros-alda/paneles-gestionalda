@@ -162,8 +162,13 @@ def get_hoteles(
     }
 
 
-def get_turnos_desayuno(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> list[dict]:
-    return repository.fetch_turnos_desayuno(fecha_inicio, fecha_fin)
+def get_turnos_desayuno(
+    fecha_inicio: datetime.date,
+    fecha_fin: datetime.date,
+    tipos_desayuno: tuple[str, ...] | None = None,
+    hotel_ids: tuple[int, ...] | None = None,
+) -> list[dict]:
+    return repository.fetch_turnos_desayuno(fecha_inicio, fecha_fin, tipos_desayuno, hotel_ids)
 
 
 def _hace_n_meses(fecha: datetime.date, n: int) -> datetime.date:
@@ -195,7 +200,13 @@ def get_resumen(
         p = presupuesto_por_mes.get(punto["mes"], _PRESUPUESTO_VACIO)
         punto.update(_fnb_json(f, p))
     datos["serieMensual"] = serie
-    datos["turnos"] = get_turnos_desayuno(fecha_inicio, fecha_fin)
+    # tipos_desayuno sí se propaga aquí (2026-08-28: antes se ignoraba,
+    # Turnos mostraba todos los tipos aunque el resto de la página ya
+    # estuviera filtrada por Producto). hotel_ids (Zona/Submarca/búsqueda
+    # de hotel) no se resuelve en esta llamada: ver
+    # views.desayunos_turnos, endpoint aparte para ese filtro porque es
+    # client-side y no dispara un refetch de este resumen completo.
+    datos["turnos"] = get_turnos_desayuno(fecha_inicio, fecha_fin, tipos_desayuno)
     return datos
 
 

@@ -17,7 +17,10 @@ import { fmtRangoFechas } from "@/lib/date-range";
 // (desayunos-tendencias.tsx), no aquí — esta página es solo la foto del
 // periodo elegido, por hotel.
 export default function DesayunosDetallePage() {
-  const { hotelesFiltrados: hoteles, turnos, origenDatos, loading, error, rangeProps, filterProps, desde, hasta } = useDesayunosData();
+  const {
+    hotelesFiltrados: hoteles, turnos, turnosFiltradosPorHotel,
+    origenDatos, loading, error, rangeProps, filterProps, desde, hasta,
+  } = useDesayunosData();
 
   return (
     <DashboardShell
@@ -46,7 +49,7 @@ export default function DesayunosDetallePage() {
             <FnbFinancieroTable hoteles={hoteles} />
 
             <SectionTitle title="Turnos" />
-            <TurnosPanel turnos={turnos} />
+            <TurnosPanel turnos={turnos} scope={turnosFiltradosPorHotel ? "hoteles filtrados" : "cadena completa"} />
 
             <SectionTitle title="Metodología" />
             <CalidadCheckinTable hoteles={hoteles} />

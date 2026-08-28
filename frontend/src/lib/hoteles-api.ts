@@ -135,6 +135,27 @@ export async function fetchDesayunos(desde: string, hasta: string, tipos?: strin
   return res.json();
 }
 
+export type TurnosReport = { turnos: TurnoDesayuno[]; origenDatos?: "odoo" | "cache" };
+
+// Endpoint aparte de fetchDesayunos: Zona/Submarca/búsqueda de hotel son
+// filtros client-side sobre la lista ya cargada, pero Turnos no tiene
+// desglose por hotel que se pueda filtrar en el navegador — hace falta
+// volver a pedirlo al backend con la lista de IDs ya filtrada (ver
+// use-desayunos-data.ts). hotelIds vacío/omitido = cadena completa.
+export async function fetchTurnos(
+  desde: string, hasta: string, tipos?: string[], hotelIds?: number[]
+): Promise<TurnosReport> {
+  const params = new URLSearchParams({ desde, hasta });
+  if (tipos && tipos.length) params.set("tipo", tipos.join(","));
+  if (hotelIds && hotelIds.length) params.set("hoteles", hotelIds.join(","));
+  const res = await fetch(`/api/desayunos/turnos/?${params}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(body?.error || `No se pudieron cargar los turnos de desayuno (${res.status})`);
+  }
+  return res.json();
+}
+
 export type MesHotel = {
   mes: string;
   alojados: number;

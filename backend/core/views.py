@@ -19,7 +19,14 @@ from .accounts import (
 )
 from .bloqueos.service import get_report
 from .cache import origen_datos, tracking
-from .hoteles.service import get_ajustes_desayunos, get_hotel_desayunos, get_hotel_info, get_resumen, set_ajustes_desayunos
+from .hoteles.service import (
+    get_ajustes_desayunos,
+    get_hotel_desayunos,
+    get_hotel_info,
+    get_resumen,
+    get_turnos_desayuno,
+    set_ajustes_desayunos,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -127,6 +134,21 @@ def _parse_tipos_desayuno(request) -> tuple[str, ...] | None:
     return tipos
 
 
+def _parse_hotel_ids(request) -> tuple[int, ...] | None:
+    """?hoteles=12,45,78 — None si no se pasa (sin restricción de hotel).
+    Usado por desayunos_turnos: Zona/Submarca/búsqueda de hotel se
+    resuelven en el frontend (filtro client-side sobre la lista completa
+    de hoteles) a una lista de IDs, no hay un parámetro de zona/submarca
+    propio aquí."""
+    raw = request.GET.get("hoteles")
+    if not raw:
+        return None
+    try:
+        return tuple(int(x) for x in raw.split(",") if x)
+    except ValueError:
+        raise ValueError(f"Lista de hoteles inválida: {raw!r}")
+
+
 @requiere_dashboard("bloqueos")
 def bloqueos(request):
     try:
@@ -211,6 +233,32 @@ def desayunos(request):
     except Exception:
         logger.exception("Error al generar las métricas de desayuno")
         return JsonResponse({"error": "No se pudieron obtener las métricas de desayuno"}, status=502)
+
+
+@requiere_dashboard("desayunos")
+def desayunos_turnos(request):
+    """Turnos/canal de Desayunos, cadena completa o restringido a una lista
+    de hoteles — endpoint aparte de /api/desayunos/ (2026-08-28) porque el
+    filtro de Hotel/Zona/Submarca es puramente client-side ahí (se aplica
+    sobre la lista de hoteles ya cargada) y no dispara un refetch de ese
+    resumen completo; aquí sí hace falta un fetch nuevo porque Turnos no
+    tiene desglose por hotel que se pueda filtrar en el navegador."""
+    fecha_inicio, fecha_fin, error_response = _rango_mes_por_defecto(request, MAX_RANGO_DIAS_DESAYUNOS)
+    if error_response is not None:
+        return error_response
+    try:
+        tipos_desayuno = _parse_tipos_desayuno(request)
+        hotel_ids = _parse_hotel_ids(request)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400)
+
+    try:
+        with tracking() as t:
+            turnos = get_turnos_desayuno(fecha_inicio, fecha_fin, tipos_desayuno, hotel_ids)
+        return JsonResponse({"turnos": turnos, "origenDatos": origen_datos(t)})
+    except Exception:
+        logger.exception("Error al generar los turnos de desayuno")
+        return JsonResponse({"error": "No se pudieron obtener los turnos de desayuno"}, status=502)
 
 
 @requiere_dashboard("desayunos")
