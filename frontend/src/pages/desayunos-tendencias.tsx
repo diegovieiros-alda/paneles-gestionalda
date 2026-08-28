@@ -1,5 +1,4 @@
 import { DashboardShell } from "@/components/dashboard/shell";
-import { CalendarDays } from "lucide-react";
 import { RangeFilter } from "@/components/dashboard/range-filter";
 import { RANGE_PRESETS_DESAYUNOS, fmtRangoFechas } from "@/lib/date-range";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,14 +11,8 @@ export default function DesayunosTendenciasPage() {
   const { serieMensual, origenDatos, loading, error, rangeProps, desde, hasta } = useDesayunosData();
 
   return (
-    <DashboardShell title="Tendencias" subtitle="Desayunos · evolución de los últimos 12 meses" origenDatos={origenDatos}>
-      <div className="sticky top-16 z-20 flex flex-wrap items-center gap-2 px-6 py-3 border-b border-border bg-surface shadow-sm">
-        <RangeFilter {...rangeProps} compact presets={RANGE_PRESETS_DESAYUNOS} />
-        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground/90 bg-primary/5 border border-primary/15 rounded-full px-3 h-8">
-          <CalendarDays className="h-3.5 w-3.5 text-primary" />
-          {fmtRangoFechas(desde, hasta)}
-        </span>
-      </div>
+    <DashboardShell title="Tendencias" subtitle="Desayunos · evolución de los últimos 12 meses" origenDatos={origenDatos} periodo={fmtRangoFechas(desde, hasta)}>
+      <RangeFilter {...rangeProps} presets={RANGE_PRESETS_DESAYUNOS} />
 
       <div className="p-6 max-w-[1600px] mx-auto space-y-6">
         {error && (
