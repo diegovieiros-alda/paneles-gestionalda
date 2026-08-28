@@ -158,8 +158,8 @@ def get_hoteles(
     }
 
 
-def get_vendedores_desayuno(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> list[dict]:
-    return repository.fetch_vendedores_desayuno(fecha_inicio, fecha_fin)
+def get_turnos_desayuno(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> list[dict]:
+    return repository.fetch_turnos_desayuno(fecha_inicio, fecha_fin)
 
 
 def _hace_n_meses(fecha: datetime.date, n: int) -> datetime.date:
@@ -178,7 +178,7 @@ def get_resumen(
 ) -> dict:
     """Resumen para la portada: hoteles del periodo (para alertas/ranking/
     oportunidad) + serie mensual de los últimos 12 meses (para los gráficos
-    de evolución) + top vendedores de desayuno del periodo, en una sola
+    de evolución) + desayunos por turno/canal del periodo, en una sola
     llamada. La serie mensual junta PMS (desayunos/producción) y contable
     (ingresos/gastos/margen) por mes — dos fuentes distintas, ver _fnb_json."""
     datos = get_hoteles(fecha_inicio, fecha_fin, tipos_desayuno)
@@ -191,7 +191,7 @@ def get_resumen(
         p = presupuesto_por_mes.get(punto["mes"], _PRESUPUESTO_VACIO)
         punto.update(_fnb_json(f, p))
     datos["serieMensual"] = serie
-    datos["vendedores"] = get_vendedores_desayuno(fecha_inicio, fecha_fin)
+    datos["turnos"] = get_turnos_desayuno(fecha_inicio, fecha_fin)
     return datos
 
 
@@ -273,9 +273,9 @@ def get_hotel_desayunos(hotel_id: int, fecha_inicio: datetime.date, fecha_fin: d
             }
         )
 
-    vendedores = repository.fetch_vendedores_desayuno_hotel(hotel_id, fecha_inicio, fecha_fin)
+    turnos = repository.fetch_turnos_desayuno_hotel(hotel_id, fecha_inicio, fecha_fin)
 
-    return {"actual": actual, "serieMensual": serie, "vendedores": vendedores}
+    return {"actual": actual, "serieMensual": serie, "turnos": turnos}
 
 
 # Ajustes editables de Desayunos (antes hardcodeados en el frontend,

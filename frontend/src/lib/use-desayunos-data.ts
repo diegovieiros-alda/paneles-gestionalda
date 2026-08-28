@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { fetchDesayunos, TIPOS_DESAYUNO, type HotelReal, type SerieMensual, type Vendedor } from "@/lib/hoteles-api";
+import { fetchDesayunos, TIPOS_DESAYUNO, type HotelReal, type SerieMensual, type TurnoDesayuno } from "@/lib/hoteles-api";
 import { rangeForPreset, type RangePreset } from "@/lib/date-range";
 
 const TODOS_TIPOS = TIPOS_DESAYUNO.map((t) => t.value) as string[];
@@ -16,7 +16,7 @@ export function useDesayunosData() {
   const [custom, setCustom] = useState(() => rangeForPreset("mes"));
   const [hoteles, setHoteles] = useState<HotelReal[] | null>(null);
   const [serieMensual, setSerieMensual] = useState<SerieMensual[]>([]);
-  const [vendedores, setVendedores] = useState<Vendedor[]>([]);
+  const [turnos, setTurnos] = useState<TurnoDesayuno[]>([]);
   const [origenDatos, setOrigenDatos] = useState<"odoo" | "cache" | undefined>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +38,7 @@ export function useDesayunosData() {
       .then((data) => {
         setHoteles(data.hoteles);
         setSerieMensual(data.serieMensual);
-        setVendedores(data.vendedores ?? []);
+        setTurnos(data.turnos ?? []);
         setOrigenDatos(data.origenDatos);
       })
       .catch((e) => setError(e.message))
@@ -71,7 +71,7 @@ export function useDesayunosData() {
     hoteles,
     hotelesFiltrados,
     serieMensual,
-    vendedores,
+    turnos,
     origenDatos,
     loading,
     error,

@@ -13,7 +13,7 @@ import { SectionTitle } from "@/components/dashboard/section-title";
 import { SignedEuro, SignedPct } from "@/components/dashboard/signed-value";
 import { IngresosGastosChart } from "@/components/dashboard/ingresos-gastos-chart";
 import { PrecioCosteChart } from "@/components/dashboard/precio-coste-chart";
-import { VendedoresPanel } from "@/components/dashboard/vendedores-panel";
+import { TurnosPanel } from "@/components/dashboard/turnos-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { fetchHotelInfo, fetchHotelDesayunos, type HotelDirectorio, type HotelDesayunos, type MesHotel, type FnbFields, type FacturacionFields } from "@/lib/hoteles-api";
@@ -272,8 +272,8 @@ export default function HotelDesayunosPage() {
               ]}
             />
 
-            <SectionTitle title="Vendedores" />
-            <VendedoresPanel vendedores={data.vendedores ?? []} scope={hotel?.name ?? "este hotel"} />
+            <SectionTitle title="Turnos" />
+            <TurnosPanel turnos={data.turnos ?? []} scope={hotel?.name ?? "este hotel"} />
 
             <SectionTitle title="Metodología" />
             <DesayunosOrigenDatos />

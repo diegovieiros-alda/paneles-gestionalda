@@ -94,7 +94,18 @@ export type HotelReal = HotelDirectorio & FnbFields & FacturacionFields & {
   calidadCheckin: CalidadCheckin;
 };
 
-export type Vendedor = { vendedor: string; importe: number; lineas: number };
+// Reemplaza el antiguo ranking "Vendedores" (nombre de la persona que
+// registró la venta — dato personal/laboral) por un desglose sin nombres:
+// unidades de desayuno por turno y canal de venta. Ver
+// backend/core/hoteles/repository.py::_TURNOS_DESAYUNO_SQL — "turno" es una
+// convención de franjas horarias (07-15/15-23/23-7), no el horario real de
+// cada hotel; "canal" es una heurística sobre el login que creó la línea,
+// no un dato fiable al 100%.
+export type TurnoDesayuno = {
+  turno: "manana_07_15" | "tarde_15_23" | "noche_23_07";
+  canal: "recepcion_hotel" | "automatico" | "central_reservas" | "sin_usuario";
+  unidades: number;
+};
 
 export type DesayunosReport = {
   fechaInicio: string;
@@ -105,7 +116,7 @@ export type DesayunosReport = {
 
 export type SerieMensual = FnbFields & { mes: string; desayunos: number; produccion: number };
 
-export type ResumenReport = DesayunosReport & { serieMensual: SerieMensual[]; vendedores?: Vendedor[] };
+export type ResumenReport = DesayunosReport & { serieMensual: SerieMensual[]; turnos?: TurnoDesayuno[] };
 
 export async function fetchDesayunos(desde: string, hasta: string, tipos?: string[]): Promise<ResumenReport> {
   const params = new URLSearchParams({ desde, hasta });
@@ -130,7 +141,7 @@ export type MesHotel = {
 export type HotelDesayunos = {
   actual: MesHotel & FnbFields & FacturacionFields;
   serieMensual: (MesHotel & FnbFields & FacturacionFields)[];
-  vendedores?: Vendedor[];
+  turnos?: TurnoDesayuno[];
   origenDatos?: "odoo" | "cache";
 };
 
