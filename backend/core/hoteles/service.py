@@ -135,7 +135,11 @@ def get_hoteles(
             {
                 "id": h["id"],
                 "name": h["name"],
-                "codigo": h["property_code"],
+                # or "": 2 de 132 hoteles no tienen property_code (verificado
+                # 2026-08-28, ej. "Gestión Proyectos") — sin este fallback,
+                # el frontend rompía al filtrar por texto (h.codigo era
+                # null, no un string vacío).
+                "codigo": h["property_code"] or "",
                 "zona": zona_de(h["property_code"]),
                 "sociedad": companies.get(h["company_id"], "—"),
                 "submarca": submarcas.get(h["id"]) or "Sin submarca",
@@ -207,7 +211,7 @@ def get_hotel_info(hotel_id: int) -> dict | None:
     return {
         "id": h["id"],
         "name": h["name"],
-        "codigo": h["property_code"],
+        "codigo": h["property_code"] or "",
         "zona": zona_de(h["property_code"]),
         "sociedad": companies.get(h["company_id"], "—"),
         "submarca": submarcas.get(h["id"]) or "Sin submarca",

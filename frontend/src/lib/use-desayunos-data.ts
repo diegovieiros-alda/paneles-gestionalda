@@ -61,7 +61,10 @@ export function useDesayunosData() {
       if (submarca && h.submarca !== submarca) return false;
       if (q) {
         const s = q.toLowerCase();
-        if (!h.name.toLowerCase().includes(s) && !h.codigo.toLowerCase().includes(s)) return false;
+        // (h.codigo ?? ""): 2 de 132 hoteles no tienen código en Odoo
+        // (verificado 2026-08-28) — sin este fallback, .toLowerCase() de
+        // un null rompía toda la página al escribir en el buscador.
+        if (!h.name.toLowerCase().includes(s) && !(h.codigo ?? "").toLowerCase().includes(s)) return false;
       }
       return true;
     });
