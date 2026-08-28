@@ -1,6 +1,5 @@
 import { DashboardShell } from "@/components/dashboard/shell";
-import { RangeFilter } from "@/components/dashboard/range-filter";
-import { HotelFiltersBar } from "@/components/dashboard/hotel-filters-bar";
+import { DesayunosFiltrosPanel } from "@/components/dashboard/desayunos-filtros-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ObjetivoPenetracionCard } from "@/components/dashboard/objetivo-penetracion-card";
 import { RankingListReal } from "@/components/dashboard/ranking-list-real";
@@ -12,8 +11,7 @@ export default function DesayunosOportunidadesPage() {
 
   return (
     <DashboardShell title="Oportunidades" subtitle="Desayunos · facturación potencial no capturada" origenDatos={origenDatos}>
-      <RangeFilter {...rangeProps} />
-      <HotelFiltersBar {...filterProps} />
+      <DesayunosFiltrosPanel rangeProps={rangeProps} filterProps={filterProps} />
 
       <div className="p-6 max-w-[1600px] mx-auto space-y-6">
         {error && (

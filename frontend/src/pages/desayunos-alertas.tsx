@@ -1,6 +1,5 @@
 import { DashboardShell } from "@/components/dashboard/shell";
-import { RangeFilter } from "@/components/dashboard/range-filter";
-import { HotelFiltersBar } from "@/components/dashboard/hotel-filters-bar";
+import { DesayunosFiltrosPanel } from "@/components/dashboard/desayunos-filtros-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertsBlockReal } from "@/components/dashboard/alerts-block-real";
 import { useDesayunosData } from "@/lib/use-desayunos-data";
@@ -10,8 +9,7 @@ export default function DesayunosAlertasPage() {
 
   return (
     <DashboardShell title="Alertas" subtitle="Desayunos · hoteles que necesitan atención" origenDatos={origenDatos}>
-      <RangeFilter {...rangeProps} />
-      <HotelFiltersBar {...filterProps} />
+      <DesayunosFiltrosPanel rangeProps={rangeProps} filterProps={filterProps} />
 
       <div className="p-6 max-w-[1600px] mx-auto space-y-6">
         {error && (

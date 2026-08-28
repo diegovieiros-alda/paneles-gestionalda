@@ -2,20 +2,21 @@ import { RANGE_PRESETS, type RangePreset } from "@/lib/date-range";
 import { cn } from "@/lib/utils";
 
 export function RangeFilter({
-  preset, custom, onPreset, onCustom, compact = false,
+  preset, custom, onPreset, onCustom, compact = false, presets = RANGE_PRESETS,
 }: {
   preset: RangePreset;
   custom: { desde: string; hasta: string };
   onPreset: (p: RangePreset) => void;
   onCustom: (c: { desde: string; hasta: string }) => void;
   compact?: boolean;
+  presets?: typeof RANGE_PRESETS;
 }) {
   return (
     <div className={cn(
       "flex flex-wrap items-center gap-2",
       compact ? "" : "px-6 py-3 border-b border-border bg-surface-muted/50"
     )}>
-      {RANGE_PRESETS.map((p) => (
+      {presets.map((p) => (
         <button
           key={p.key}
           onClick={() => onPreset(p.key)}
