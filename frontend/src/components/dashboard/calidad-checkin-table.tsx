@@ -45,10 +45,10 @@ export function CalidadCheckinTable({ hoteles }: { hoteles: HotelReal[] }) {
               <thead>
                 <tr className="text-left text-[10px] uppercase tracking-wide text-muted-foreground">
                   <th className="pb-2 pr-4 font-medium">Hotel</th>
-                  <th className="pb-2 pr-4 font-medium text-right">Declarado</th>
-                  <th className="pb-2 pr-4 font-medium text-right">Check-in</th>
-                  <th className="pb-2 pr-4 font-medium text-right">Diferencia</th>
-                  <th className="pb-2 font-medium text-right">Reservas sin check-in</th>
+                  <th className="pb-2 pr-4 font-medium text-center">Declarado</th>
+                  <th className="pb-2 pr-4 font-medium text-center">Check-in</th>
+                  <th className="pb-2 pr-4 font-medium text-center">Diferencia</th>
+                  <th className="pb-2 font-medium text-center">Reservas sin check-in</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -57,9 +57,9 @@ export function CalidadCheckinTable({ hoteles }: { hoteles: HotelReal[] }) {
                   return (
                     <tr key={r.h.id} className="align-top">
                       <td className="py-2.5 pr-4 font-medium text-foreground whitespace-nowrap">{r.h.name}</td>
-                      <td className="py-2.5 pr-4 text-right num text-foreground/80">{fmtNum(r.declarado)}</td>
-                      <td className="py-2.5 pr-4 text-right num text-foreground/80">{fmtNum(r.checkin)}</td>
-                      <td className="py-2.5 pr-4 text-right num">
+                      <td className="py-2.5 pr-4 text-center num text-foreground/80">{fmtNum(r.declarado)}</td>
+                      <td className="py-2.5 pr-4 text-center num text-foreground/80">{fmtNum(r.checkin)}</td>
+                      <td className="py-2.5 pr-4 text-center num">
                         <span
                           className={cn(
                             "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium",
@@ -71,7 +71,7 @@ export function CalidadCheckinTable({ hoteles }: { hoteles: HotelReal[] }) {
                           {fmtPct(Math.abs(r.diferencia), 0)}
                         </span>
                       </td>
-                      <td className="py-2.5 text-right num text-muted-foreground">
+                      <td className="py-2.5 text-center num text-muted-foreground">
                         {r.reservasSinCheckin} de {r.reservasTotal} ({fmtPct(r.pctSinCheckin, 0)})
                       </td>
                     </tr>

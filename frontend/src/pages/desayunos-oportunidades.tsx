@@ -1,6 +1,6 @@
 import { DashboardShell } from "@/components/dashboard/shell";
 import { DesayunosFiltrosPanel } from "@/components/dashboard/desayunos-filtros-panel";
-import { Skeleton } from "@/components/ui/skeleton";
+import { DataLoading } from "@/components/dashboard/loading-screen";
 import { ObjetivoPenetracionCard } from "@/components/dashboard/objetivo-penetracion-card";
 import { RankingListReal } from "@/components/dashboard/ranking-list-real";
 import { OpportunityBlockReal } from "@/components/dashboard/opportunity-block-real";
@@ -18,13 +18,7 @@ export default function DesayunosOportunidadesPage() {
         {error && (
           <div className="rounded-xl border border-danger/30 bg-danger/5 p-4 text-sm text-danger">{error}</div>
         )}
-        {loading && !hoteles && (
-          <div className="space-y-6">
-            <Skeleton className="h-20 rounded-xl" />
-            <Skeleton className="h-64 rounded-xl" />
-            <Skeleton className="h-72 rounded-xl" />
-          </div>
-        )}
+        {loading && !hoteles && <DataLoading />}
 
         {hoteles && (
           <>

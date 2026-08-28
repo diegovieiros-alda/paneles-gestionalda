@@ -130,7 +130,7 @@ export function FnbFinancieroTable({ hoteles }: { hoteles: HotelReal[] }) {
                   onClick={() => setSort((s) => ({ key: c.key, dir: s.key === c.key && s.dir === "desc" ? "asc" : "desc" }))}
                   className={cn(
                     "text-[11px] font-medium text-muted-foreground uppercase tracking-wide px-4 py-3 cursor-pointer select-none whitespace-nowrap",
-                    c.key === "name" ? "text-left sticky left-0 bg-surface-muted/95 z-10" : "text-right"
+                    c.key === "name" ? "text-left sticky left-0 bg-surface-muted/95 z-10" : "text-center"
                   )}
                 >
                   <span className="inline-flex items-center gap-1">
@@ -139,7 +139,7 @@ export function FnbFinancieroTable({ hoteles }: { hoteles: HotelReal[] }) {
                   </span>
                 </th>
               ))}
-              <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide px-4 py-3 text-left whitespace-nowrap">
+              <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide px-4 py-3 text-center whitespace-nowrap">
                 Penetración
               </th>
               <th className="w-8" />
@@ -157,7 +157,7 @@ export function FnbFinancieroTable({ hoteles }: { hoteles: HotelReal[] }) {
                         "px-4 py-3 whitespace-nowrap num",
                         c.key === "name"
                           ? "text-left sticky left-0 bg-surface group-hover:bg-accent/30 font-medium text-foreground"
-                          : "text-right text-foreground/90"
+                          : "text-center text-foreground/90"
                       )}
                     >
                       {c.key === "name" ? (
@@ -169,7 +169,7 @@ export function FnbFinancieroTable({ hoteles }: { hoteles: HotelReal[] }) {
                       )}
                     </td>
                   ))}
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 text-center">
                     <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium", ETIQUETA_BADGE_CLASS[e])}>
                       {ETIQUETA_LABEL[e]}
                     </span>

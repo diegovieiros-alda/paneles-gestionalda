@@ -15,6 +15,7 @@ import { IngresosGastosChart } from "@/components/dashboard/ingresos-gastos-char
 import { PrecioCosteChart } from "@/components/dashboard/precio-coste-chart";
 import { TurnosPanel } from "@/components/dashboard/turnos-panel";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DataLoading } from "@/components/dashboard/loading-screen";
 import { Button } from "@/components/ui/button";
 import { fetchHotelInfo, fetchHotelDesayunos, type HotelDirectorio, type HotelDesayunos, type MesHotel, type FnbFields, type FacturacionFields } from "@/lib/hoteles-api";
 import { exportarCsv } from "@/lib/export-csv";
@@ -68,7 +69,7 @@ function TablaMensual({
           <tr>
             <th className="text-[11px] font-medium text-muted-foreground uppercase px-4 py-3 text-left whitespace-nowrap">Mes</th>
             {cols.map((c) => (
-              <th key={c.label} className="text-[11px] font-medium text-muted-foreground uppercase px-4 py-3 text-left whitespace-nowrap">{c.label}</th>
+              <th key={c.label} className="text-[11px] font-medium text-muted-foreground uppercase px-4 py-3 text-center whitespace-nowrap">{c.label}</th>
             ))}
           </tr>
         </thead>
@@ -77,7 +78,7 @@ function TablaMensual({
             <tr key={m.mes} className="border-t border-border">
               <td className="px-4 py-2.5 font-medium text-foreground capitalize">{mesCorto(m.mes)}</td>
               {cols.map((c) => (
-                <td key={c.label} className="px-4 py-2.5 num">{c.value(m)}</td>
+                <td key={c.label} className="px-4 py-2.5 num text-center">{c.value(m)}</td>
               ))}
             </tr>
           ))}
@@ -150,11 +151,7 @@ export default function HotelDesayunosPage() {
         </div>
 
         {error && <p className="text-sm text-danger">{error}</p>}
-        {!data && !error && (
-          <div className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
-            {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />)}
-          </div>
-        )}
+        {!data && !error && <DataLoading />}
 
         {data && (
           <>

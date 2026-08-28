@@ -14,13 +14,13 @@ type Key = "name" | "desayunosFacturados" | "desayunosSinFacturar" | "produccion
 // dedicada, separada de la de Producción: son la misma fuente pero dos
 // preguntas distintas ("cuánto se vendió" vs. "cuánto de eso ya está
 // facturado").
-const cols: Array<{ key: Key; label: string; align?: "right"; render: (h: HotelReal) => string; sticky?: boolean }> = [
+const cols: Array<{ key: Key; label: string; align?: "center"; render: (h: HotelReal) => string; sticky?: boolean }> = [
   { key: "name", label: "Hotel", render: (h) => h.name, sticky: true },
-  { key: "desayunosFacturados", label: "Desayunos facturados", align: "right", render: (h) => fmtNum(h.desayunosFacturados) },
-  { key: "desayunosSinFacturar", label: "Sin facturar", align: "right", render: (h) => fmtNum(h.desayunosSinFacturar) },
-  { key: "produccionFacturada", label: "Producción facturada", align: "right", render: (h) => fmtEuro(h.produccionFacturada) },
-  { key: "produccionSinFacturar", label: "Sin facturar", align: "right", render: (h) => fmtEuro(h.produccionSinFacturar) },
-  { key: "porcentajeFacturado", label: "% Facturado", align: "right", render: (h) => fmtPct(h.porcentajeFacturado, 0) },
+  { key: "desayunosFacturados", label: "Desayunos facturados", align: "center", render: (h) => fmtNum(h.desayunosFacturados) },
+  { key: "desayunosSinFacturar", label: "Sin facturar", align: "center", render: (h) => fmtNum(h.desayunosSinFacturar) },
+  { key: "produccionFacturada", label: "Producción facturada", align: "center", render: (h) => fmtEuro(h.produccionFacturada) },
+  { key: "produccionSinFacturar", label: "Sin facturar", align: "center", render: (h) => fmtEuro(h.produccionSinFacturar) },
+  { key: "porcentajeFacturado", label: "% Facturado", align: "center", render: (h) => fmtPct(h.porcentajeFacturado, 0) },
 ];
 
 function exportar(hoteles: HotelReal[]) {
@@ -82,7 +82,7 @@ export function FacturacionTable({ hoteles }: { hoteles: HotelReal[] }) {
                   onClick={() => setSort((s) => ({ key: c.key, dir: s.key === c.key && s.dir === "desc" ? "asc" : "desc" }))}
                   className={cn(
                     "text-[11px] font-medium text-muted-foreground uppercase tracking-wide px-4 py-3 cursor-pointer select-none whitespace-nowrap",
-                    c.align === "right" ? "text-right" : "text-left",
+                    c.align === "center" ? "text-center" : "text-left",
                     c.sticky && "sticky left-0 bg-surface-muted/95 z-10"
                   )}
                 >
@@ -103,7 +103,7 @@ export function FacturacionTable({ hoteles }: { hoteles: HotelReal[] }) {
                     key={c.key}
                     className={cn(
                       "px-4 py-3 whitespace-nowrap num",
-                      c.align === "right" ? "text-right" : "text-left",
+                      c.align === "center" ? "text-center" : "text-left",
                       c.sticky
                         ? "sticky left-0 bg-surface group-hover:bg-accent/30 font-medium text-foreground"
                         : "text-foreground/90"

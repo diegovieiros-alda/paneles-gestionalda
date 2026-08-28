@@ -1,6 +1,6 @@
 import { DashboardShell } from "@/components/dashboard/shell";
 import { DesayunosFiltrosPanel } from "@/components/dashboard/desayunos-filtros-panel";
-import { Skeleton } from "@/components/ui/skeleton";
+import { DataLoading } from "@/components/dashboard/loading-screen";
 import { HotelsTableReal } from "@/components/dashboard/hotels-table-real";
 import { FacturacionTable } from "@/components/dashboard/facturacion-table";
 import { ProduccionResumenCards } from "@/components/dashboard/produccion-resumen-cards";
@@ -32,12 +32,7 @@ export default function DesayunosDetallePage() {
         {error && (
           <div className="rounded-xl border border-danger/30 bg-danger/5 p-4 text-sm text-danger">{error}</div>
         )}
-        {loading && !hoteles && (
-          <div className="space-y-6">
-            <Skeleton className="h-72 rounded-xl" />
-            <Skeleton className="h-96 rounded-xl" />
-          </div>
-        )}
+        {loading && !hoteles && <DataLoading />}
 
         {hoteles && (
           <>
