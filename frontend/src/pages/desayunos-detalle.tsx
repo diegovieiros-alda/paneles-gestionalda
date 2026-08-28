@@ -11,6 +11,7 @@ import { DesayunosOrigenDatos } from "@/components/dashboard/desayunos-origen-da
 import { CalidadCheckinTable } from "@/components/dashboard/calidad-checkin-table";
 import { SectionTitle } from "@/components/dashboard/section-title";
 import { useDesayunosData } from "@/lib/use-desayunos-data";
+import { fmtRangoFechas } from "@/lib/date-range";
 
 // Los gráficos de evolución/tendencia viven en "Tendencias"
 // (desayunos-tendencias.tsx), no aquí — esta página es solo la foto del
@@ -23,8 +24,9 @@ export default function DesayunosDetallePage() {
       title="Detalle completo"
       subtitle="Desayunos · producción, financiero F&B y turnos por hotel"
       origenDatos={origenDatos}
+      periodo={fmtRangoFechas(desde, hasta)}
     >
-      <DesayunosFiltrosPanel rangeProps={rangeProps} filterProps={filterProps} desde={desde} hasta={hasta} />
+      <DesayunosFiltrosPanel rangeProps={rangeProps} filterProps={filterProps} />
 
       <div className="p-6 max-w-[1600px] mx-auto space-y-6">
         {error && (
