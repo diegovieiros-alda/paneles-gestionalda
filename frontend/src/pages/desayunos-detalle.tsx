@@ -9,14 +9,14 @@ import { FnbFinancieroTable } from "@/components/dashboard/fnb-financiero-table"
 import { VendedoresPanel } from "@/components/dashboard/vendedores-panel";
 import { DesayunosOrigenDatos } from "@/components/dashboard/desayunos-origen-datos";
 import { CalidadCheckinTable } from "@/components/dashboard/calidad-checkin-table";
-import { EvolutionChartReal } from "@/components/dashboard/evolution-chart-real";
-import { IngresosGastosChart } from "@/components/dashboard/ingresos-gastos-chart";
-import { PrecioCosteChart } from "@/components/dashboard/precio-coste-chart";
 import { SectionTitle } from "@/components/dashboard/section-title";
 import { useDesayunosData } from "@/lib/use-desayunos-data";
 
+// Los gráficos de evolución/tendencia viven en "Tendencias"
+// (desayunos-tendencias.tsx), no aquí — esta página es solo la foto del
+// periodo elegido, por hotel.
 export default function DesayunosDetallePage() {
-  const { hoteles, serieMensual, vendedores, origenDatos, loading, error, rangeProps } = useDesayunosData();
+  const { hoteles, vendedores, origenDatos, loading, error, rangeProps } = useDesayunosData();
 
   return (
     <DashboardShell
@@ -41,18 +41,11 @@ export default function DesayunosDetallePage() {
           <>
             <SectionTitle title="Rendimiento operativo" subtitle="PMS · producción y penetración por hotel (incluye colaborador, salvo penetración)" />
             <ProduccionResumenCards hoteles={hoteles} />
-            {serieMensual.length > 0 && <EvolutionChartReal serie={serieMensual} />}
             <HotelsTableReal hoteles={hoteles} />
             <FacturacionTable hoteles={hoteles} />
 
             <SectionTitle title="Financiero F&B" subtitle="Contabilidad · ingresos, gastos, margen y presupuesto (excluye colaborador)" />
             <FnbResumenCards hoteles={hoteles} />
-            {serieMensual.length > 0 && (
-              <div className="grid gap-6 lg:grid-cols-2">
-                <IngresosGastosChart serie={serieMensual} />
-                <PrecioCosteChart serie={serieMensual} />
-              </div>
-            )}
             <FnbFinancieroTable hoteles={hoteles} />
 
             <SectionTitle title="Vendedores" />

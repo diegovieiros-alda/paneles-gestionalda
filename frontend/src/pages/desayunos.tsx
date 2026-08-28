@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Coffee, LayoutList, Target, type LucideIcon } from "lucide-react";
+import { ArrowRight, Coffee, LayoutList, Target, TrendingUp, Bell, Settings, type LucideIcon } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard/shell";
 import { cn } from "@/lib/utils";
 
@@ -14,18 +14,6 @@ type Destino = {
 
 const DESTINOS: Destino[] = [
   {
-    to: "/desayunos/donde-actuar",
-    icon: Target,
-    title: "¿Dónde actuar hoy?",
-    desc: "Qué hoteles priorizar ahora mismo, con enlace directo a cada uno.",
-    items: [
-      "Objetivo de penetración y cuánto falta",
-      "Hoteles con penetración crítica",
-      "Ranking y facturación potencial no capturada",
-    ],
-    accent: "primary",
-  },
-  {
     to: "/desayunos/detalle",
     icon: LayoutList,
     title: "Detalle completo",
@@ -35,6 +23,41 @@ const DESTINOS: Destino[] = [
       "Ingresos, gastos y margen (F&B contable)",
       "Vendedores y metodología",
     ],
+    accent: "primary",
+  },
+  {
+    to: "/desayunos/oportunidades",
+    icon: Target,
+    title: "Oportunidades",
+    desc: "Qué hoteles priorizar ahora mismo, con enlace directo a cada uno.",
+    items: [
+      "Objetivo de penetración y cuánto falta",
+      "Ranking y facturación potencial no capturada",
+    ],
+    accent: "neutral",
+  },
+  {
+    to: "/desayunos/tendencias",
+    icon: TrendingUp,
+    title: "Tendencias",
+    desc: "Evolución mensual de producción, ingresos, gastos y precio/coste.",
+    items: ["Series mensuales por hotel y globales"],
+    accent: "neutral",
+  },
+  {
+    to: "/desayunos/alertas",
+    icon: Bell,
+    title: "Alertas",
+    desc: "Hoteles con penetración por debajo del umbral configurado.",
+    items: ["Umbral editable desde Ajustes"],
+    accent: "neutral",
+  },
+  {
+    to: "/desayunos/ajustes",
+    icon: Settings,
+    title: "Ajustes",
+    desc: "Objetivos y umbrales usados en Oportunidades y Alertas.",
+    items: ["Editable, se aplica a todo el dashboard"],
     accent: "neutral",
   },
 ];

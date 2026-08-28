@@ -20,8 +20,9 @@ import { fetchHotelInfo, fetchHotelDesayunos, type HotelDirectorio, type HotelDe
 import { exportarCsv } from "@/lib/export-csv";
 import {
   ETIQUETA_BADGE_CLASS, ETIQUETA_LABEL, etiqueta, etiquetaCumplimiento,
-  fmtEuro, fmtNum, fmtPct, TARGET_PENETRACION, UMBRAL_PENETRACION, type Etiqueta,
+  fmtEuro, fmtNum, fmtPct, type Etiqueta,
 } from "@/lib/mock-data";
+import { useAjustesDesayuno } from "@/lib/ajustes-desayuno-context";
 import { rangeForPreset, type RangePreset } from "@/lib/date-range";
 import { Download } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -97,6 +98,7 @@ const TONE_POR_ETIQUETA: Record<Etiqueta, KpiTone> = {
 };
 
 export default function HotelDesayunosPage() {
+  const { ajustes } = useAjustesDesayuno();
   const { hotelId } = useParams<{ hotelId: string }>();
   const [hotel, setHotel] = useState<HotelDirectorio | null>(null);
   const [hotelError, setHotelError] = useState<string | null>(null);
@@ -164,7 +166,7 @@ export default function HotelDesayunosPage() {
               <KpiCard
                 label="Penetración"
                 value={fmtPct(data.actual.penetracion)}
-                tone={TONE_POR_ETIQUETA[etiqueta(data.actual.penetracion, UMBRAL_PENETRACION, TARGET_PENETRACION)]}
+                tone={TONE_POR_ETIQUETA[etiqueta(data.actual.penetracion, ajustes.umbralPenetracion, ajustes.objetivoPenetracion)]}
               />
               <KpiCard label="Precio medio" value={`${data.actual.precioMedio.toFixed(2)}€`} tone="neutral" />
             </section>

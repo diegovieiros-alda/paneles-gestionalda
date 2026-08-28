@@ -276,3 +276,56 @@ def get_hotel_desayunos(hotel_id: int, fecha_inicio: datetime.date, fecha_fin: d
     vendedores = repository.fetch_vendedores_desayuno_hotel(hotel_id, fecha_inicio, fecha_fin)
 
     return {"actual": actual, "serieMensual": serie, "vendedores": vendedores}
+
+
+# Ajustes editables de Desayunos (antes hardcodeados en el frontend,
+# frontend/src/lib/mock-data.ts). Los valores por defecto son los mismos
+# que ya estaban ahí — nadie pierde el criterio actual al desplegar esto,
+# solo pasa a poder cambiarse desde la UI. Ninguno es un objetivo oficial
+# confirmado por dirección/revenue (ver desayunos-origen-datos.tsx) — sigue
+# sin serlo solo porque ahora sea editable.
+AJUSTES_DESAYUNOS_DEFECTO = {
+    "objetivoPenetracion": 0.55,
+    "umbralPenetracion": 0.38,
+    "objetivoOportunidad": 0.85,
+}
+
+
+def get_ajustes_desayunos() -> dict:
+    from ..models import DashboardSetting
+
+    guardados = dict(
+        DashboardSetting.objects.filter(
+            dashboard="desayunos", clave__in=AJUSTES_DESAYUNOS_DEFECTO
+        ).values_list("clave", "valor")
+    )
+    return {**AJUSTES_DESAYUNOS_DEFECTO, **guardados}
+
+
+def set_ajustes_desayunos(cambios: dict, usuario) -> dict:
+    from ..models import DashboardSetting
+
+    desconocidas = set(cambios) - set(AJUSTES_DESAYUNOS_DEFECTO)
+    if desconocidas:
+        raise ValueError(f"Ajuste desconocido: {', '.join(sorted(desconocidas))}")
+
+    valores = {}
+    for clave, bruto in cambios.items():
+        try:
+            valor = float(bruto)
+        except (TypeError, ValueError):
+            raise ValueError(f"'{clave}' debe ser un número")
+        if not (0 < valor <= 1):
+            raise ValueError(f"'{clave}' debe estar entre 0 y 100% (recibido {bruto})")
+        valores[clave] = valor
+
+    for clave, valor in valores.items():
+        DashboardSetting.objects.update_or_create(
+            dashboard="desayunos",
+            clave=clave,
+            defaults={
+                "valor": valor,
+                "actualizado_por": usuario if getattr(usuario, "is_authenticated", False) else None,
+            },
+        )
+    return get_ajustes_desayunos()

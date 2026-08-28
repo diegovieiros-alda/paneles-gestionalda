@@ -1,29 +1,41 @@
 import { Link, useLocation } from "react-router-dom";
-import {
-  TrendingUp, Bell, Settings, Coffee, Sparkles, Ban, Users, type LucideIcon,
-} from "lucide-react";
+import { Coffee, Ban, Users, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth-context";
 
 type NavChild = { to: string; label: string };
 type NavItem = { to: string; label: string; icon: LucideIcon; dashboard: string; children?: NavChild[] };
 
+// Oportunidades/Tendencias/Alertas/Ajustes ya no son dashboards propios
+// (2026-08-27) — son secciones dentro de cada dashboard, gateadas por el
+// permiso de ese dashboard (no por un permiso propio). Ver
+// backend/core/models.py::DASHBOARDS.
 export const NAV: readonly NavItem[] = [
-  { to: "/bloqueos", label: "Bloqueos", icon: Ban, dashboard: "bloqueos" },
+  {
+    to: "/bloqueos",
+    label: "Bloqueos",
+    icon: Ban,
+    dashboard: "bloqueos",
+    children: [
+      { to: "/bloqueos/oportunidades", label: "Oportunidades" },
+      { to: "/bloqueos/tendencias", label: "Tendencias" },
+      { to: "/bloqueos/alertas", label: "Alertas" },
+      { to: "/bloqueos/ajustes", label: "Ajustes" },
+    ],
+  },
   {
     to: "/desayunos",
     label: "Desayunos",
     icon: Coffee,
     dashboard: "desayunos",
     children: [
-      { to: "/desayunos/donde-actuar", label: "¿Dónde actuar hoy?" },
       { to: "/desayunos/detalle", label: "Detalle completo" },
+      { to: "/desayunos/oportunidades", label: "Oportunidades" },
+      { to: "/desayunos/tendencias", label: "Tendencias" },
+      { to: "/desayunos/alertas", label: "Alertas" },
+      { to: "/desayunos/ajustes", label: "Ajustes" },
     ],
   },
-  { to: "/oportunidades", label: "Oportunidades", icon: Sparkles, dashboard: "oportunidades" },
-  { to: "/tendencias", label: "Tendencias", icon: TrendingUp, dashboard: "tendencias" },
-  { to: "/alertas", label: "Alertas", icon: Bell, dashboard: "alertas" },
-  { to: "/ajustes", label: "Ajustes", icon: Settings, dashboard: "ajustes" },
 ];
 
 export function Sidebar() {

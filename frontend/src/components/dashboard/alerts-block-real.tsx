@@ -1,11 +1,13 @@
 import { AlertTriangle, ChevronRight, Percent } from "lucide-react";
 import { Link } from "react-router-dom";
-import { fmtPct, TARGET_PENETRACION, UMBRAL_PENETRACION } from "@/lib/mock-data";
+import { fmtPct } from "@/lib/mock-data";
+import { useAjustesDesayuno } from "@/lib/ajustes-desayuno-context";
 import type { HotelReal } from "@/lib/hoteles-api";
 
 export function AlertsBlockReal({ hoteles }: { hoteles: HotelReal[] }) {
+  const { ajustes } = useAjustesDesayuno();
   const alerts = hoteles
-    .filter((h) => h.alojados > 0 && h.penetracion < UMBRAL_PENETRACION)
+    .filter((h) => h.alojados > 0 && h.penetracion < ajustes.umbralPenetracion)
     .sort((a, b) => a.penetracion - b.penetracion)
     .slice(0, 8);
 
@@ -41,7 +43,7 @@ export function AlertsBlockReal({ hoteles }: { hoteles: HotelReal[] }) {
                 <div className="text-[11px] text-muted-foreground truncate">
                   {h.zona} · Penetración baja ·{" "}
                   <span className="text-foreground/70 num">
-                    {fmtPct(h.penetracion)} · objetivo {fmtPct(TARGET_PENETRACION, 0)}
+                    {fmtPct(h.penetracion)} · objetivo {fmtPct(ajustes.objetivoPenetracion, 0)}
                   </span>
                 </div>
               </div>
