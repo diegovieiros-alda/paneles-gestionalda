@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cerrarSesion } from "@/lib/auth-api";
 import { useAuth } from "@/lib/auth-context";
+import { LoadingScreen } from "@/components/dashboard/loading-screen";
 
 function SinAcceso({ mensaje }: { mensaje: string }) {
   const navigate = useNavigate();
@@ -30,7 +31,7 @@ function SinAcceso({ mensaje }: { mensaje: string }) {
 export function ProtectedRoute({ dashboard, children }: { dashboard: string; children: ReactNode }) {
   const { usuario, cargando } = useAuth();
 
-  if (cargando) return null;
+  if (cargando) return <LoadingScreen />;
   if (!usuario) return <Navigate to="/login" replace />;
   if (!usuario.dashboards.includes(dashboard)) {
     return <SinAcceso mensaje="Tu rol no tiene acceso a este dashboard. Pide a un administrador que te lo asigne." />;
@@ -41,7 +42,7 @@ export function ProtectedRoute({ dashboard, children }: { dashboard: string; chi
 export function SuperuserRoute({ children }: { children: ReactNode }) {
   const { usuario, cargando } = useAuth();
 
-  if (cargando) return null;
+  if (cargando) return <LoadingScreen />;
   if (!usuario) return <Navigate to="/login" replace />;
   if (!usuario.esSuperusuario) {
     return <SinAcceso mensaje="Esta sección es solo para administradores." />;
