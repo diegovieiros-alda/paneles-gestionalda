@@ -1,7 +1,8 @@
-"""Cache corta para las consultas de solo lectura contra Odoo: evita repetir
-la misma query cuando varios usuarios (o el mismo, al navegar) piden el
-mismo rango de fechas en pocos minutos. Los datos de Odoo no son en tiempo
-real para estos dashboards, así que un margen de minutos es aceptable.
+"""Cache para las consultas de solo lectura contra Odoo: evita repetir la
+misma query cuando varios usuarios (o el mismo, al navegar) piden el mismo
+rango de fechas dentro de la misma ventana. Los datos de Odoo no son en
+tiempo real para estos dashboards, así que un margen de horas es aceptable
+(decidido con el usuario 2026-08-28, antes eran 5 minutos).
 
 ponytail: CACHES apunta a FileBasedCache (ver settings.py) — un directorio
 compartido en disco, para que los distintos workers de gunicorn vean la
@@ -18,7 +19,7 @@ import pickle
 
 from django.core.cache import cache
 
-TIMEOUT = 300  # 5 minutos
+TIMEOUT = 60 * 60 * 2  # 2 horas
 
 # Cuenta hits/misses de cache_result durante una vista, para poder decirle
 # al frontend si la respuesta vino de Odoo en vivo o de cache (ver
