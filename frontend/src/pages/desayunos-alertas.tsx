@@ -5,11 +5,11 @@ import { AlertsBlockReal } from "@/components/dashboard/alerts-block-real";
 import { useDesayunosData } from "@/lib/use-desayunos-data";
 
 export default function DesayunosAlertasPage() {
-  const { hotelesFiltrados: hoteles, origenDatos, loading, error, rangeProps, filterProps } = useDesayunosData();
+  const { hotelesFiltrados: hoteles, origenDatos, loading, error, rangeProps, filterProps, desde, hasta } = useDesayunosData();
 
   return (
     <DashboardShell title="Alertas" subtitle="Desayunos · hoteles que necesitan atención" origenDatos={origenDatos}>
-      <DesayunosFiltrosPanel rangeProps={rangeProps} filterProps={filterProps} />
+      <DesayunosFiltrosPanel rangeProps={rangeProps} filterProps={filterProps} desde={desde} hasta={hasta} />
 
       <div className="p-6 max-w-[1600px] mx-auto space-y-6">
         {error && (

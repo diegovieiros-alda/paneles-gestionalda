@@ -23,8 +23,8 @@ import {
   fmtEuro, fmtNum, fmtPct, type Etiqueta,
 } from "@/lib/mock-data";
 import { useAjustesDesayuno } from "@/lib/ajustes-desayuno-context";
-import { rangeForPreset, RANGE_PRESETS_DESAYUNOS, type RangePreset } from "@/lib/date-range";
-import { Download } from "lucide-react";
+import { rangeForPreset, RANGE_PRESETS_DESAYUNOS, fmtRangoFechas, type RangePreset } from "@/lib/date-range";
+import { Download, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type KpiTone } from "@/components/dashboard/kpi-card";
 
@@ -139,8 +139,12 @@ export default function HotelDesayunosPage() {
         )}
         {hotel && <HotelDetailHeader hotel={hotel} backTo="/desayunos" backLabel="Volver a Desayunos" />}
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="sticky top-16 z-20 -mx-6 px-6 py-2 flex flex-wrap items-center gap-2 bg-background/95 backdrop-blur border-b border-border">
           <RangeFilter preset={preset} custom={custom} onPreset={(p) => { setPreset(p); if (p !== "custom") setCustom(rangeForPreset(p)); }} onCustom={setCustom} compact presets={RANGE_PRESETS_DESAYUNOS} />
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground/90 bg-primary/5 border border-primary/15 rounded-full px-3 h-8">
+            <CalendarDays className="h-3.5 w-3.5 text-primary" />
+            {fmtRangoFechas(desde, hasta)}
+          </span>
           <DataSourceBadge origen={data?.origenDatos} />
         </div>
 

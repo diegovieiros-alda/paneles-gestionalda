@@ -75,6 +75,8 @@ export function useDesayunosData() {
     origenDatos,
     loading,
     error,
+    desde,
+    hasta,
     rangeProps: {
       preset,
       custom,
