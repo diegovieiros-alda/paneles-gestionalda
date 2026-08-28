@@ -1,9 +1,9 @@
 import { type ReactNode } from "react";
-import { Search, X } from "lucide-react";
+import { Search, X, CalendarDays } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TIPOS_DESAYUNO } from "@/lib/hoteles-api";
 import { RangeFilter } from "@/components/dashboard/range-filter";
-import { RANGE_PRESETS_DESAYUNOS, type RangePreset } from "@/lib/date-range";
+import { RANGE_PRESETS_DESAYUNOS, fmtRangoFechas, type RangePreset } from "@/lib/date-range";
 
 const PILL =
   "h-8 px-3 rounded-full text-xs font-medium border transition-colors bg-surface border-border text-muted-foreground hover:text-foreground";
@@ -45,8 +45,8 @@ function Fila({ label, children }: { label: string; children: ReactNode }) {
 // (comparten useDesayunosData) — Tendencias sigue usando solo RangeFilter,
 // su serie mensual es un agregado global no filtrable por hotel.
 export function DesayunosFiltrosPanel({
-  rangeProps, filterProps,
-}: { rangeProps: RangeProps; filterProps: FilterProps }) {
+  rangeProps, filterProps, desde, hasta,
+}: { rangeProps: RangeProps; filterProps: FilterProps; desde: string; hasta: string }) {
   const { q, onQ, zona, onZona, zonas, submarca, onSubmarca, submarcas, tipos, onTipos } = filterProps;
   const todosTipos = TIPOS_DESAYUNO.map((t) => t.value);
   const hayFiltrosActivos = !!q || !!zona || !!submarca || tipos.length < todosTipos.length;
@@ -56,9 +56,16 @@ export function DesayunosFiltrosPanel({
   }
 
   return (
-    <div className="border-b border-border bg-surface-muted/40 divide-y divide-border/70">
+    // sticky top-16: justo debajo del Topbar (h-16), para que el periodo
+    // seleccionado quede siempre visible al hacer scroll por cualquier
+    // sección de datos de la página, no solo arriba del todo.
+    <div className="sticky top-16 z-20 border-b border-border bg-surface divide-y divide-border/70 shadow-sm">
       <Fila label="Periodo">
         <RangeFilter {...rangeProps} compact presets={RANGE_PRESETS_DESAYUNOS} />
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-foreground/90 bg-primary/5 border border-primary/15 rounded-full px-3 h-8">
+          <CalendarDays className="h-3.5 w-3.5 text-primary" />
+          {fmtRangoFechas(desde, hasta)}
+        </span>
       </Fila>
 
       <Fila label="Hotel">

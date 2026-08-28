@@ -16,7 +16,7 @@ import { useDesayunosData } from "@/lib/use-desayunos-data";
 // (desayunos-tendencias.tsx), no aquí — esta página es solo la foto del
 // periodo elegido, por hotel.
 export default function DesayunosDetallePage() {
-  const { hotelesFiltrados: hoteles, turnos, origenDatos, loading, error, rangeProps, filterProps } = useDesayunosData();
+  const { hotelesFiltrados: hoteles, turnos, origenDatos, loading, error, rangeProps, filterProps, desde, hasta } = useDesayunosData();
 
   return (
     <DashboardShell
@@ -24,7 +24,7 @@ export default function DesayunosDetallePage() {
       subtitle="Desayunos · producción, financiero F&B y turnos por hotel"
       origenDatos={origenDatos}
     >
-      <DesayunosFiltrosPanel rangeProps={rangeProps} filterProps={filterProps} />
+      <DesayunosFiltrosPanel rangeProps={rangeProps} filterProps={filterProps} desde={desde} hasta={hasta} />
 
       <div className="p-6 max-w-[1600px] mx-auto space-y-6">
         {error && (

@@ -34,6 +34,20 @@ function iso(d: Date) {
   return d.toISOString().slice(0, 10);
 }
 
+const FMT_FECHA = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric" });
+
+// "T00:00:00" (sin "Z"): que Date la interprete en hora local, no UTC —
+// si no, en UTC+1/+2 el formateo puede saltar al día siguiente.
+function fechaLocal(iso: string): Date {
+  return new Date(`${iso}T00:00:00`);
+}
+
+export function fmtRangoFechas(desde: string, hasta: string): string {
+  const fDesde = FMT_FECHA.format(fechaLocal(desde));
+  if (desde === hasta) return fDesde;
+  return `${fDesde} – ${FMT_FECHA.format(fechaLocal(hasta))}`;
+}
+
 // Backend ya admite rangos de hasta 370 días para Desayunos (ver
 // MAX_RANGO_DIAS_DESAYUNOS en backend/core/views.py, dimensionado a
 // propósito para el filtro "Año fiscal").
