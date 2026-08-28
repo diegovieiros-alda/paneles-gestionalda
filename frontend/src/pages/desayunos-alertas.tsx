@@ -1,6 +1,6 @@
 import { DashboardShell } from "@/components/dashboard/shell";
 import { DesayunosFiltrosPanel } from "@/components/dashboard/desayunos-filtros-panel";
-import { Skeleton } from "@/components/ui/skeleton";
+import { DataLoading } from "@/components/dashboard/loading-screen";
 import { AlertsBlockReal } from "@/components/dashboard/alerts-block-real";
 import { useDesayunosData } from "@/lib/use-desayunos-data";
 import { fmtRangoFechas } from "@/lib/date-range";
@@ -16,7 +16,7 @@ export default function DesayunosAlertasPage() {
         {error && (
           <div className="rounded-xl border border-danger/30 bg-danger/5 p-4 text-sm text-danger">{error}</div>
         )}
-        {loading && !hoteles && <Skeleton className="h-64 rounded-xl" />}
+        {loading && !hoteles && <DataLoading />}
 
         {hoteles && <AlertsBlockReal hoteles={hoteles} />}
       </div>

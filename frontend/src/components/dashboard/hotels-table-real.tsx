@@ -19,17 +19,17 @@ function oportunidad(h: HotelReal, objetivoOportunidad: number) {
   return facturacionPotencial(h.alojados, h.penetracion, h.precioMedioVenta, objetivoOportunidad);
 }
 
-function buildCols(objetivoOportunidad: number): Array<{ key: Key; label: string; align?: "right"; render: (h: HotelReal) => string; sticky?: boolean }> {
+function buildCols(objetivoOportunidad: number): Array<{ key: Key; label: string; align?: "center"; render: (h: HotelReal) => string; sticky?: boolean }> {
   return [
     { key: "name", label: "Hotel", render: (h) => h.name, sticky: true },
     { key: "zona", label: "Zona", render: (h) => h.zona },
     { key: "sociedad", label: "Sociedad", render: (h) => h.sociedad },
-    { key: "alojados", label: "Alojados", align: "right", render: (h) => fmtNum(h.alojados) },
-    { key: "desayunos", label: "Desayunos", align: "right", render: (h) => fmtNum(h.desayunos) },
-    { key: "penetracion", label: "Penetración", align: "right", render: (h) => fmtPct(h.penetracion) },
-    { key: "produccion", label: "Producción", align: "right", render: (h) => fmtEuro(h.produccion) },
-    { key: "precioMedio", label: "Precio med.", align: "right", render: (h) => `${h.precioMedio.toFixed(2)}€` },
-    { key: "oportunidad", label: "Oportunidad", align: "right", render: (h) => fmtEuro(oportunidad(h, objetivoOportunidad)) },
+    { key: "alojados", label: "Alojados", align: "center", render: (h) => fmtNum(h.alojados) },
+    { key: "desayunos", label: "Desayunos", align: "center", render: (h) => fmtNum(h.desayunos) },
+    { key: "penetracion", label: "Penetración", align: "center", render: (h) => fmtPct(h.penetracion) },
+    { key: "produccion", label: "Producción", align: "center", render: (h) => fmtEuro(h.produccion) },
+    { key: "precioMedio", label: "Precio med.", align: "center", render: (h) => `${h.precioMedio.toFixed(2)}€` },
+    { key: "oportunidad", label: "Oportunidad", align: "center", render: (h) => fmtEuro(oportunidad(h, objetivoOportunidad)) },
   ];
 }
 
@@ -99,7 +99,7 @@ export function HotelsTableReal({ hoteles }: { hoteles: HotelReal[] }) {
                   onClick={() => setSort((s) => ({ key: c.key, dir: s.key === c.key && s.dir === "desc" ? "asc" : "desc" }))}
                   className={cn(
                     "text-[11px] font-medium text-muted-foreground uppercase tracking-wide px-4 py-3 cursor-pointer select-none whitespace-nowrap",
-                    c.align === "right" ? "text-right" : "text-left",
+                    c.align === "center" ? "text-center" : "text-left",
                     c.sticky && "sticky left-0 bg-surface-muted/95 z-10"
                   )}
                 >
@@ -120,7 +120,7 @@ export function HotelsTableReal({ hoteles }: { hoteles: HotelReal[] }) {
                     key={c.key}
                     className={cn(
                       "px-4 py-3 whitespace-nowrap num",
-                      c.align === "right" ? "text-right" : "text-left",
+                      c.align === "center" ? "text-center" : "text-left",
                       c.sticky
                         ? "sticky left-0 bg-surface group-hover:bg-accent/30 font-medium text-foreground"
                         : c.key === "zona" || c.key === "sociedad"
