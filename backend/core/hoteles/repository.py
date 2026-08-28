@@ -566,6 +566,12 @@ _PRESUPUESTO_MENSUAL_SQL = """
 #   línea (@sh360 -> central de reservas, roomdoo/Wubook -> automático,
 #   resto -> recepción del hotel), no un catálogo mantenido ni un dato
 #   fiable al 100% si aparecen logins con otros patrones.
+#
+# produccion_facturada/produccion_sin_facturar (2026-08-28): mismo
+# desglose "Facturado / Sin facturar" ya usado en _DESAYUNOS_SQL (CTE
+# "facturado" de _CTES_DESAYUNO, factura posted vinculada vía
+# folio_sale_line_invoice_rel) — no es un cálculo nuevo, se reutiliza tal
+# cual para la dimensión turno/canal en vez de hotel.
 _TURNOS_DESAYUNO_SQL = (
     _CTES_DESAYUNO
     + """
@@ -585,9 +591,12 @@ _TURNOS_DESAYUNO_SQL = (
             WHEN ru.login IS NULL THEN 'sin_usuario'
             ELSE 'recepcion_hotel'
         END AS canal,
-        SUM(fsl.product_uom_qty) AS unidades
+        SUM(fsl.product_uom_qty) AS unidades,
+        SUM(f.monto_facturado) FILTER (WHERE f.sale_line_id IS NOT NULL) AS produccion_facturada,
+        SUM(fsl.price_subtotal) FILTER (WHERE f.sale_line_id IS NULL) AS produccion_sin_facturar
     FROM folio_sale_line fsl
     JOIN productos_desayuno pd ON pd.product_id = fsl.product_id
+    LEFT JOIN facturado f ON f.sale_line_id = fsl.id
     LEFT JOIN res_users ru ON ru.id = fsl.create_uid
     WHERE fsl.date_order BETWEEN %(desde)s AND %(hasta)s
       AND fsl.state NOT IN ('draft', 'cancel')
@@ -653,9 +662,12 @@ _TURNOS_DESAYUNO_HOTEL_SQL = (
             WHEN ru.login IS NULL THEN 'sin_usuario'
             ELSE 'recepcion_hotel'
         END AS canal,
-        SUM(fsl.product_uom_qty) AS unidades
+        SUM(fsl.product_uom_qty) AS unidades,
+        SUM(f.monto_facturado) FILTER (WHERE f.sale_line_id IS NOT NULL) AS produccion_facturada,
+        SUM(fsl.price_subtotal) FILTER (WHERE f.sale_line_id IS NULL) AS produccion_sin_facturar
     FROM folio_sale_line fsl
     JOIN productos_desayuno pd ON pd.product_id = fsl.product_id
+    LEFT JOIN facturado f ON f.sale_line_id = fsl.id
     LEFT JOIN res_users ru ON ru.id = fsl.create_uid
     WHERE fsl.pms_property_id = %(hotel_id)s AND fsl.date_order BETWEEN %(desde)s AND %(hasta)s
       AND fsl.state NOT IN ('draft', 'cancel')
@@ -760,7 +772,16 @@ def fetch_turnos_desayuno(fecha_inicio: datetime.date, fecha_fin: datetime.date)
             {"regimenes": list(_REGIMENES_DESAYUNO), "desde": fecha_inicio, "hasta": fecha_fin},
         )
         rows = cur.fetchall()
-    return [{"turno": r[0], "canal": r[1], "unidades": float(r[2] or 0)} for r in rows]
+    return [
+        {
+            "turno": r[0],
+            "canal": r[1],
+            "unidades": float(r[2] or 0),
+            "produccionFacturada": float(r[3] or 0),
+            "produccionSinFacturar": float(r[4] or 0),
+        }
+        for r in rows
+    ]
 
 
 @cache_result
@@ -814,4 +835,13 @@ def fetch_turnos_desayuno_hotel(hotel_id: int, fecha_inicio: datetime.date, fech
             {"regimenes": list(_REGIMENES_DESAYUNO), "hotel_id": hotel_id, "desde": fecha_inicio, "hasta": fecha_fin},
         )
         rows = cur.fetchall()
-    return [{"turno": r[0], "canal": r[1], "unidades": float(r[2] or 0)} for r in rows]
+    return [
+        {
+            "turno": r[0],
+            "canal": r[1],
+            "unidades": float(r[2] or 0),
+            "produccionFacturada": float(r[3] or 0),
+            "produccionSinFacturar": float(r[4] or 0),
+        }
+        for r in rows
+    ]

@@ -159,10 +159,10 @@ const TURNOS: Campo[] = [
   {
     campo: "Turnos",
     tipo: "pms",
-    queEs: "Unidades de desayuno por franja horaria y canal de venta — sin nombre de ninguna persona.",
+    queEs: "Unidades de desayuno y su facturado/sin facturar, por franja horaria y canal de venta — sin nombre de ninguna persona.",
     origen: "folio_sale_line.create_date / create_uid → res_users.login",
     calculo:
-      "Turno según la hora de creación de la línea (hora de Madrid): Mañana 07-15h, Tarde 15-23h, Noche 23-07h. Canal según el patrón del login que la creó: @sh360 → Central de reservas, roomdoo/Wubook → Automático, resto → Recepción del hotel.",
+      "Turno según la hora de creación de la línea (hora de Madrid): Mañana 07-15h, Tarde 15-23h, Noche 23-07h. Canal según el patrón del login que la creó: @sh360 → Central de reservas, roomdoo/Wubook → Automático, resto → Recepción del hotel. Facturado/Sin facturar: mismo desglose que en \"Facturado / Sin facturar\" de Producción (factura posted vinculada o no), aplicado a cada turno/canal — Facturado + Sin facturar siempre coincide con la Producción total del periodo.",
     porque:
       "Antes se mostraba el nombre de quién generó cada apunte contable — dato personal/laboral de un empleado, no debe salir en un panel de gestión. Se sustituyó (2026-08-28) por este desglose por turno/canal, calculado desde el PMS (folio_sale_line, igual que Producción) en vez de Contabilidad: se comprobó que la fecha del apunte contable no sirve para esto (más de 6.500 líneas de un mes entero caían todas en la misma hora, por un proceso automático de asiento nocturno, no por venta real). Las franjas horarias son una convención de turnos habituales, no el horario real confirmado de cada hotel; \"canal\" es una estimación por patrón de login, no un catálogo mantenido.",
   },

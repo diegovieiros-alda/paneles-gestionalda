@@ -1,5 +1,5 @@
 import { Clock3, Download } from "lucide-react";
-import { fmtNum } from "@/lib/mock-data";
+import { fmtEuro, fmtNum } from "@/lib/mock-data";
 import { exportarCsv } from "@/lib/export-csv";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -23,11 +23,16 @@ const CANALES: Array<{ key: TurnoDesayuno["canal"]; label: string; color: string
 
 export function TurnosPanel({ turnos, scope = "cadena completa" }: { turnos: TurnoDesayuno[]; scope?: string }) {
   const total = turnos.reduce((s, t) => s + t.unidades, 0);
-  const porTurno = TURNOS.map((t) => ({
-    ...t,
-    filas: turnos.filter((f) => f.turno === t.key),
-    unidades: turnos.filter((f) => f.turno === t.key).reduce((s, f) => s + f.unidades, 0),
-  }));
+  const porTurno = TURNOS.map((t) => {
+    const filas = turnos.filter((f) => f.turno === t.key);
+    return {
+      ...t,
+      filas,
+      unidades: filas.reduce((s, f) => s + f.unidades, 0),
+      facturado: filas.reduce((s, f) => s + f.produccionFacturada, 0),
+      sinFacturar: filas.reduce((s, f) => s + f.produccionSinFacturar, 0),
+    };
+  });
   const maxTurno = Math.max(1, ...porTurno.map((t) => t.unidades));
 
   return (
@@ -49,11 +54,13 @@ export function TurnosPanel({ turnos, scope = "cadena completa" }: { turnos: Tur
             onClick={() =>
               exportarCsv(
                 `desayunos-turnos-${new Date().toISOString().slice(0, 10)}`,
-                ["Turno", "Canal", "Unidades"],
+                ["Turno", "Canal", "Unidades", "Facturado", "Sin facturar"],
                 turnos.map((t) => [
                   TURNOS.find((x) => x.key === t.turno)?.label ?? t.turno,
                   CANALES.find((x) => x.key === t.canal)?.label ?? t.canal,
                   t.unidades,
+                  t.produccionFacturada.toFixed(2),
+                  t.produccionSinFacturar.toFixed(2),
                 ])
               )
             }
@@ -76,6 +83,14 @@ export function TurnosPanel({ turnos, scope = "cadena completa" }: { turnos: Tur
               <div className="flex items-center justify-between text-sm mb-1">
                 <span className="text-foreground/90">{t.label}</span>
                 <span className="text-xs text-muted-foreground num">{fmtNum(t.unidades)} unidades</span>
+              </div>
+              <div className="flex items-center justify-between text-[11px] text-muted-foreground/80 mb-1.5 num">
+                <span>
+                  Facturado <span className="text-foreground/80 font-medium">{fmtEuro(t.facturado)}</span>
+                </span>
+                <span>
+                  Sin facturar <span className="text-foreground/80 font-medium">{fmtEuro(t.sinFacturar)}</span>
+                </span>
               </div>
               <div className="h-2 rounded-full bg-surface-muted overflow-hidden flex">
                 {CANALES.map((c) => {
