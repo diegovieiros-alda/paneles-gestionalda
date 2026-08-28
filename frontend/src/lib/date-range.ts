@@ -30,8 +30,19 @@ export const RANGE_PRESETS_DESAYUNOS: PresetDescriptor[] = [
   { key: "fiscal", label: "Año fiscal", title: "1 de octubre - 30 de septiembre" },
 ];
 
+// OJO: NO usar d.toISOString() aquí. Convierte a UTC, y con
+// new Date(año, mes, día) construyendo medianoche en hora LOCAL, en
+// cualquier huso horario adelantado a UTC (España, UTC+1/+2) eso cae en
+// el día UTC anterior — el año fiscal salía mostrando "30 sept" en vez
+// de "1 oct" (bug real reportado, verificado 2026-08-28: con la fecha de
+// hoy en CEST, medianoche local del 1 de octubre es las 22:00 UTC del 30
+// de septiembre). Se leen los componentes en hora local y punto, sin
+// pasar por UTC en ningún momento.
 function iso(d: Date) {
-  return d.toISOString().slice(0, 10);
+  const anio = d.getFullYear();
+  const mes = String(d.getMonth() + 1).padStart(2, "0");
+  const dia = String(d.getDate()).padStart(2, "0");
+  return `${anio}-${mes}-${dia}`;
 }
 
 const FMT_FECHA = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric" });
