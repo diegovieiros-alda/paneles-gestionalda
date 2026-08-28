@@ -155,14 +155,16 @@ const FNB_CONTABLE: Campo[] = [
   },
 ];
 
-const VENDEDORES: Campo[] = [
+const TURNOS: Campo[] = [
   {
-    campo: "Vendedores",
-    tipo: "contable",
-    queEs: "Quién generó cada apunte contable de ingreso de desayuno.",
-    origen: "account_move_line.create_uid → res_users → res_partner",
-    calculo: "Agrupado por usuario que creó la línea contable de la cuenta 70500000020: suma de importe y nº de líneas, de mayor a menor.",
-    porque: "\"Creado por\" refleja quién (o qué) generó el registro — a veces es un proceso automático (p. ej. \"OdooBot\"), no necesariamente la persona que vendió el desayuno.",
+    campo: "Turnos",
+    tipo: "pms",
+    queEs: "Unidades de desayuno por franja horaria y canal de venta — sin nombre de ninguna persona.",
+    origen: "folio_sale_line.create_date / create_uid → res_users.login",
+    calculo:
+      "Turno según la hora de creación de la línea (hora de Madrid): Mañana 07-15h, Tarde 15-23h, Noche 23-07h. Canal según el patrón del login que la creó: @sh360 → Central de reservas, roomdoo/Wubook → Automático, resto → Recepción del hotel.",
+    porque:
+      "Antes se mostraba el nombre de quién generó cada apunte contable — dato personal/laboral de un empleado, no debe salir en un panel de gestión. Se sustituyó (2026-08-28) por este desglose por turno/canal, calculado desde el PMS (folio_sale_line, igual que Producción) en vez de Contabilidad: se comprobó que la fecha del apunte contable no sirve para esto (más de 6.500 líneas de un mes entero caían todas en la misma hora, por un proceso automático de asiento nocturno, no por venta real). Las franjas horarias son una convención de turnos habituales, no el horario real confirmado de cada hotel; \"canal\" es una estimación por patrón de login, no un catálogo mantenido.",
   },
 ];
 
@@ -296,7 +298,7 @@ export function DesayunosOrigenDatos() {
           subtitulo="Contabilidad · lo ya facturado, excluye colaborador"
           campos={FNB_CONTABLE}
         />
-        <Grupo titulo="Vendedores" campos={VENDEDORES} />
+        <Grupo titulo="Turnos" campos={TURNOS} />
         <Grupo titulo="Métricas derivadas" subtitulo="No son datos de Odoo: se calculan en la app" campos={DERIVADOS} />
 
         <div className="flex gap-2.5 rounded-lg border border-border bg-surface-muted/40 p-3.5">

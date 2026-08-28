@@ -429,8 +429,10 @@ def fetch_desayunos_mensual_hotel(hotel_id: int, fecha_inicio: datetime.date, fe
 # líneas out_refund con price_subtotal positivo (388.889,14 €, debería restar)
 # y 35 líneas entry con price_subtotal=0 pero saldo real de 149.237,36 € -
 # con price_subtotal sin corregir, ingresos salía inflado en más de 600.000 €
-# de cadena. Incluye también fetch_vendedores_desayuno/_hotel más abajo (mismo
-# bug, misma cuenta de ingreso).
+# de cadena. Incluía también fetch_vendedores_desayuno/_hotel (mismo bug,
+# misma cuenta de ingreso) — esas dos funciones ya no existen: sustituidas
+# (2026-08-28) por fetch_turnos_desayuno/_hotel, que no usa account_move_line
+# en absoluto (ver _TURNOS_DESAYUNO_SQL, protección de datos de empleados).
 #
 # "unidades" (denominador de precioMedioVenta/costeMedioGasto en
 # service._fnb_json): mismo problema de signo que ingresos/gastos tenían con
@@ -536,23 +538,65 @@ _PRESUPUESTO_MENSUAL_SQL = """
     ORDER BY 1
 """
 
-_VENDEDORES_SQL = """
-    SELECT COALESCE(rp.name, ru.login, 'Sin asignar') AS vendedor,
-           SUM(aml.credit - aml.debit) AS importe,
-           COUNT(*) AS lineas
-    FROM account_move_line aml
-    JOIN account_account aa ON aa.id = aml.account_id
-    JOIN account_move am ON am.id = aml.move_id
-    LEFT JOIN res_users ru ON ru.id = aml.create_uid
-    LEFT JOIN res_partner rp ON rp.id = ru.partner_id
-    WHERE aa.code = %(cuenta_ingreso)s AND am.state = 'posted'
-      AND aml.date BETWEEN %(desde)s AND %(hasta)s
-    GROUP BY 1
-    ORDER BY 2 DESC
+# Reemplaza el antiguo ranking "Vendedores" (nombre de la persona que creó
+# la línea contable, dato personal/laboral — ver instrucciones de
+# organización sobre protección de datos de empleados) por un desglose SIN
+# nombres: unidades de desayuno por turno (franja horaria) y canal de venta.
+#
+# Usa folio_sale_line (mismo criterio de desayuno/reserva viva que
+# fetch_desayunos: catálogo real de régimen, fsl.state NOT IN
+# ('draft','cancel')) en vez de account_move_line — verificado contra
+# producción (julio 2026) que account_move_line.create_date NO sirve para
+# esto: >6.500 líneas (la mayoría del mes) caen todas en la hora 23h,
+# dominadas por un proceso automático de asiento nocturno ("OdooBot"), no
+# por venta real. folio_sale_line.create_date sí tiene una distribución
+# horaria plausible (pico 07-14h, horario de desayuno) porque son líneas
+# creadas por recepción/PMS en el momento del servicio, no un batch
+# contable posterior.
+#
+# Limitaciones sin confirmar (mismo precedente que kpis-definiciones.md,
+# sección "Desayunos de producción, por turno y tipo de usuario" —
+# análisis interno nunca llevado a repository.py, aquí adaptado a
+# folio_sale_line para que "unidades" cuadre con "desayunos"/"producción"
+# del resto de la app en vez de con pms_service_line):
+# - Las franjas horarias (07-15/15-23/23-7) son una convención de turnos
+#   habituales, decidida con el usuario (2026-08-28) sabiendo que no está
+#   confirmada contra el horario real de cada hotel.
+# - "canal" es una heurística sobre el patrón del login de quien creó la
+#   línea (@sh360 -> central de reservas, roomdoo/Wubook -> automático,
+#   resto -> recepción del hotel), no un catálogo mantenido ni un dato
+#   fiable al 100% si aparecen logins con otros patrones.
+_TURNOS_DESAYUNO_SQL = (
+    _CTES_DESAYUNO
+    + """
+    SELECT
+        CASE
+            WHEN EXTRACT(HOUR FROM (fsl.create_date AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Madrid')) >= 7
+                 AND EXTRACT(HOUR FROM (fsl.create_date AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Madrid')) < 15
+                THEN 'manana_07_15'
+            WHEN EXTRACT(HOUR FROM (fsl.create_date AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Madrid')) >= 15
+                 AND EXTRACT(HOUR FROM (fsl.create_date AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Madrid')) < 23
+                THEN 'tarde_15_23'
+            ELSE 'noche_23_07'
+        END AS turno,
+        CASE
+            WHEN ru.login ILIKE '%%@sh360%%' THEN 'central_reservas'
+            WHEN ru.login ILIKE '%%roomdoo%%' OR ru.login ILIKE 'Wubook %%' THEN 'automatico'
+            WHEN ru.login IS NULL THEN 'sin_usuario'
+            ELSE 'recepcion_hotel'
+        END AS canal,
+        SUM(fsl.product_uom_qty) AS unidades
+    FROM folio_sale_line fsl
+    JOIN productos_desayuno pd ON pd.product_id = fsl.product_id
+    LEFT JOIN res_users ru ON ru.id = fsl.create_uid
+    WHERE fsl.date_order BETWEEN %(desde)s AND %(hasta)s
+      AND fsl.state NOT IN ('draft', 'cancel')
+    GROUP BY 1, 2
 """
+)
 
 # Variantes por hotel de las tres queries de arriba (fnb mensual, presupuesto
-# mensual, vendedores), para la ficha individual — mismas cuentas y mismas
+# mensual, turnos), para la ficha individual — mismas cuentas y mismas
 # reglas, solo con el filtro de hotel añadido.
 _FNB_MENSUAL_HOTEL_SQL = """
     SELECT
@@ -590,21 +634,34 @@ _PRESUPUESTO_MENSUAL_HOTEL_SQL = """
     ORDER BY 1
 """
 
-_VENDEDORES_HOTEL_SQL = """
-    SELECT COALESCE(rp.name, ru.login, 'Sin asignar') AS vendedor,
-           SUM(aml.credit - aml.debit) AS importe,
-           COUNT(*) AS lineas
-    FROM account_move_line aml
-    JOIN account_account aa ON aa.id = aml.account_id
-    JOIN account_move am ON am.id = aml.move_id
-    LEFT JOIN res_users ru ON ru.id = aml.create_uid
-    LEFT JOIN res_partner rp ON rp.id = ru.partner_id
-    LEFT JOIN pms_property pp ON pp.analytic_account_id = aml.hotel_analytic_account_id AND aml.pms_property_id IS NULL
-    WHERE COALESCE(aml.pms_property_id, pp.id) = %(hotel_id)s AND aa.code = %(cuenta_ingreso)s AND am.state = 'posted'
-      AND aml.date BETWEEN %(desde)s AND %(hasta)s
-    GROUP BY 1
-    ORDER BY 2 DESC
+_TURNOS_DESAYUNO_HOTEL_SQL = (
+    _CTES_DESAYUNO
+    + """
+    SELECT
+        CASE
+            WHEN EXTRACT(HOUR FROM (fsl.create_date AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Madrid')) >= 7
+                 AND EXTRACT(HOUR FROM (fsl.create_date AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Madrid')) < 15
+                THEN 'manana_07_15'
+            WHEN EXTRACT(HOUR FROM (fsl.create_date AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Madrid')) >= 15
+                 AND EXTRACT(HOUR FROM (fsl.create_date AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Madrid')) < 23
+                THEN 'tarde_15_23'
+            ELSE 'noche_23_07'
+        END AS turno,
+        CASE
+            WHEN ru.login ILIKE '%%@sh360%%' THEN 'central_reservas'
+            WHEN ru.login ILIKE '%%roomdoo%%' OR ru.login ILIKE 'Wubook %%' THEN 'automatico'
+            WHEN ru.login IS NULL THEN 'sin_usuario'
+            ELSE 'recepcion_hotel'
+        END AS canal,
+        SUM(fsl.product_uom_qty) AS unidades
+    FROM folio_sale_line fsl
+    JOIN productos_desayuno pd ON pd.product_id = fsl.product_id
+    LEFT JOIN res_users ru ON ru.id = fsl.create_uid
+    WHERE fsl.pms_property_id = %(hotel_id)s AND fsl.date_order BETWEEN %(desde)s AND %(hasta)s
+      AND fsl.state NOT IN ('draft', 'cancel')
+    GROUP BY 1, 2
 """
+)
 
 
 @cache_result
@@ -694,16 +751,16 @@ def fetch_fnb_serie_mensual(fecha_inicio: datetime.date, fecha_fin: datetime.dat
 
 
 @cache_result
-def fetch_vendedores_desayuno(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> list[dict]:
-    """Top vendedores (usuario que creó la línea contable) por ingresos de
-    desayuno, cadena completa — no por hotel."""
+def fetch_turnos_desayuno(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> list[dict]:
+    """Unidades de desayuno por turno y canal, cadena completa — no por
+    hotel, y sin nombre de ninguna persona (ver _TURNOS_DESAYUNO_SQL)."""
     with connections["odoo"].cursor() as cur:
         cur.execute(
-            _VENDEDORES_SQL,
-            {"cuenta_ingreso": _CUENTA_INGRESO_DESAYUNO, "desde": fecha_inicio, "hasta": fecha_fin},
+            _TURNOS_DESAYUNO_SQL,
+            {"regimenes": list(_REGIMENES_DESAYUNO), "desde": fecha_inicio, "hasta": fecha_fin},
         )
         rows = cur.fetchall()
-    return [{"vendedor": r[0], "importe": float(r[1] or 0), "lineas": r[2]} for r in rows]
+    return [{"turno": r[0], "canal": r[1], "unidades": float(r[2] or 0)} for r in rows]
 
 
 @cache_result
@@ -749,12 +806,12 @@ def fetch_presupuesto_serie_mensual_hotel(hotel_id: int, fecha_inicio: datetime.
 
 
 @cache_result
-def fetch_vendedores_desayuno_hotel(hotel_id: int, fecha_inicio: datetime.date, fecha_fin: datetime.date) -> list[dict]:
-    """Igual que fetch_vendedores_desayuno pero para un único hotel (ficha individual)."""
+def fetch_turnos_desayuno_hotel(hotel_id: int, fecha_inicio: datetime.date, fecha_fin: datetime.date) -> list[dict]:
+    """Igual que fetch_turnos_desayuno pero para un único hotel (ficha individual)."""
     with connections["odoo"].cursor() as cur:
         cur.execute(
-            _VENDEDORES_HOTEL_SQL,
-            {"hotel_id": hotel_id, "cuenta_ingreso": _CUENTA_INGRESO_DESAYUNO, "desde": fecha_inicio, "hasta": fecha_fin},
+            _TURNOS_DESAYUNO_HOTEL_SQL,
+            {"regimenes": list(_REGIMENES_DESAYUNO), "hotel_id": hotel_id, "desde": fecha_inicio, "hasta": fecha_fin},
         )
         rows = cur.fetchall()
-    return [{"vendedor": r[0], "importe": float(r[1] or 0), "lineas": r[2]} for r in rows]
+    return [{"turno": r[0], "canal": r[1], "unidades": float(r[2] or 0)} for r in rows]

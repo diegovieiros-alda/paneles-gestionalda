@@ -21,7 +21,7 @@ const DESTINOS: Destino[] = [
     items: [
       "Producción y penetración (PMS)",
       "Ingresos, gastos y margen (F&B contable)",
-      "Vendedores y metodología",
+      "Turnos y metodología",
     ],
     accent: "primary",
   },

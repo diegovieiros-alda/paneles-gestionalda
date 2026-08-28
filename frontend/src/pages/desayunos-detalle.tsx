@@ -7,7 +7,7 @@ import { FacturacionTable } from "@/components/dashboard/facturacion-table";
 import { ProduccionResumenCards } from "@/components/dashboard/produccion-resumen-cards";
 import { FnbResumenCards } from "@/components/dashboard/fnb-resumen-cards";
 import { FnbFinancieroTable } from "@/components/dashboard/fnb-financiero-table";
-import { VendedoresPanel } from "@/components/dashboard/vendedores-panel";
+import { TurnosPanel } from "@/components/dashboard/turnos-panel";
 import { DesayunosOrigenDatos } from "@/components/dashboard/desayunos-origen-datos";
 import { CalidadCheckinTable } from "@/components/dashboard/calidad-checkin-table";
 import { SectionTitle } from "@/components/dashboard/section-title";
@@ -17,12 +17,12 @@ import { useDesayunosData } from "@/lib/use-desayunos-data";
 // (desayunos-tendencias.tsx), no aquí — esta página es solo la foto del
 // periodo elegido, por hotel.
 export default function DesayunosDetallePage() {
-  const { hotelesFiltrados: hoteles, vendedores, origenDatos, loading, error, rangeProps, filterProps } = useDesayunosData();
+  const { hotelesFiltrados: hoteles, turnos, origenDatos, loading, error, rangeProps, filterProps } = useDesayunosData();
 
   return (
     <DashboardShell
       title="Detalle completo"
-      subtitle="Desayunos · producción, financiero F&B y vendedores por hotel"
+      subtitle="Desayunos · producción, financiero F&B y turnos por hotel"
       origenDatos={origenDatos}
     >
       <RangeFilter {...rangeProps} />
@@ -50,8 +50,8 @@ export default function DesayunosDetallePage() {
             <FnbResumenCards hoteles={hoteles} />
             <FnbFinancieroTable hoteles={hoteles} />
 
-            <SectionTitle title="Vendedores" />
-            <VendedoresPanel vendedores={vendedores} />
+            <SectionTitle title="Turnos" />
+            <TurnosPanel turnos={turnos} />
 
             <SectionTitle title="Metodología" />
             <CalidadCheckinTable hoteles={hoteles} />
