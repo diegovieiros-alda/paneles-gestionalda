@@ -10,7 +10,7 @@ export default function DesayunosAlertasPage() {
 
   return (
     <DashboardShell title="Alertas" subtitle="Desayunos · hoteles que necesitan atención" origenDatos={origenDatos} periodo={fmtRangoFechas(desde, hasta)}>
-      <DesayunosFiltrosPanel rangeProps={rangeProps} filterProps={filterProps} />
+      <DesayunosFiltrosPanel rangeProps={rangeProps} filterProps={filterProps} mostrarHotel={false} />
 
       <div className="p-6 max-w-[1600px] mx-auto space-y-6">
         {error && (

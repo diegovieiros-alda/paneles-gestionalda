@@ -12,7 +12,7 @@ export default function DesayunosOportunidadesPage() {
 
   return (
     <DashboardShell title="Oportunidades" subtitle="Desayunos · facturación potencial no capturada" origenDatos={origenDatos} periodo={fmtRangoFechas(desde, hasta)}>
-      <DesayunosFiltrosPanel rangeProps={rangeProps} filterProps={filterProps} />
+      <DesayunosFiltrosPanel rangeProps={rangeProps} filterProps={filterProps} mostrarHotel={false} />
 
       <div className="p-6 max-w-[1600px] mx-auto space-y-6">
         {error && (
