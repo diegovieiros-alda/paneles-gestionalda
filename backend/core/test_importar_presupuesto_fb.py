@@ -3,10 +3,12 @@ SINTÉTICOS, nunca las cifras reales de la hoja de Finanzas (son
 confidenciales). Sin BD: parsear_filas/_parse_numero/_parse_porcentaje son
 funciones puras sobre una rejilla de celdas."""
 import datetime
+import sys
+from unittest import mock
 
 from django.test import SimpleTestCase
 
-from .management.commands.importar_presupuesto_fb import _parse_numero, _parse_porcentaje, parsear_filas
+from .management.commands.importar_presupuesto_fb import _leer_filas, _parse_numero, _parse_porcentaje, parsear_filas
 
 
 class ParseNumeroTests(SimpleTestCase):
@@ -41,6 +43,39 @@ def _fila_hotel(codigo: str, nombre: str) -> list[str]:
 
 def _fila_meses(*fechas: str) -> list[str]:
     return ["DESCRIPCIÓN", *fechas]
+
+
+class LeerFilasTests(SimpleTestCase):
+    """La hoja real tiene una pestaña por hotel (~89) — _leer_filas debe leerlas
+    todas en una sola llamada batch y concatenarlas, no solo la primera
+    (bug real encontrado 2026-09-02: la primera versión asumía una única
+    pestaña con todos los hoteles apilados y solo importó 1 de ~89)."""
+
+    def test_concatena_todas_las_pestañas_en_una_llamada_batch(self):
+        fake_ws1 = mock.Mock(title="101 - HOTEL UNO")
+        fake_ws2 = mock.Mock(title="102 - HOTEL DOS")
+        fake_spreadsheet = mock.Mock()
+        fake_spreadsheet.worksheets.return_value = [fake_ws1, fake_ws2]
+        fake_spreadsheet.values_batch_get.return_value = {
+            "valueRanges": [
+                {"values": [["101 - HOTEL UNO"], ["Alojados", "100"]]},
+                {"values": [["102 - HOTEL DOS"], ["Alojados", "200"]]},
+            ]
+        }
+        fake_gc = mock.Mock()
+        fake_gc.open_by_key.return_value = fake_spreadsheet
+        fake_gspread = mock.Mock()
+        fake_gspread.service_account.return_value = fake_gc
+
+        with mock.patch.dict(sys.modules, {"gspread": fake_gspread}):
+            filas = _leer_filas("ruta-falsa.json")
+
+        self.assertEqual(filas, [
+            ["101 - HOTEL UNO"], ["Alojados", "100"],
+            ["102 - HOTEL DOS"], ["Alojados", "200"],
+        ])
+        rangos_usados = fake_spreadsheet.values_batch_get.call_args[0][0]
+        self.assertEqual(rangos_usados, ["'101 - HOTEL UNO'!A1:Z200", "'102 - HOTEL DOS'!A1:Z200"])
 
 
 class ParsearFilasTests(SimpleTestCase):
