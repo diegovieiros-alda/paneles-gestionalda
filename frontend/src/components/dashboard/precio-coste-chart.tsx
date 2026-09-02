@@ -1,6 +1,7 @@
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from "recharts";
+import { fmtRangoSerieMensual } from "@/lib/date-range";
 import type { SerieMensual } from "@/lib/hoteles-api";
 
 export function PrecioCosteChart({ serie }: { serie: SerieMensual[] }) {
@@ -14,7 +15,7 @@ export function PrecioCosteChart({ serie }: { serie: SerieMensual[] }) {
     <section className="rounded-xl border border-border bg-surface p-5 shadow-soft">
       <header className="mb-4">
         <h2 className="text-sm font-semibold text-foreground">Evolución · Precio medio venta vs coste medio</h2>
-        <p className="text-xs text-muted-foreground mt-0.5">Últimos 12 meses · fuente contable, por unidad</p>
+        <p className="text-xs text-muted-foreground mt-0.5">{fmtRangoSerieMensual(serie)} · fuente contable, por unidad</p>
       </header>
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">

@@ -59,6 +59,21 @@ export function fmtRangoFechas(desde: string, hasta: string): string {
   return `${fDesde} – ${FMT_FECHA.format(fechaLocal(hasta))}`;
 }
 
+const FMT_MES_ANIO = new Intl.DateTimeFormat("es-ES", { month: "short", year: "numeric" });
+
+// La serie mensual de Tendencias es siempre una ventana móvil de 12 meses
+// que termina en el "hasta" del filtro (ver get_resumen en service.py) —
+// nunca el rango exacto del filtro. Los subtítulos de los gráficos decían
+// "Últimos 12 meses" a fuego, sin decir CUÁLES, así que no reflejaban el
+// filtro elegido (reportado: "siempre aparece últimos 12 meses"). Se
+// calcula el rango real a partir de la propia serie devuelta.
+export function fmtRangoSerieMensual(serie: { mes: string }[]): string {
+  if (serie.length === 0) return "";
+  const desde = FMT_MES_ANIO.format(fechaLocal(serie[0].mes));
+  const hasta = FMT_MES_ANIO.format(fechaLocal(serie[serie.length - 1].mes));
+  return desde === hasta ? desde : `${desde} – ${hasta}`;
+}
+
 // Backend ya admite rangos de hasta 370 días para Desayunos (ver
 // MAX_RANGO_DIAS_DESAYUNOS en backend/core/views.py, dimensionado a
 // propósito para el filtro "Año fiscal").
