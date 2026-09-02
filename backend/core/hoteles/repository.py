@@ -604,6 +604,51 @@ _TURNOS_DESAYUNO_SQL = (
 """
 )
 
+# Variante de _TURNOS_DESAYUNO_SQL con clasificación por Tipo Desayuno y
+# filtro opcional por lista de hoteles (zona/submarca/búsqueda de hotel del
+# frontend, resueltas ahí a una lista de IDs — esos filtros son client-side
+# y no tienen columna propia que unir en SQL). Deliberadamente UNA QUERY
+# APARTE, mismo motivo que _DESAYUNOS_SQL_CON_TIPO (ver arriba): el camino
+# sin ningún filtro (Producto en "todos" y sin restricción de hotel) sigue
+# ejecutando _TURNOS_DESAYUNO_SQL sin tocar, byte a byte — cero riesgo de
+# cambiar los números ya validados y desplegados cuando no se pide ningún
+# filtro (2026-08-28, pedido explícito: "opción completa" tras encontrar
+# que Turnos ignoraba Hotel/Zona/Submarca/Producto).
+_TURNOS_DESAYUNO_FILTRADO_SQL = (
+    _CTES_DESAYUNO_CON_TIPO
+    + """
+    SELECT
+        CASE
+            WHEN EXTRACT(HOUR FROM (fsl.create_date AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Madrid')) >= 7
+                 AND EXTRACT(HOUR FROM (fsl.create_date AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Madrid')) < 15
+                THEN 'manana_07_15'
+            WHEN EXTRACT(HOUR FROM (fsl.create_date AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Madrid')) >= 15
+                 AND EXTRACT(HOUR FROM (fsl.create_date AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Madrid')) < 23
+                THEN 'tarde_15_23'
+            ELSE 'noche_23_07'
+        END AS turno,
+        CASE
+            WHEN ru.login ILIKE '%%@sh360%%' THEN 'central_reservas'
+            WHEN ru.login ILIKE '%%roomdoo%%' OR ru.login ILIKE 'Wubook %%' THEN 'automatico'
+            WHEN ru.login IS NULL THEN 'sin_usuario'
+            ELSE 'recepcion_hotel'
+        END AS canal,
+        SUM(fsl.product_uom_qty) AS unidades,
+        SUM(f.monto_facturado) FILTER (WHERE f.sale_line_id IS NOT NULL) AS produccion_facturada,
+        SUM(fsl.price_subtotal) FILTER (WHERE f.sale_line_id IS NULL) AS produccion_sin_facturar
+    FROM folio_sale_line fsl
+    JOIN productos_desayuno pd ON pd.product_id = fsl.product_id
+    JOIN producto_tipo pty ON pty.product_id = fsl.product_id
+    LEFT JOIN facturado f ON f.sale_line_id = fsl.id
+    LEFT JOIN res_users ru ON ru.id = fsl.create_uid
+    WHERE fsl.date_order BETWEEN %(desde)s AND %(hasta)s
+      AND fsl.state NOT IN ('draft', 'cancel')
+      AND pty.tipo_desayuno = ANY(%(tipos)s)
+      AND (%(hotel_ids)s::int[] IS NULL OR fsl.pms_property_id = ANY(%(hotel_ids)s))
+    GROUP BY 1, 2
+"""
+)
+
 # Variantes por hotel de las tres queries de arriba (fnb mensual, presupuesto
 # mensual, turnos), para la ficha individual — mismas cuentas y mismas
 # reglas, solo con el filtro de hotel añadido.
@@ -763,14 +808,27 @@ def fetch_fnb_serie_mensual(fecha_inicio: datetime.date, fecha_fin: datetime.dat
 
 
 @cache_result
-def fetch_turnos_desayuno(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> list[dict]:
-    """Unidades de desayuno por turno y canal, cadena completa — no por
-    hotel, y sin nombre de ninguna persona (ver _TURNOS_DESAYUNO_SQL)."""
+def fetch_turnos_desayuno(
+    fecha_inicio: datetime.date,
+    fecha_fin: datetime.date,
+    tipos_desayuno: tuple[str, ...] | None = None,
+    hotel_ids: tuple[int, ...] | None = None,
+) -> list[dict]:
+    """Unidades de desayuno por turno y canal, sin nombre de ninguna persona
+    (ver _TURNOS_DESAYUNO_SQL). Cadena completa y sin restricción de hotel
+    si no se pasa ningún filtro; con tipos_desayuno y/o hotel_ids usa
+    _TURNOS_DESAYUNO_FILTRADO_SQL (mismo criterio de desayuno/reserva viva
+    que fetch_desayunos)."""
+    filtrado = (tipos_desayuno is not None and set(tipos_desayuno) != set(_TODOS_TIPOS_DESAYUNO)) or hotel_ids is not None
+    params = {"regimenes": list(_REGIMENES_DESAYUNO), "desde": fecha_inicio, "hasta": fecha_fin}
+    if filtrado:
+        sql = _TURNOS_DESAYUNO_FILTRADO_SQL
+        params["tipos"] = list(tipos_desayuno) if tipos_desayuno is not None else list(_TODOS_TIPOS_DESAYUNO)
+        params["hotel_ids"] = list(hotel_ids) if hotel_ids is not None else None
+    else:
+        sql = _TURNOS_DESAYUNO_SQL
     with connections["odoo"].cursor() as cur:
-        cur.execute(
-            _TURNOS_DESAYUNO_SQL,
-            {"regimenes": list(_REGIMENES_DESAYUNO), "desde": fecha_inicio, "hasta": fecha_fin},
-        )
+        cur.execute(sql, params)
         rows = cur.fetchall()
     return [
         {
