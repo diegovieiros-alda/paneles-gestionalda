@@ -2,14 +2,20 @@ import { DashboardShell } from "@/components/dashboard/shell";
 import { DesayunosFiltrosPanel } from "@/components/dashboard/desayunos-filtros-panel";
 import { DataLoading } from "@/components/dashboard/loading-screen";
 import { AlertsBlockReal } from "@/components/dashboard/alerts-block-real";
-import { useDesayunosData } from "@/lib/use-desayunos-data";
+import { useDesayunosFiltros } from "@/lib/desayunos-filtros-context";
 import { fmtRangoFechas } from "@/lib/date-range";
 
 export default function DesayunosAlertasPage() {
-  const { hotelesFiltrados: hoteles, origenDatos, loading, error, rangeProps, filterProps, desde, hasta } = useDesayunosData();
+  const { hotelesFiltrados: hoteles, origenDatos, loading, error, rangeProps, filterProps, desde, hasta } = useDesayunosFiltros();
 
   return (
-    <DashboardShell title="Alertas" subtitle="Desayunos · hoteles que necesitan atención" origenDatos={origenDatos} periodo={fmtRangoFechas(desde, hasta)}>
+    <DashboardShell
+      title="Alertas"
+      subtitle="Desayunos · hoteles que necesitan atención"
+      origenDatos={origenDatos}
+      periodo={fmtRangoFechas(desde, hasta)}
+      cargando={loading && !!hoteles}
+    >
       <DesayunosFiltrosPanel rangeProps={rangeProps} filterProps={filterProps} mostrarHotel={false} />
 
       <div className="p-6 max-w-[1600px] mx-auto space-y-6">

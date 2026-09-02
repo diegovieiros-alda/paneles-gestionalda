@@ -1,5 +1,5 @@
 import { type ReactNode } from "react";
-import { BrowserRouter, Routes, Route, Link, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Link, Navigate, Outlet } from "react-router-dom";
 import HotelDesayunosPage from "@/pages/hotel-desayunos";
 import HotelBloqueosPage from "@/pages/hotel-bloqueos";
 import BloqueosPage from "@/pages/bloqueos";
@@ -18,6 +18,7 @@ import LoginPage from "@/pages/login";
 import UsuariosPage from "@/pages/usuarios";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { AjustesDesayunoProvider } from "@/lib/ajustes-desayuno-context";
+import { DesayunosFiltrosProvider } from "@/lib/desayunos-filtros-context";
 import { ProtectedRoute, SuperuserRoute } from "@/components/dashboard/protected-route";
 import { LoadingScreen } from "@/components/dashboard/loading-screen";
 import { NAV } from "@/components/dashboard/sidebar";
@@ -29,6 +30,26 @@ function DesayunosRoute({ children }: { children: ReactNode }) {
   return (
     <ProtectedRoute dashboard="desayunos">
       <AjustesDesayunoProvider>{children}</AjustesDesayunoProvider>
+    </ProtectedRoute>
+  );
+}
+
+// Detalle/Oportunidades/Tendencias/Alertas comparten además Periodo/Hotel/
+// Producto (DesayunosFiltrosProvider) — son las 4 "secciones" entre las que
+// se navega con las mismas pestañas, y antes cada una montaba su propio
+// useDesayunosData() desde cero, reseteando los filtros al cambiar de
+// pestaña (reportado explícitamente). Un solo <Outlet/> como hijo hace que
+// el Provider no se desmonte al navegar entre ellas. La portada, Ajustes y
+// la ficha de un hotel se quedan fuera a propósito: no consumen esos
+// filtros y no tiene sentido pagar ese fetch en esas páginas.
+function DesayunosSeccionesLayout() {
+  return (
+    <ProtectedRoute dashboard="desayunos">
+      <AjustesDesayunoProvider>
+        <DesayunosFiltrosProvider>
+          <Outlet />
+        </DesayunosFiltrosProvider>
+      </AjustesDesayunoProvider>
     </ProtectedRoute>
   );
 }
@@ -87,10 +108,12 @@ function App() {
           <Route path="/bloqueos/ajustes" element={<ProtectedRoute dashboard="bloqueos"><BloqueosAjustesPage /></ProtectedRoute>} />
           <Route path="/bloqueos/:hotelId" element={<ProtectedRoute dashboard="bloqueos"><HotelBloqueosPage /></ProtectedRoute>} />
           <Route path="/desayunos" element={<DesayunosRoute><DesayunosPage /></DesayunosRoute>} />
-          <Route path="/desayunos/detalle" element={<DesayunosRoute><DesayunosDetallePage /></DesayunosRoute>} />
-          <Route path="/desayunos/oportunidades" element={<DesayunosRoute><DesayunosOportunidadesPage /></DesayunosRoute>} />
-          <Route path="/desayunos/tendencias" element={<DesayunosRoute><DesayunosTendenciasPage /></DesayunosRoute>} />
-          <Route path="/desayunos/alertas" element={<DesayunosRoute><DesayunosAlertasPage /></DesayunosRoute>} />
+          <Route element={<DesayunosSeccionesLayout />}>
+            <Route path="/desayunos/detalle" element={<DesayunosDetallePage />} />
+            <Route path="/desayunos/oportunidades" element={<DesayunosOportunidadesPage />} />
+            <Route path="/desayunos/tendencias" element={<DesayunosTendenciasPage />} />
+            <Route path="/desayunos/alertas" element={<DesayunosAlertasPage />} />
+          </Route>
           <Route path="/desayunos/ajustes" element={<DesayunosRoute><DesayunosAjustesPage /></DesayunosRoute>} />
           <Route path="/desayunos/:hotelId" element={<DesayunosRoute><HotelDesayunosPage /></DesayunosRoute>} />
           <Route path="/usuarios" element={<SuperuserRoute><UsuariosPage /></SuperuserRoute>} />

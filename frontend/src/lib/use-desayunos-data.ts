@@ -35,6 +35,7 @@ export function useDesayunosData() {
   const { desde, hasta } = preset === "custom" ? custom : rangeForPreset(preset);
 
   useEffect(() => {
+    let vivo = true;
     setLoading(true);
     setError(null);
     // Todos los tipos seleccionados == sin filtro (mismo resultado en
@@ -42,13 +43,25 @@ export function useDesayunosData() {
     const tiposParam = tipos.length < TODOS_TIPOS.length ? tipos : undefined;
     fetchDesayunos(desde, hasta, tiposParam)
       .then((data) => {
+        // "vivo": si el usuario cambia de filtro otra vez antes de que
+        // esta respuesta llegue, no la apliques — si no, dos peticiones en
+        // vuelo pueden resolver en cualquier orden y la más lenta (con un
+        // filtro ya abandonado) pisaría a la más reciente.
+        if (!vivo) return;
         setHoteles(data.hoteles);
         setSerieMensual(data.serieMensual);
         setTurnos(data.turnos ?? []);
         setOrigenDatos(data.origenDatos);
       })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+      .catch((e) => {
+        if (vivo) setError(e.message);
+      })
+      .finally(() => {
+        if (vivo) setLoading(false);
+      });
+    return () => {
+      vivo = false;
+    };
   }, [desde, hasta, tipos]);
 
   const zonas = useMemo(

@@ -10,7 +10,7 @@ import { TurnosPanel } from "@/components/dashboard/turnos-panel";
 import { DesayunosOrigenDatos } from "@/components/dashboard/desayunos-origen-datos";
 import { CalidadCheckinTable } from "@/components/dashboard/calidad-checkin-table";
 import { SectionTitle } from "@/components/dashboard/section-title";
-import { useDesayunosData } from "@/lib/use-desayunos-data";
+import { useDesayunosFiltros } from "@/lib/desayunos-filtros-context";
 import { fmtRangoFechas } from "@/lib/date-range";
 
 // Los gráficos de evolución/tendencia viven en "Tendencias"
@@ -20,7 +20,7 @@ export default function DesayunosDetallePage() {
   const {
     hotelesFiltrados: hoteles, turnos, turnosFiltradosPorHotel,
     origenDatos, loading, error, rangeProps, filterProps, desde, hasta,
-  } = useDesayunosData();
+  } = useDesayunosFiltros();
 
   return (
     <DashboardShell
@@ -28,6 +28,7 @@ export default function DesayunosDetallePage() {
       subtitle="Desayunos · producción, financiero F&B y turnos por hotel"
       origenDatos={origenDatos}
       periodo={fmtRangoFechas(desde, hasta)}
+      cargando={loading && !!hoteles}
     >
       <DesayunosFiltrosPanel rangeProps={rangeProps} filterProps={filterProps} />
 
