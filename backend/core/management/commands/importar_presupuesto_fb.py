@@ -8,8 +8,11 @@ también el dato de Odoo, creo que sería bueno indicar de dónde viene el
 dato" — así que ahora se combinan las dos, con origen visible en la API
 ("presupuestoOrigen").
 
-Formato de la hoja (una tabla por hotel, apiladas verticalmente en la misma
-pestaña):
+La hoja tiene UNA PESTAÑA POR HOTEL (~89 en total, confirmado 2026-09-02
+tras un primer intento fallido que asumía una sola pestaña con todos los
+hoteles apilados — error de lectura inicial vía Drive, que renderizó varias
+pestañas como si fueran una tabla continua). Cada pestaña se llama
+"<código> - <nombre>" y dentro tiene, dentro de la misma cabecera:
     | 101 - FOGAR DE TEODOMIRO | [merged] | ... |          <- cabecera de hotel
     | DESCRIPCIÓN | 01/10/2026 | 01/11/2026 | ... |        <- fila de meses
     | Alojados | 648 | 321 | ... |
@@ -19,8 +22,10 @@ pestaña):
     | ...
     | Ingresos (705.20) | 125,56 € | 61,54 € | ... |        <- YA NO SE LEE
     | ...
-    | 102 - CASCO ANTIGUO | [merged] | ... |               <- siguiente hotel
-    | ...
+_leer_filas concatena las filas de todas las pestañas (una llamada
+`values_batch_get` para las ~89 en vez de 89 peticiones sueltas — evita
+las cuotas de la API de Sheets) y se las pasa tal cual a parsear_filas, que
+ya sabía manejar varios hoteles seguidos en la misma rejilla.
 
 Se guardan los 4 componentes, no "Ingresos (705.20)"/"Costes internos
 (601.1)" ya calculados en la hoja — pedido explícito (ver arriba): que la
@@ -50,9 +55,9 @@ from core.models import PresupuestoDesayunoMensual
 logger = logging.getLogger(__name__)
 
 SHEET_ID = "1f9w8RDMoZ8PcMp-M98Y4B44UyY7XqT0sE6UbUSsQ0NQ"
-# GID de la pestaña con los datos por hotel (URL compartida por el
-# usuario) — si Finanzas mueve los datos a otra pestaña, actualizar aquí.
-GID = 1141272899
+# Cada pestaña de la hoja es un hotel completo (ver docstring del módulo) —
+# no hay una única pestaña con "los datos", se leen todas.
+_FILAS_MAX_POR_PESTAÑA = 200  # margen amplio: cada hotel ocupa ~25 filas
 
 _RE_HOTEL = re.compile(r"^\s*(\d{3,4})\s*-\s*\S.*")
 _RE_MES = re.compile(r"^\s*(\d{2})/(\d{2})/(\d{4})\s*$")
@@ -156,8 +161,13 @@ def _leer_filas(credenciales_path: str) -> list[list[str]]:
 
     gc = gspread.service_account(filename=credenciales_path)
     hoja = gc.open_by_key(SHEET_ID)
-    worksheet = next(ws for ws in hoja.worksheets() if ws.id == GID)
-    return worksheet.get_all_values()
+    pestañas = hoja.worksheets()
+    rangos = [f"'{ws.title}'!A1:Z{_FILAS_MAX_POR_PESTAÑA}" for ws in pestañas]
+    respuesta = hoja.values_batch_get(rangos)
+    resultado: list[list[str]] = []
+    for rango in respuesta.get("valueRanges", []):
+        resultado.extend(rango.get("values", []))
+    return resultado
 
 
 class Command(BaseCommand):
