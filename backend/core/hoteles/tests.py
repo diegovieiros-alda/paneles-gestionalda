@@ -224,3 +224,21 @@ class FetchDesayunosPorTipoTests(SimpleTestCase):
             )
         self.assertEqual(resultado[1]["cantidad_total"], 3)
         self.assertEqual(resultado[1]["produccion"], 30.0)
+
+
+class CtesDesayunoFacturadoFiltradoTests(SimpleTestCase):
+    """Guardia de regresión (2026-09-02): la CTE "facturado" de
+    _CTES_DESAYUNO agregaba TODO el histórico de facturación sin filtro de
+    fecha — medido contra producción: 14,7s escaneando 12,3M filas de
+    account_move_line en cada consulta, aunque el resto de la query solo
+    pidiera un hotel y un día ("cargar un hotel individual tarda
+    muchísimo"). El fix (join a folio_sale_line filtrado por el mismo
+    desde/hasta que ya usa el resto de la query) bajó ese caso de ~11s a
+    ~0,4s sin cambiar ningún resultado (verificado contra los 3 hoteles de
+    referencia). No hay forma de probar el tiempo de consulta sin BD real
+    aquí — esto solo evita que alguien copie el patrón antiguo (CTE sin
+    filtro) en una consulta nueva sin darse cuenta del coste."""
+
+    def test_facturado_filtra_por_fecha_no_agrega_todo_el_historico(self):
+        self.assertIn("fsl_fact.date_order BETWEEN %(desde)s AND %(hasta)s", repository._CTES_DESAYUNO)
+        self.assertIn("JOIN folio_sale_line fsl_fact ON fsl_fact.id = ir.sale_line_id", repository._CTES_DESAYUNO)

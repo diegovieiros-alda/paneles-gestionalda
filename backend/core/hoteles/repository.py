@@ -121,7 +121,7 @@ _CALIDAD_CHECKIN_SQL = """
     GROUP BY rl.pms_property_id
 """
 
-# CTEs compartidas por las tres queries de desayuno de abajo.
+# CTEs compartidas por las queries de desayuno de abajo.
 #   productos_desayuno: qué product_id pertenece a un régimen de desayuno
 #     (catálogo real, no nombre de producto).
 #   facturado: importe realmente facturado por línea de folio, agregado por
@@ -129,6 +129,21 @@ _CALIDAD_CHECKIN_SQL = """
 #     multiplicar filas al unir 1:N — bug de cardinalidad verificado).
 #     Prioridad: factura `posted` > producción (folio_sale_line.price_subtotal)
 #     cuando no hay factura o aún no se ha emitido.
+#
+# Filtro de fecha en "facturado" (2026-09-02, causa real de "cargar un hotel
+# individual tarda muchísimo"): esta CTE no filtraba por fecha en absoluto —
+# agregaba TODO el histórico de facturación de TODA la cadena en cada
+# consulta, aunque el resto de la query solo pidiera un hotel y un día.
+# Medido contra producción: 14,7s de EXPLAIN ANALYZE, escaneando 12,3M filas
+# de account_move_line + 3,7M de account_move + 3,2M de
+# folio_sale_line_invoice_rel al completo, sin importar el rango pedido.
+# El join a folio_sale_line de aquí no cambia ningún resultado: toda query
+# que usa esta CTE ya hace `LEFT JOIN facturado f ON f.sale_line_id = fsl.id`
+# contra un `fsl` filtrado por el mismo `date_order BETWEEN %(desde)s AND
+# %(hasta)s` — cualquier sale_line_id que pudiera producir un match ya
+# cumple esa condición, así que restringir aquí antes de agregar no excluye
+# ninguna fila que antes sí contara, solo evita escanear las que ya eran
+# imposibles de emparejar.
 _CTES_DESAYUNO = """
     WITH productos_desayuno AS (
         SELECT DISTINCT l.product_id, bs.default_code
@@ -140,8 +155,10 @@ _CTES_DESAYUNO = """
     facturado AS (
         SELECT ir.sale_line_id, SUM(aml.price_subtotal) AS monto_facturado
         FROM folio_sale_line_invoice_rel ir
+        JOIN folio_sale_line fsl_fact ON fsl_fact.id = ir.sale_line_id
         JOIN account_move_line aml ON aml.id = ir.invoice_line_id
         JOIN account_move am ON am.id = aml.move_id AND am.state = 'posted'
+        WHERE fsl_fact.date_order BETWEEN %(desde)s AND %(hasta)s
         GROUP BY ir.sale_line_id
     )
 """
