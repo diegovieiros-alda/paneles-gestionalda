@@ -21,6 +21,7 @@ export function RangeFilter({
           key={p.key}
           onClick={() => onPreset(p.key)}
           title={p.title}
+          aria-pressed={preset === p.key}
           className={cn(
             "h-8 px-3 rounded-full text-xs font-medium border transition-colors",
             preset === p.key
@@ -33,6 +34,7 @@ export function RangeFilter({
       ))}
       <button
         onClick={() => onPreset("custom")}
+        aria-pressed={preset === "custom"}
         className={cn(
           "h-8 px-3 rounded-full text-xs font-medium border transition-colors",
           preset === "custom"
@@ -46,6 +48,7 @@ export function RangeFilter({
         <div className="flex items-center gap-1.5 text-xs">
           <input
             type="date"
+            aria-label="Fecha desde"
             value={custom.desde}
             max={custom.hasta}
             onChange={(e) => onCustom({ ...custom, desde: e.target.value })}
@@ -54,6 +57,7 @@ export function RangeFilter({
           <span className="text-muted-foreground">→</span>
           <input
             type="date"
+            aria-label="Fecha hasta"
             value={custom.hasta}
             min={custom.desde}
             onChange={(e) => onCustom({ ...custom, hasta: e.target.value })}

@@ -30,8 +30,8 @@ type FilterProps = {
 
 function Fila({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center gap-2 px-5 py-3">
-      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground w-24 shrink-0">
+    <div role="group" aria-label={label} className="flex flex-wrap items-center gap-2 px-5 py-3">
+      <span aria-hidden="true" className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground w-24 shrink-0">
         {label}
       </span>
       <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">{children}</div>
@@ -71,6 +71,7 @@ export function DesayunosFiltrosPanel({
           <div className="flex items-center gap-2 h-8 rounded-md border border-border bg-surface px-2.5 text-xs w-56">
             <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
             <input
+              aria-label="Buscar hotel por nombre o código"
               placeholder="Buscar hotel o código…"
               value={q}
               onChange={(e) => onQ(e.target.value)}
@@ -79,6 +80,7 @@ export function DesayunosFiltrosPanel({
           </div>
 
           <select
+            aria-label="Filtrar por zona"
             value={zona}
             onChange={(e) => onZona(e.target.value)}
             className={cn(PILL, "appearance-none cursor-pointer", zona && "bg-primary/10 border-primary/20 text-primary")}
@@ -90,6 +92,7 @@ export function DesayunosFiltrosPanel({
           </select>
 
           <select
+            aria-label="Filtrar por submarca"
             value={submarca}
             onChange={(e) => onSubmarca(e.target.value)}
             className={cn(PILL, "appearance-none cursor-pointer", submarca && "bg-primary/10 border-primary/20 text-primary")}
@@ -108,6 +111,7 @@ export function DesayunosFiltrosPanel({
             <button
               key={t.value}
               onClick={() => toggleTipo(t.value)}
+              aria-pressed={tipos.includes(t.value)}
               className={cn(PILL, tipos.includes(t.value) && "bg-primary/10 border-primary/20 text-primary")}
             >
               {t.label}

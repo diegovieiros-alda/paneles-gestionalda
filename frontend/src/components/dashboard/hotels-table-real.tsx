@@ -77,6 +77,7 @@ export function HotelsTableReal({ hoteles }: { hoteles: HotelReal[] }) {
           <div className="flex items-center gap-2 h-8 rounded-md border border-border bg-surface px-2.5 text-xs w-56">
             <Search className="h-3.5 w-3.5 text-muted-foreground" />
             <input
+              aria-label="Buscar hotel, zona o sociedad"
               placeholder="Buscar hotel, zona, sociedad…"
               value={q}
               onChange={(e) => setQ(e.target.value)}
