@@ -1,36 +1,38 @@
-"""Importa el presupuesto de desayuno (Ingresos 705.20 / Costes internos
-601.1) desde la hoja de cálculo de Finanzas "PRESUPUESTOS F&B - REAL- 26/27"
-(Google Sheets), sustituyendo a la consulta que antes se hacía contra Odoo
-(account_move_budget_line) — decisión 2026-09-02, ver
-core.models.PresupuestoDesayunoMensual.
+"""Importa la previsión de desayuno (Alojados, % desayunos/alojados,
+precio interno, coste interno) desde la hoja de cálculo de Finanzas
+"PRESUPUESTOS F&B - REAL- 26/27" (Google Sheets) — una de las dos fuentes
+que combina repository.fetch_presupuesto_desayuno (la otra es Odoo,
+prioritaria cuando existe; ver ese módulo). Decisión 2026-09-02: primero
+se planteó sustituir Odoo por esta hoja, pero se corrigió — "hay que traer
+también el dato de Odoo, creo que sería bueno indicar de dónde viene el
+dato" — así que ahora se combinan las dos, con origen visible en la API
+("presupuestoOrigen").
 
 Formato de la hoja (una tabla por hotel, apiladas verticalmente en la misma
 pestaña):
     | 101 - FOGAR DE TEODOMIRO | [merged] | ... |          <- cabecera de hotel
     | DESCRIPCIÓN | 01/10/2026 | 01/11/2026 | ... |        <- fila de meses
     | Alojados | 648 | 321 | ... |
+    | % desayunos X Alojados | 3,09% | 3,06% | ... |
+    | Precio interno | 6,27 € | 6,27 € | ... |
+    | Coste desayuno interno | 3,14 € | 3,14 € | ... |
     | ...
-    | Ingresos (705.20) | 125,56 € | 61,54 € | ... |
-    | Costes internos (601.1) | 62,78 € | 30,77 € | ... |
+    | Ingresos (705.20) | 125,56 € | 61,54 € | ... |        <- YA NO SE LEE
     | ...
     | 102 - CASCO ANTIGUO | [merged] | ... |               <- siguiente hotel
     | ...
 
-Solo se leen las dos filas que hacen falta (Ingresos/Costes internos) —
-Alojados, % desayunos, precio interno, etc. son la memoria de cálculo de
-Finanzas para llegar a esas dos cifras, no algo que el dashboard necesite
-por separado. Costes externos (607.0) NO se importa: la cuenta de "gastos
-reales" con la que se compara este presupuesto (repository._FNB_SQL,
-_CUENTAS_GASTO_DESAYUNO) solo suma cuentas 601.x — importar 607.0 aquí
-haría que "cumplimiento" comparara dos alcances distintos. Si Finanzas
-quiere que el presupuesto de gastos incluya también costes externos, hay
-que ampliar primero el alcance de _CUENTAS_GASTO_DESAYUNO (decisión
-pendiente 5.4 en kpis-definiciones.md), no al revés.
+Se guardan los 4 componentes, no "Ingresos (705.20)"/"Costes internos
+(601.1)" ya calculados en la hoja — pedido explícito (ver arriba): que la
+fórmula (unidades presupuestadas × precio/coste) sea visible en
+repository.py, no una celda opaca de Finanzas. Ambas cifras coinciden en
+la práctica (Ingresos ≈ Alojados × % × Precio, verificado a mano contra la
+hoja real), así que esto no cambia el número, solo dónde vive el cálculo.
 
 Requiere una cuenta de servicio de Google con acceso de solo lectura a la
 hoja (compartir la hoja con su email como "Lector"), y la ruta a su
 credencial JSON en settings.GOOGLE_SHEETS_CREDENTIALS_FILE (variable de
-entorno GOOGLE_SHEETS_CREDENTIALS_FILE) — ver README de despliegue.
+entorno GOOGLE_SHEETS_CREDENTIALS_FILE).
 
 Uso en cron (usuario paneles, una vez al día — el ritmo con el que
 Finanzas actualiza la hoja no justifica más frecuencia):
@@ -55,14 +57,17 @@ GID = 1141272899
 _RE_HOTEL = re.compile(r"^\s*(\d{3,4})\s*-\s*\S.*")
 _RE_MES = re.compile(r"^\s*(\d{2})/(\d{2})/(\d{4})\s*$")
 
-_ETIQUETA_INGRESOS = "Ingresos (705.20)"
-_ETIQUETA_GASTOS = "Costes internos (601.1)"
+_ETIQUETA_ALOJADOS = "Alojados"
+_ETIQUETA_PENETRACION = "% desayunos X Alojados"
+_ETIQUETA_PRECIO = "Precio interno"
+_ETIQUETA_COSTE = "Coste desayuno interno"
+_ETIQUETAS = (_ETIQUETA_ALOJADOS, _ETIQUETA_PENETRACION, _ETIQUETA_PRECIO, _ETIQUETA_COSTE)
 
 
-def _parse_importe(texto: str) -> float | None:
-    """"125,56 €" -> 125.56; "" o solo espacio -> None (sin dato en la
-    hoja, no un 0 engañoso). Formato español: coma decimal, punto de
-    millar."""
+def _parse_numero(texto: str) -> float | None:
+    """"125,56 €" -> 125.56; "648" -> 648.0; "" o solo espacio -> None (sin
+    dato en la hoja, no un 0 engañoso). Formato español: coma decimal,
+    punto de millar — vale tanto para importes como para "Alojados"."""
     if not texto or not texto.strip():
         return None
     limpio = texto.replace("€", "").replace("\xa0", " ").strip().replace(".", "").replace(",", ".")
@@ -72,12 +77,20 @@ def _parse_importe(texto: str) -> float | None:
         return None
 
 
+def _parse_porcentaje(texto: str) -> float | None:
+    """"45,08%" -> 0.4508 (fracción, no porcentaje) — None si no hay dato."""
+    if not texto or not texto.strip():
+        return None
+    valor = _parse_numero(texto.replace("%", ""))
+    return None if valor is None else valor / 100
+
+
 def parsear_filas(filas: list[list[str]]) -> list[dict]:
     """Convierte la rejilla cruda de la hoja (una lista de filas, cada una
-    una lista de celdas) en `[{"property_code", "mes", "ingresos",
-    "gastos"}, ...]` — una entrada por hotel y mes con al menos un dato.
-    Función pura, sin acceso a red ni a BD, para poder probarla con una
-    rejilla sintética."""
+    una lista de celdas) en `[{"property_code", "mes", "alojados_previstos",
+    "penetracion_prevista", "precio_interno", "coste_interno"}, ...]` — una
+    entrada por hotel y mes con al menos un dato. Función pura, sin acceso
+    a red ni a BD, para poder probarla con una rejilla sintética."""
     resultado: list[dict] = []
     property_code_actual: str | None = None
     meses_actuales: dict[int, datetime.date] = {}
@@ -86,16 +99,19 @@ def parsear_filas(filas: list[list[str]]) -> list[dict]:
     def volcar_hotel():
         if property_code_actual is None or not meses_actuales:
             return
-        ingresos_por_col = valores_hotel.get(_ETIQUETA_INGRESOS, {})
-        gastos_por_col = valores_hotel.get(_ETIQUETA_GASTOS, {})
+        por_col = {etiqueta: valores_hotel.get(etiqueta, {}) for etiqueta in _ETIQUETAS}
         for col, mes in meses_actuales.items():
-            ingresos = ingresos_por_col.get(col)
-            gastos = gastos_por_col.get(col)
-            if ingresos is None and gastos is None:
+            valores = {etiqueta: por_col[etiqueta].get(col) for etiqueta in _ETIQUETAS}
+            if all(v is None for v in valores.values()):
                 continue
-            resultado.append(
-                {"property_code": property_code_actual, "mes": mes, "ingresos": ingresos or 0.0, "gastos": gastos or 0.0}
-            )
+            resultado.append({
+                "property_code": property_code_actual,
+                "mes": mes,
+                "alojados_previstos": valores[_ETIQUETA_ALOJADOS] or 0.0,
+                "penetracion_prevista": valores[_ETIQUETA_PENETRACION] or 0.0,
+                "precio_interno": valores[_ETIQUETA_PRECIO] or 0.0,
+                "coste_interno": valores[_ETIQUETA_COSTE] or 0.0,
+            })
 
     for fila in filas:
         if not fila:
@@ -122,11 +138,12 @@ def parsear_filas(filas: list[list[str]]) -> list[dict]:
                     meses_actuales[col] = datetime.date(int(anio), int(mes_num), 1)
             continue
 
-        if primera in (_ETIQUETA_INGRESOS, _ETIQUETA_GASTOS):
+        if primera in _ETIQUETAS:
+            parse = _parse_porcentaje if primera == _ETIQUETA_PENETRACION else _parse_numero
             fila_valores = valores_hotel.setdefault(primera, {})
             for col in meses_actuales:
                 if col < len(fila):
-                    valor = _parse_importe(fila[col])
+                    valor = parse(fila[col])
                     if valor is not None:
                         fila_valores[col] = valor
 
@@ -144,7 +161,7 @@ def _leer_filas(credenciales_path: str) -> list[list[str]]:
 
 
 class Command(BaseCommand):
-    help = "Importa el presupuesto de desayuno (Ingresos/Costes internos) desde la hoja de Finanzas."
+    help = "Importa la previsión de desayuno (Alojados/%/precio/coste) desde la hoja de Finanzas."
 
     def handle(self, *args, **options):
         credenciales_path = getattr(settings, "GOOGLE_SHEETS_CREDENTIALS_FILE", None)
@@ -172,7 +189,12 @@ class Command(BaseCommand):
             PresupuestoDesayunoMensual.objects.update_or_create(
                 property_code=r["property_code"],
                 mes=r["mes"],
-                defaults={"ingresos": r["ingresos"], "gastos": r["gastos"]},
+                defaults={
+                    "alojados_previstos": r["alojados_previstos"],
+                    "penetracion_prevista": r["penetracion_prevista"],
+                    "precio_interno": r["precio_interno"],
+                    "coste_interno": r["coste_interno"],
+                },
             )
 
-        self.stdout.write(self.style.SUCCESS(f"Importados/actualizados {len(registros)} registros de presupuesto."))
+        self.stdout.write(self.style.SUCCESS(f"Importados/actualizados {len(registros)} registros de previsión."))

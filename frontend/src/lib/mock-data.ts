@@ -28,6 +28,16 @@ export const ETIQUETA_LABEL: Record<Etiqueta, string> = {
   rojo: "Requiere atención",
 };
 
+// Origen del presupuesto de desayuno mostrado (ver
+// backend/core/hoteles/repository.py::fetch_presupuesto_desayuno) — pedido
+// explícito: "sería bueno indicar de dónde viene el dato". "odoo" es el
+// presupuesto confirmado en contabilidad (prioritario); "excel" es la hoja
+// de Finanzas, que rellena los hoteles/meses que Odoo no tiene confirmados.
+export const ORIGEN_PRESUPUESTO_LABEL: Record<"odoo" | "excel", string> = {
+  odoo: "Odoo",
+  excel: "Excel",
+};
+
 export const ETIQUETA_TEXT_CLASS: Record<Etiqueta, string> = {
   verde: "text-success",
   naranja: "text-warning",

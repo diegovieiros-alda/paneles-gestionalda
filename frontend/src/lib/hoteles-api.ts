@@ -72,6 +72,12 @@ export async function fetchHotelInfo(id: string | number): Promise<HotelDirector
 // el presupuesto del mes entero da una cifra engañosa (ver
 // backend/core/hoteles/service.py::_rango_es_mes_natural). Distinto de
 // cumplimiento*=null sin motivo, que significa "sin presupuesto confirmado".
+// presupuestoOrigen: de dónde sale el presupuesto mostrado — "odoo"
+// (account.move.budget, confirmado, prioritario cuando existe) o "excel"
+// (hoja de Finanzas "PRESUPUESTOS F&B", respaldo cuando Odoo todavía no
+// tiene nada confirmado para ese hotel/mes). null si no hay presupuesto de
+// ninguna de las dos fuentes. Pedido explícito: "sería bueno indicar de
+// dónde viene el dato" — ver backend/core/hoteles/repository.py::fetch_presupuesto_desayuno.
 export type FnbFields = {
   ingresos: number;
   gastos: number;
@@ -84,6 +90,7 @@ export type FnbFields = {
   cumplimientoIngresos: number | null;
   cumplimientoGastos: number | null;
   presupuestoMotivo: "rango_no_es_mes_natural" | null;
+  presupuestoOrigen: "odoo" | "excel" | null;
 };
 
 // Comparación declarado (reserva) vs. check-in confirmado, SOLO fechas

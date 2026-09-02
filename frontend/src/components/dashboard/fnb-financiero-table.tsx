@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowUpDown, ChevronRight, Download, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  ETIQUETA_BADGE_CLASS, ETIQUETA_LABEL, etiqueta, etiquetaCumplimiento,
+  ETIQUETA_BADGE_CLASS, ETIQUETA_LABEL, ORIGEN_PRESUPUESTO_LABEL, etiqueta, etiquetaCumplimiento,
   facturacionPotencial, fmtEuro, fmtPct,
 } from "@/lib/mock-data";
 import { exportarCsv } from "@/lib/export-csv";
@@ -29,7 +29,17 @@ function buildCols(objetivoOportunidad: number): Array<{ key: Key; label: string
         h.presupuestoMotivo === "rango_no_es_mes_natural" ? (
           <span className="text-muted-foreground/50" title="Elige un mes completo para ver el presupuesto">Elige mes completo</span>
         ) : h.presupuestoIngresos > 0 ? (
-          <span className="text-muted-foreground">{fmtEuro(h.presupuestoIngresos)}</span>
+          <span className="text-muted-foreground inline-flex items-center gap-1">
+            {fmtEuro(h.presupuestoIngresos)}
+            {h.presupuestoOrigen && (
+              <span
+                className="text-[10px] uppercase tracking-wide text-muted-foreground/60 border border-border rounded px-1"
+                title={`Presupuesto de ${ORIGEN_PRESUPUESTO_LABEL[h.presupuestoOrigen]}`}
+              >
+                {ORIGEN_PRESUPUESTO_LABEL[h.presupuestoOrigen]}
+              </span>
+            )}
+          </span>
         ) : (
           <span className="text-muted-foreground/50">Sin presupuesto</span>
         ),

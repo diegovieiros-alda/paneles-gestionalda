@@ -126,10 +126,12 @@ class GetHotelesTests(SimpleTestCase):
             fetch_calidad_checkin={},
         )
         defaults.update(overrides)
-        patchers = [mock.patch.object(repository, nombre, return_value=valor) for nombre, valor in defaults.items()]
-        for p in patchers:
-            p.start()
+        mocks = {}
+        for nombre, valor in defaults.items():
+            p = mock.patch.object(repository, nombre, return_value=valor)
+            mocks[nombre] = p.start()
             self.addCleanup(p.stop)
+        return mocks
 
     def test_excluye_hotel_fuera_de_cadena_por_id_fijo(self):
         self._mock_repository()
@@ -158,10 +160,16 @@ class GetHotelesTests(SimpleTestCase):
         self.assertEqual(hotel_1["penetracion"], 0.4)  # 40 / 100
 
     def test_rango_parcial_no_pide_presupuesto_y_marca_motivo(self):
-        with mock.patch.object(repository, "fetch_presupuesto_desayuno") as fetch_presupuesto:
-            self._mock_repository()
-            resultado = service.get_hoteles(datetime.date(2026, 1, 5), datetime.date(2026, 1, 20))
-            fetch_presupuesto.assert_not_called()
+        # Un solo nivel de patch (el que ya hace _mock_repository) — apilar
+        # un "with mock.patch.object(...)" propio encima del mismo nombre
+        # aquí dejaba, al terminar el test, un MagicMock permanente en
+        # repository.fetch_presupuesto_desayuno en vez de restaurar la
+        # función real (el cleanup del patch interior pisaba el resultado
+        # del exterior) — verificado: rompía en silencio cualquier test
+        # posterior en el módulo que dependiera de la función real.
+        mocks = self._mock_repository()
+        resultado = service.get_hoteles(datetime.date(2026, 1, 5), datetime.date(2026, 1, 20))
+        mocks["fetch_presupuesto_desayuno"].assert_not_called()
         hotel_1 = next(h for h in resultado["hoteles"] if h["id"] == 1)
         self.assertEqual(hotel_1["presupuestoMotivo"], "rango_no_es_mes_natural")
         self.assertIsNone(hotel_1["cumplimientoIngresos"])
@@ -242,3 +250,80 @@ class CtesDesayunoFacturadoFiltradoTests(SimpleTestCase):
     def test_facturado_filtra_por_fecha_no_agrega_todo_el_historico(self):
         self.assertIn("fsl_fact.date_order BETWEEN %(desde)s AND %(hasta)s", repository._CTES_DESAYUNO)
         self.assertIn("JOIN folio_sale_line fsl_fact ON fsl_fact.id = ir.sale_line_id", repository._CTES_DESAYUNO)
+
+
+class PresupuestoDesayunoOdooVsExcelTests(SimpleTestCase):
+    """fetch_presupuesto_desayuno combina Odoo (confirmado, prioritario) y
+    la hoja de Finanzas (respaldo) — 2026-09-02, corregido sobre la marcha
+    ("hay que traer también el dato de Odoo... indicar de dónde viene el
+    dato") tras haber planteado sustituir Odoo por completo. Se prueba la
+    combinación mockeando las dos fuentes por separado, sin BD ni Odoo."""
+
+    def test_hotel_solo_en_odoo(self):
+        with mock.patch.object(repository, "fetch_presupuesto_desayuno_odoo",
+                                return_value={1: {"presupuestoIngresos": 100.0, "presupuestoGastos": 40.0}}), \
+             mock.patch.object(repository, "fetch_presupuesto_desayuno_excel", return_value={}):
+            resultado = repository.fetch_presupuesto_desayuno(datetime.date(2026, 7, 1), datetime.date(2026, 7, 31))
+        self.assertEqual(resultado[1]["presupuestoOrigen"], "odoo")
+        self.assertEqual(resultado[1]["presupuestoIngresos"], 100.0)
+
+    def test_hotel_solo_en_excel(self):
+        with mock.patch.object(repository, "fetch_presupuesto_desayuno_odoo", return_value={}), \
+             mock.patch.object(repository, "fetch_presupuesto_desayuno_excel",
+                                return_value={1: {"presupuestoIngresos": 50.0, "presupuestoGastos": 20.0}}):
+            resultado = repository.fetch_presupuesto_desayuno(datetime.date(2026, 7, 1), datetime.date(2026, 7, 31))
+        self.assertEqual(resultado[1]["presupuestoOrigen"], "excel")
+        self.assertEqual(resultado[1]["presupuestoIngresos"], 50.0)
+
+    def test_odoo_gana_cuando_hay_los_dos_para_el_mismo_hotel(self):
+        with mock.patch.object(repository, "fetch_presupuesto_desayuno_odoo",
+                                return_value={1: {"presupuestoIngresos": 100.0, "presupuestoGastos": 40.0}}), \
+             mock.patch.object(repository, "fetch_presupuesto_desayuno_excel",
+                                return_value={1: {"presupuestoIngresos": 999.0, "presupuestoGastos": 999.0}}):
+            resultado = repository.fetch_presupuesto_desayuno(datetime.date(2026, 7, 1), datetime.date(2026, 7, 31))
+        self.assertEqual(resultado[1]["presupuestoOrigen"], "odoo")
+        self.assertEqual(resultado[1]["presupuestoIngresos"], 100.0)  # no la de Excel
+
+    def test_hoteles_distintos_no_se_mezclan(self):
+        with mock.patch.object(repository, "fetch_presupuesto_desayuno_odoo",
+                                return_value={1: {"presupuestoIngresos": 100.0, "presupuestoGastos": 40.0}}), \
+             mock.patch.object(repository, "fetch_presupuesto_desayuno_excel",
+                                return_value={2: {"presupuestoIngresos": 50.0, "presupuestoGastos": 20.0}}):
+            resultado = repository.fetch_presupuesto_desayuno(datetime.date(2026, 7, 1), datetime.date(2026, 7, 31))
+        self.assertEqual(resultado[1]["presupuestoOrigen"], "odoo")
+        self.assertEqual(resultado[2]["presupuestoOrigen"], "excel")
+
+
+class PresupuestoDesayunoExcelFormulaTests(SimpleTestCase):
+    """fetch_presupuesto_desayuno_excel calcula ingresos/gastos a partir
+    de los 4 componentes de la hoja (Alojados × % × precio/coste) — la
+    fórmula vive en repository.py a propósito, no en la hoja ni en el
+    importador (pedido: que sea visible y auditable)."""
+
+    def setUp(self):
+        # @cache_result persiste en disco entre ejecuciones (ver
+        # test_cache.py) — sin esto, una fecha_inicio/fecha_fin ya usada en
+        # otra ejecución devolvería el resultado cacheado en vez de pasar
+        # por el mock de este test.
+        from django.core.cache import cache
+
+        cache.clear()
+
+    def test_calcula_ingresos_y_gastos_desde_los_componentes(self):
+        with mock.patch.object(repository, "fetch_hoteles", return_value=[{"id": 1, "property_code": "999"}]), \
+             mock.patch("core.models.PresupuestoDesayunoMensual.objects") as objects:
+            objects.filter.return_value.values.return_value = [
+                {
+                    "property_code": "999",
+                    "alojados_previstos": 740.0,
+                    "penetracion_prevista": 0.4508,
+                    "precio_interno": 6.27,
+                    "coste_interno": 3.45,
+                }
+            ]
+            resultado = repository.fetch_presupuesto_desayuno_excel(
+                datetime.date(2026, 10, 1), datetime.date(2026, 10, 31)
+            )
+        unidades = 740.0 * 0.4508
+        self.assertAlmostEqual(resultado[1]["presupuestoIngresos"], unidades * 6.27)
+        self.assertAlmostEqual(resultado[1]["presupuestoGastos"], unidades * 3.45)
