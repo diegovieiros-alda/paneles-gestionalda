@@ -176,3 +176,51 @@ class GetHotelesTests(SimpleTestCase):
         )
         resultado = service.get_hoteles(datetime.date(2026, 1, 1), datetime.date(2026, 1, 31))
         self.assertEqual([h["id"] for h in resultado["hoteles"]], [2, 1])
+
+
+class FetchDesayunosPorTipoTests(SimpleTestCase):
+    """fetch_desayunos (repository.py) es un compuesto que suma
+    fetch_desayunos_por_tipo en Python (2026-09-02) — antes cada combinación
+    de Producto disparaba su propia consulta SQL contra Odoo, sin cachear
+    entre combinaciones ("los filtros tardan mucho en cargar"). Se mockea
+    fetch_desayunos_por_tipo (no el cursor) para probar solo la suma."""
+
+    _DESGLOSE = {
+        1: {
+            "buffet": {**_DESAYUNO_VACIO, "cantidad_total": 10, "produccion": 100.0},
+            "express": {**_DESAYUNO_VACIO, "cantidad_total": 5, "produccion": 50.0},
+            "colaborador": {**_DESAYUNO_VACIO, "cantidad_total": 3, "produccion": 30.0},
+            "otros": {**_DESAYUNO_VACIO, "cantidad_total": 2, "produccion": 20.0},
+        },
+    }
+
+    def test_sin_filtro_suma_los_4_tipos(self):
+        with mock.patch.object(repository, "fetch_desayunos_por_tipo", return_value=self._DESGLOSE):
+            resultado = repository.fetch_desayunos(datetime.date(2026, 1, 1), datetime.date(2026, 1, 31))
+        self.assertEqual(resultado[1]["cantidad_total"], 20)
+        self.assertEqual(resultado[1]["produccion"], 200.0)
+
+    def test_con_filtro_solo_suma_los_tipos_pedidos(self):
+        with mock.patch.object(repository, "fetch_desayunos_por_tipo", return_value=self._DESGLOSE):
+            resultado = repository.fetch_desayunos(
+                datetime.date(2026, 1, 1), datetime.date(2026, 1, 31), tipos_desayuno=("buffet", "express")
+            )
+        self.assertEqual(resultado[1]["cantidad_total"], 15)
+        self.assertEqual(resultado[1]["produccion"], 150.0)
+
+    def test_todos_los_tipos_explicitos_da_lo_mismo_que_sin_filtro(self):
+        with mock.patch.object(repository, "fetch_desayunos_por_tipo", return_value=self._DESGLOSE):
+            sin_filtro = repository.fetch_desayunos(datetime.date(2026, 1, 1), datetime.date(2026, 1, 31))
+            con_los_4 = repository.fetch_desayunos(
+                datetime.date(2026, 1, 1), datetime.date(2026, 1, 31),
+                tipos_desayuno=("buffet", "express", "colaborador", "otros"),
+            )
+        self.assertEqual(sin_filtro, con_los_4)
+
+    def test_hotel_sin_ningun_tipo_seleccionado_sale_en_ceros_no_desaparece(self):
+        with mock.patch.object(repository, "fetch_desayunos_por_tipo", return_value=self._DESGLOSE):
+            resultado = repository.fetch_desayunos(
+                datetime.date(2026, 1, 1), datetime.date(2026, 1, 31), tipos_desayuno=("colaborador",)
+            )
+        self.assertEqual(resultado[1]["cantidad_total"], 3)
+        self.assertEqual(resultado[1]["produccion"], 30.0)

@@ -20,6 +20,35 @@ export const TIPOS_DESAYUNO = [
   { value: "otros", label: "Otros" },
 ] as const;
 
+// Caché en memoria de peticiones recientes, por URL exacta — vive solo
+// mientras dure la pestaña. Pensado para la precarga predictiva de
+// use-desayunos-data.ts (precarga "Mes actual" en segundo plano tras el
+// filtro por defecto): si el usuario lo elige a los pocos segundos, no
+// repite la misma petición de red. TTL corto a propósito — el origen real
+// de verdad sigue siendo la caché de 2h del backend (core/cache.py), esto
+// solo evita una ida y vuelta de red duplicada, no la sustituye.
+const TTL_CACHE_PETICIONES_MS = 60_000;
+const cachePeticiones = new Map<string, { en: number; promesa: Promise<unknown> }>();
+
+async function fetchJsonCacheado<T>(url: string): Promise<T> {
+  const ahora = Date.now();
+  const entrada = cachePeticiones.get(url);
+  if (entrada && ahora - entrada.en < TTL_CACHE_PETICIONES_MS) {
+    return entrada.promesa as Promise<T>;
+  }
+  const promesa = fetch(url).then(async (res) => {
+    if (!res.ok) {
+      cachePeticiones.delete(url); // no cachear errores
+      const body = await res.json().catch(() => null);
+      throw new Error(body?.error || `No se pudo completar la petición (${res.status})`);
+    }
+    return res.json();
+  });
+  promesa.catch(() => cachePeticiones.delete(url)); // fallo async también limpia la entrada
+  cachePeticiones.set(url, { en: ahora, promesa });
+  return promesa as Promise<T>;
+}
+
 export async function fetchHotelInfo(id: string | number): Promise<HotelDirectorio> {
   const res = await fetch(`/api/hoteles/${id}/`);
   if (!res.ok) {
@@ -122,38 +151,30 @@ export type DesayunosReport = {
 
 export type SerieMensual = FnbFields & { mes: string; desayunos: number; produccion: number };
 
-export type ResumenReport = DesayunosReport & { serieMensual: SerieMensual[]; turnos?: TurnoDesayuno[] };
+export type ResumenReport = DesayunosReport & { serieMensual: SerieMensual[] };
 
 export async function fetchDesayunos(desde: string, hasta: string, tipos?: string[]): Promise<ResumenReport> {
   const params = new URLSearchParams({ desde, hasta });
   if (tipos && tipos.length) params.set("tipo", tipos.join(","));
-  const res = await fetch(`/api/desayunos/?${params}`);
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new Error(body?.error || `No se pudieron cargar los datos de desayuno (${res.status})`);
-  }
-  return res.json();
+  return fetchJsonCacheado(`/api/desayunos/?${params}`);
 }
 
 export type TurnosReport = { turnos: TurnoDesayuno[]; origenDatos?: "odoo" | "cache" };
 
-// Endpoint aparte de fetchDesayunos: Zona/Submarca/búsqueda de hotel son
-// filtros client-side sobre la lista ya cargada, pero Turnos no tiene
-// desglose por hotel que se pueda filtrar en el navegador — hace falta
-// volver a pedirlo al backend con la lista de IDs ya filtrada (ver
-// use-desayunos-data.ts). hotelIds vacío/omitido = cadena completa.
+// Turnos ya no viaja embebido en fetchDesayunos (2026-09-02): antes
+// bloqueaba la tabla de hoteles hasta que también terminara de calcularse
+// en el backend, aunque el usuario no hubiera tocado ningún filtro de
+// Hotel — ahora siempre se pide aparte, en paralelo, tanto en cadena
+// completa (hotelIds omitido) como filtrado por Zona/Submarca/búsqueda de
+// hotel (que son filtros client-side sobre la lista ya cargada, sin
+// columna propia que unir en SQL — ver use-desayunos-data.ts).
 export async function fetchTurnos(
   desde: string, hasta: string, tipos?: string[], hotelIds?: number[]
 ): Promise<TurnosReport> {
   const params = new URLSearchParams({ desde, hasta });
   if (tipos && tipos.length) params.set("tipo", tipos.join(","));
   if (hotelIds && hotelIds.length) params.set("hoteles", hotelIds.join(","));
-  const res = await fetch(`/api/desayunos/turnos/?${params}`);
-  if (!res.ok) {
-    const body = await res.json().catch(() => null);
-    throw new Error(body?.error || `No se pudieron cargar los turnos de desayuno (${res.status})`);
-  }
-  return res.json();
+  return fetchJsonCacheado(`/api/desayunos/turnos/?${params}`);
 }
 
 export type MesHotel = {
