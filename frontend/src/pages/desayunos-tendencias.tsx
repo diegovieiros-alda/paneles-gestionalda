@@ -5,13 +5,19 @@ import { DataLoading } from "@/components/dashboard/loading-screen";
 import { EvolutionChartReal } from "@/components/dashboard/evolution-chart-real";
 import { IngresosGastosChart } from "@/components/dashboard/ingresos-gastos-chart";
 import { PrecioCosteChart } from "@/components/dashboard/precio-coste-chart";
-import { useDesayunosData } from "@/lib/use-desayunos-data";
+import { useDesayunosFiltros } from "@/lib/desayunos-filtros-context";
 
 export default function DesayunosTendenciasPage() {
-  const { serieMensual, origenDatos, loading, error, rangeProps, desde, hasta } = useDesayunosData();
+  const { serieMensual, origenDatos, loading, error, rangeProps, desde, hasta } = useDesayunosFiltros();
 
   return (
-    <DashboardShell title="Tendencias" subtitle="Desayunos · evolución de los últimos 12 meses" origenDatos={origenDatos} periodo={fmtRangoFechas(desde, hasta)}>
+    <DashboardShell
+      title="Tendencias"
+      subtitle="Desayunos · evolución de los últimos 12 meses"
+      origenDatos={origenDatos}
+      periodo={fmtRangoFechas(desde, hasta)}
+      cargando={loading && serieMensual.length > 0}
+    >
       <RangeFilter {...rangeProps} presets={RANGE_PRESETS_DESAYUNOS} />
 
       <div className="p-6 max-w-[1600px] mx-auto space-y-6">

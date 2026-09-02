@@ -4,14 +4,20 @@ import { DataLoading } from "@/components/dashboard/loading-screen";
 import { ObjetivoPenetracionCard } from "@/components/dashboard/objetivo-penetracion-card";
 import { RankingListReal } from "@/components/dashboard/ranking-list-real";
 import { OpportunityBlockReal } from "@/components/dashboard/opportunity-block-real";
-import { useDesayunosData } from "@/lib/use-desayunos-data";
+import { useDesayunosFiltros } from "@/lib/desayunos-filtros-context";
 import { fmtRangoFechas } from "@/lib/date-range";
 
 export default function DesayunosOportunidadesPage() {
-  const { hotelesFiltrados: hoteles, origenDatos, loading, error, rangeProps, filterProps, desde, hasta } = useDesayunosData();
+  const { hotelesFiltrados: hoteles, origenDatos, loading, error, rangeProps, filterProps, desde, hasta } = useDesayunosFiltros();
 
   return (
-    <DashboardShell title="Oportunidades" subtitle="Desayunos · facturación potencial no capturada" origenDatos={origenDatos} periodo={fmtRangoFechas(desde, hasta)}>
+    <DashboardShell
+      title="Oportunidades"
+      subtitle="Desayunos · facturación potencial no capturada"
+      origenDatos={origenDatos}
+      periodo={fmtRangoFechas(desde, hasta)}
+      cargando={loading && !!hoteles}
+    >
       <DesayunosFiltrosPanel rangeProps={rangeProps} filterProps={filterProps} mostrarHotel={false} />
 
       <div className="p-6 max-w-[1600px] mx-auto space-y-6">

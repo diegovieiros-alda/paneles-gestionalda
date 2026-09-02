@@ -107,6 +107,7 @@ export default function HotelDesayunosPage() {
   const [custom, setCustom] = useState(() => rangeForPreset("dia"));
   const [data, setData] = useState<HotelDesayunos | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const { desde, hasta } = preset === "custom" ? custom : rangeForPreset(preset);
 
   useEffect(() => {
@@ -116,7 +117,13 @@ export default function HotelDesayunosPage() {
 
   useEffect(() => {
     if (!hotelId) return;
-    fetchHotelDesayunos(hotelId, desde, hasta).then(setData).catch((e) => setError(e.message));
+    let vivo = true;
+    setLoading(true);
+    fetchHotelDesayunos(hotelId, desde, hasta)
+      .then((d) => { if (vivo) setData(d); })
+      .catch((e) => { if (vivo) setError(e.message); })
+      .finally(() => { if (vivo) setLoading(false); });
+    return () => { vivo = false; };
   }, [hotelId, desde, hasta]);
 
   if (hotelError || !hotelId) {
@@ -135,6 +142,7 @@ export default function HotelDesayunosPage() {
       subtitle={hotel ? `${hotel.zona} · ${hotel.sociedad}` : undefined}
       origenDatos={hotel?.origenDatos}
       periodo={fmtRangoFechas(desde, hasta)}
+      cargando={loading && !!data}
     >
       <div className="p-6 space-y-6 max-w-[1500px] mx-auto">
         {!hotel && !hotelError && (
