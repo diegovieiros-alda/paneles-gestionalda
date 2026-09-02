@@ -4,6 +4,21 @@ import { rangeForPreset, type RangePreset } from "@/lib/date-range";
 
 const TODOS_TIPOS = TIPOS_DESAYUNO.map((t) => t.value) as string[];
 
+function filtraHoteles(hoteles: HotelReal[], zona: string, submarca: string, q: string): HotelReal[] {
+  return hoteles.filter((h) => {
+    if (zona && h.zona !== zona) return false;
+    if (submarca && h.submarca !== submarca) return false;
+    if (q) {
+      const s = q.toLowerCase();
+      // (h.codigo ?? ""): 2 de 132 hoteles no tienen código en Odoo
+      // (verificado 2026-08-28) — sin este fallback, .toLowerCase() de
+      // un null rompía toda la página al escribir en el buscador.
+      if (!h.name.toLowerCase().includes(s) && !(h.codigo ?? "").toLowerCase().includes(s)) return false;
+    }
+    return true;
+  });
+}
+
 /** Carga de datos de Desayunos compartida por las páginas "Detalle completo",
  * "Oportunidades" y "Alertas" — cada una es su propia ruta, pero todas
  * necesitan el mismo fetch por rango de fechas y los mismos filtros de
@@ -73,36 +88,43 @@ export function useDesayunosData() {
     [hoteles]
   );
 
-  const hotelesFiltrados = useMemo(() => {
-    if (!hoteles) return hoteles;
-    return hoteles.filter((h) => {
-      if (zona && h.zona !== zona) return false;
-      if (submarca && h.submarca !== submarca) return false;
-      if (q) {
-        const s = q.toLowerCase();
-        // (h.codigo ?? ""): 2 de 132 hoteles no tienen código en Odoo
-        // (verificado 2026-08-28) — sin este fallback, .toLowerCase() de
-        // un null rompía toda la página al escribir en el buscador.
-        if (!h.name.toLowerCase().includes(s) && !(h.codigo ?? "").toLowerCase().includes(s)) return false;
-      }
-      return true;
-    });
-  }, [hoteles, zona, submarca, q]);
+  const hotelesFiltrados = useMemo(
+    () => (hoteles ? filtraHoteles(hoteles, zona, submarca, q) : hoteles),
+    [hoteles, zona, submarca, q]
+  );
+
+  // Escribir en el buscador de hotel disparaba antes una petición al
+  // backend (fetchTurnos) en CADA pulsación de tecla — contra producción,
+  // sin índice en las columnas de fecha (ver aviso en kpis-definiciones.md),
+  // así que "sada marina" lanzaba ~11 peticiones solapadas (reportado:
+  // "los filtros tardan mucho en cargar"). El filtrado de la propia tabla
+  // (hotelesFiltrados, arriba) sigue siendo instantáneo porque es solo un
+  // filter() en memoria — únicamente se retrasa 350ms la búsqueda que SÍ
+  // dispara red.
+  const [qDebounced, setQDebounced] = useState(q);
+  useEffect(() => {
+    const id = setTimeout(() => setQDebounced(q), 350);
+    return () => clearTimeout(id);
+  }, [q]);
 
   // IDs de los hoteles resultantes del filtro de Hotel (zona/submarca/
   // búsqueda) — undefined si ese filtro no está activo, para no disparar
   // el fetch aparte de turnosFiltrados sin necesidad.
   const hotelIdsActivos = useMemo(() => {
-    if (!zona && !submarca && !q) return undefined;
-    return (hotelesFiltrados ?? []).map((h) => h.id);
-  }, [hotelesFiltrados, zona, submarca, q]);
+    if (!zona && !submarca && !qDebounced) return undefined;
+    return filtraHoteles(hoteles ?? [], zona, submarca, qDebounced).map((h) => h.id);
+  }, [hoteles, zona, submarca, qDebounced]);
+
+  const [turnosLoading, setTurnosLoading] = useState(false);
 
   useEffect(() => {
     if (!hotelIdsActivos) {
       setTurnosFiltrados(null);
+      setTurnosLoading(false);
       return;
     }
     let vivo = true;
+    setTurnosLoading(true);
     const tiposParam = tipos.length < TODOS_TIPOS.length ? tipos : undefined;
     fetchTurnos(desde, hasta, tiposParam, hotelIdsActivos)
       .then((data) => {
@@ -111,6 +133,9 @@ export function useDesayunosData() {
       .catch(() => {
         // Si falla, se queda con el turnos de cadena completa anterior
         // en vez de romper la página — no es el dato principal.
+      })
+      .finally(() => {
+        if (vivo) setTurnosLoading(false);
       });
     return () => {
       vivo = false;
@@ -124,7 +149,7 @@ export function useDesayunosData() {
     turnos: turnosFiltrados ?? turnos,
     turnosFiltradosPorHotel: !!hotelIdsActivos,
     origenDatos,
-    loading,
+    loading: loading || turnosLoading,
     error,
     desde,
     hasta,
