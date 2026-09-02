@@ -3,6 +3,7 @@ import json
 import logging
 
 from django.contrib.auth import authenticate, login, logout
+from django.core.cache import cache
 from django.http import JsonResponse
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_POST
@@ -71,6 +72,10 @@ def registro(request):
     return JsonResponse(_sesion_json(user), status=201)
 
 
+RATE_LIMIT_INTENTOS_LOGIN = 10
+RATE_LIMIT_VENTANA_LOGIN = 60 * 15  # 15 minutos
+
+
 @require_POST
 def iniciar_sesion(request):
     try:
@@ -78,11 +83,26 @@ def iniciar_sesion(request):
     except json.JSONDecodeError:
         return JsonResponse({"error": "JSON inválido"}, status=400)
 
+    # Sin esto, nada impedía fuerza bruta contra este endpoint salvo el
+    # coste del hash de contraseña. Contador por IP en la misma caché de
+    # disco que ya usa cache_result (core/cache.py) — no hace falta una
+    # librería aparte para esto.
+    # ponytail: get+set, no incr atómico — suficiente para frenar fuerza
+    # bruta; si el tráfico de login creciera mucho, pasar a un backend con
+    # incr atómico (Redis) para evitar condiciones de carrera bajo concurrencia.
+    ip = request.META.get("REMOTE_ADDR", "desconocida")
+    intentos_key = f"login_intentos:{ip}"
+    if cache.get(intentos_key, 0) >= RATE_LIMIT_INTENTOS_LOGIN:
+        return JsonResponse({"error": "Demasiados intentos. Inténtalo de nuevo en unos minutos."}, status=429)
+
     email = (data.get("email") or "").strip().lower()
     password = data.get("password") or ""
     user = authenticate(request, username=email, password=password)
     if user is None:
+        cache.set(intentos_key, cache.get(intentos_key, 0) + 1, RATE_LIMIT_VENTANA_LOGIN)
         return JsonResponse({"error": "Email o contraseña incorrectos"}, status=401)
+
+    cache.delete(intentos_key)
 
     # El perfil (departamento/puesto) se cachea para cualquier cuenta con
     # email de Odoo, sea o no superusuario — es solo informativo. El rol
