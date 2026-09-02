@@ -1,5 +1,6 @@
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import { fmtEuro } from "@/lib/mock-data";
+import { fmtRangoSerieMensual } from "@/lib/date-range";
 import type { SerieMensual } from "@/lib/hoteles-api";
 
 export function EvolutionChartReal({ serie }: { serie: SerieMensual[] }) {
@@ -12,7 +13,7 @@ export function EvolutionChartReal({ serie }: { serie: SerieMensual[] }) {
     <section className="rounded-xl border border-border bg-surface p-5 shadow-soft">
       <header className="mb-4">
         <h2 className="text-sm font-semibold text-foreground">Evolución · Facturación de desayuno</h2>
-        <p className="text-xs text-muted-foreground mt-0.5">Últimos 12 meses · datos reales de Odoo</p>
+        <p className="text-xs text-muted-foreground mt-0.5">{fmtRangoSerieMensual(serie)} · datos reales de Odoo</p>
       </header>
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">

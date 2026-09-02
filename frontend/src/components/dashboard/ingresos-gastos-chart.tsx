@@ -2,6 +2,7 @@ import {
   ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from "recharts";
 import { fmtEuro, fmtPct } from "@/lib/mock-data";
+import { fmtRangoSerieMensual } from "@/lib/date-range";
 import type { SerieMensual } from "@/lib/hoteles-api";
 
 export function IngresosGastosChart({ serie }: { serie: SerieMensual[] }) {
@@ -18,8 +19,8 @@ export function IngresosGastosChart({ serie }: { serie: SerieMensual[] }) {
       <header className="mb-4">
         <h2 className="text-sm font-semibold text-foreground">Evolución · Ingresos, gastos y margen bruto</h2>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Últimos 12 meses · fuente contable · Gastos = compras registradas ese mes, no consumo real del periodo
-          (puede dar margen negativo algún mes)
+          {fmtRangoSerieMensual(serie)} · fuente contable · Gastos = compras registradas ese mes, no consumo real del
+          periodo (puede dar margen negativo algún mes)
         </p>
       </header>
       <div className="h-72">
