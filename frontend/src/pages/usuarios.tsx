@@ -250,6 +250,7 @@ function RolesSection({
       <div className="px-5 py-4 border-t border-border bg-surface-muted/30 space-y-3">
         <div className="flex flex-wrap items-center gap-3">
           <input
+            aria-label="Nombre del rol"
             placeholder="Nombre del rol"
             value={nuevoNombre}
             onChange={(e) => setNuevoNombre(e.target.value)}

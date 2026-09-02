@@ -40,14 +40,14 @@ export function Topbar({
               {periodo}
             </span>
           )}
-          <Button variant="ghost" size="icon" className="relative">
+          <Button variant="ghost" size="icon" className="relative" aria-label="Notificaciones">
             <Bell className="h-4 w-4" />
             <span className="absolute top-2 right-2 h-1.5 w-1.5 rounded-full bg-danger" />
           </Button>
           <div className="h-8 w-8 rounded-full bg-primary/90 text-primary-foreground grid place-items-center text-xs font-semibold">
             {iniciales(usuario?.nombre || usuario?.email)}
           </div>
-          <Button variant="ghost" size="icon" onClick={onLogout} title="Cerrar sesión">
+          <Button variant="ghost" size="icon" onClick={onLogout} title="Cerrar sesión" aria-label="Cerrar sesión">
             <LogOut className="h-4 w-4" />
           </Button>
         </div>
