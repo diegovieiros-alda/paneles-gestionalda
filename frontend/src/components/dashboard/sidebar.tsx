@@ -43,7 +43,7 @@ export const NAV: readonly NavItem[] = [
   },
 ];
 
-export function Sidebar() {
+function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const { pathname } = useLocation();
   const { usuario } = useAuth();
   const nav = NAV.filter((n) => usuario?.dashboards.includes(n.dashboard));
@@ -52,7 +52,7 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="hidden lg:flex w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
+    <>
       <div className="flex items-center gap-2.5 px-5 h-16 border-b border-sidebar-border">
         <img src="/alda-logo.svg" alt="Alda Hotels" className="h-9 w-9 shrink-0" />
         <div className="leading-tight">
@@ -60,7 +60,7 @@ export function Sidebar() {
           <div className="text-[11px] text-sidebar-foreground/60">Alda Hotels</div>
         </div>
       </div>
-      <nav className="p-3 flex-1 space-y-0.5">
+      <nav className="p-3 flex-1 space-y-0.5 overflow-y-auto">
         {nav.map((n) => {
           const active = pathname.startsWith(n.to);
           const Icon = n.icon;
@@ -68,6 +68,7 @@ export function Sidebar() {
             <div key={n.to}>
               <Link
                 to={n.to}
+                onClick={onNavigate}
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/80 transition-colors",
                   "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
@@ -85,6 +86,7 @@ export function Sidebar() {
                       <Link
                         key={c.to}
                         to={c.to}
+                        onClick={onNavigate}
                         className={cn(
                           "block rounded-md px-2 py-1.5 text-xs text-sidebar-foreground/70 transition-colors",
                           "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
@@ -107,6 +109,30 @@ export function Sidebar() {
           <div className="text-[11px] text-muted-foreground mt-0.5">Datos en vivo</div>
         </div>
       </div>
-    </aside>
+    </>
+  );
+}
+
+// Antes el sidebar era "hidden lg:flex" sin ninguna alternativa por debajo
+// de 1024px — en tablet o móvil no había forma de navegar entre Desayunos/
+// Bloqueos/Usuarios (reportado en la auditoría de UI/UX). mobileOpen/
+// onMobileClose lo controla DashboardShell (necesita coordinar con el botón
+// de hamburguesa del Topbar, un hermano de este componente).
+export function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boolean; onMobileClose: () => void }) {
+  return (
+    <>
+      <aside className="hidden lg:flex w-60 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
+        <SidebarContent />
+      </aside>
+
+      {mobileOpen && (
+        <div className="lg:hidden fixed inset-0 z-40">
+          <div className="absolute inset-0 bg-black/50" onClick={onMobileClose} aria-hidden="true" />
+          <aside className="relative z-10 w-64 h-full flex flex-col border-r border-sidebar-border bg-sidebar animate-in slide-in-from-left duration-200">
+            <SidebarContent onNavigate={onMobileClose} />
+          </aside>
+        </div>
+      )}
+    </>
   );
 }
