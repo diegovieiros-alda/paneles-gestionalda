@@ -1,4 +1,5 @@
 Django>=5.2,<5.3
+gspread
 gunicorn
 psycopg2-binary
 python-dotenv

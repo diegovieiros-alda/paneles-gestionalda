@@ -80,6 +80,38 @@ class MapeoRolPuesto(models.Model):
         return f"{self.puesto_trabajo} → {self.grupo.name}"
 
 
+class PresupuestoDesayunoMensual(models.Model):
+    """Presupuesto de desayuno (Ingresos cuenta 705.20 / Costes internos
+    cuenta 601.1) por hotel y mes, importado periódicamente desde la hoja
+    de cálculo de Finanzas "PRESUPUESTOS F&B" (Google Sheets) — decisión
+    2026-09-02: sustituye a la consulta contra Odoo
+    (account_move_budget_line), que solo tenía presupuesto confirmado para
+    algunos hoteles a partir de octubre 2026 (ver kpis-definiciones.md).
+    Ver management/commands/importar_presupuesto_fb.py.
+
+    property_code, no pms_property_id: la hoja identifica el hotel por su
+    código de propiedad (el mismo que usa bloqueos.engine.MAPEO_ZONAS), no
+    por el id interno de Odoo — se resuelve a pms_property_id en el
+    momento de leer (hoteles.repository, vía fetch_hoteles), no al
+    guardar, así que un cambio de id en Odoo no invalida lo ya importado."""
+
+    property_code = models.CharField(max_length=20)
+    mes = models.DateField(help_text="Día 1 del mes presupuestado")
+    ingresos = models.FloatField(default=0.0)
+    gastos = models.FloatField(default=0.0)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["property_code", "mes"], name="unico_presupuesto_fb_por_hotel_mes")
+        ]
+        verbose_name = "Presupuesto de desayuno (mensual)"
+        verbose_name_plural = "Presupuestos de desayuno (mensuales)"
+
+    def __str__(self):
+        return f"{self.property_code} {self.mes.isoformat()}: ingresos={self.ingresos} gastos={self.gastos}"
+
+
 class PerfilUsuario(models.Model):
     """Departamento y puesto de trabajo de Odoo del usuario, cacheados en
     cada login para mostrarlos en la pantalla de administración sin

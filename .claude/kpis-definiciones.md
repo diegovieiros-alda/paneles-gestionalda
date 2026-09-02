@@ -1034,6 +1034,23 @@ analítica pierde su presupuesto; dos propiedades que comparten analítica
 duplican el total) siguen siendo un riesgo teórico real del JOIN por
 analítica, pero no se puede evitar sin instalar el módulo — **queda anotado
 como mejora futura condicionada a esa instalación, no como algo a corregir
+
+**Superado (2026-09-02)**: lo anterior de esta sección ya no describe el
+código real. `repository.py` dejó de consultar `account_move_budget_line`
+para el presupuesto de desayuno — la fuente pasó a ser la hoja de Finanzas
+"PRESUPUESTOS F&B" (Google Sheets), importada a diario a la tabla propia
+`core.models.PresupuestoDesayunoMensual` por
+`management/commands/importar_presupuesto_fb.py`, y resuelta a hotel por
+`property_code` (no por `hotel_analytic_account_id`). Motivo: el
+presupuesto confirmado en Odoo solo cubría algunos hoteles a partir de
+octubre 2026 (el aviso de cobertura más abajo, en la sección de gastos,
+seguía siendo cierto hasta este cambio); la hoja de Finanzas es la fuente
+real de la que sale ese dato. Pendiente de aprobación explícita del
+responsable de administración antes de desplegar (cambia el origen de un
+importe financiero, ver regla de CLAUDE.md), aunque el código ya está
+escrito y probado. Esta sección y la de "Gastos de desayuno — presupuesto"
+de más abajo quedan como referencia histórica de por qué el camino por
+Odoo no era viable, no como descripción del código actual.
 ahora en el código**.
 
 **Criterio**:
@@ -1925,3 +1942,29 @@ WHERE state NOT IN ('draft', 'cancel')
   - No se ha ejecutado ninguna consulta nueva contra producción en esta
     verificación (solo lectura de código) — las cifras "pendientes de
     revalidar" de este documento siguen pendientes, sin cambios.
+- 2026-09-02: **presupuesto de desayuno deja de salir de Odoo**. Pedido:
+  "los presupuestos de los hoteles para los desayunos se encuentran en un
+  excel, ¿cómo lo implementamos en el dashboard?" (hoja de Google Sheets
+  "PRESUPUESTOS F&B - REAL- 26/27", Finanzas). Decisión confirmada con el
+  usuario: la hoja sustituye por completo a `account_move_budget_line`
+  como fuente de presupuesto de desayuno (no queda como respaldo ni se
+  muestran ambas). Implementado: `core.models.PresupuestoDesayunoMensual`
+  (tabla propia, `property_code` + mes), importada por
+  `manage.py importar_presupuesto_fb` (cuenta de servicio de Google,
+  pensado para cron diario) desde la pestaña de la hoja identificada por
+  su `gid`. `repository.fetch_presupuesto_desayuno`/
+  `fetch_presupuesto_serie_mensual`/`_hotel` reescritas para leer de esa
+  tabla en vez de Odoo — mismo `dict` de salida
+  (`presupuestoIngresos`/`presupuestoGastos`), así que `service.py` y el
+  frontend no cambian. Solo se importan Ingresos (705.20) y Costes
+  internos (601.1) de la hoja — Costes externos (607.0) NO se importa,
+  para no mezclar un alcance de gasto distinto al que ya usa
+  `_CUENTAS_GASTO_DESAYUNO` (solo cuentas 601.x) en el "gasto real" con el
+  que se compara. Parseo verificado contra la hoja real (86 hoteles, 12
+  meses, 1031 registros extraídos correctamente) sin guardar ni repetir
+  ninguna cifra real fuera del propio Google Sheet — son datos de
+  presupuesto, confidenciales. **Pendiente de aprobación explícita del
+  responsable de administración antes de desplegar** (cambia el origen de
+  un importe financiero, CLAUDE.md) y de que se cree y comparta la cuenta
+  de servicio de Google con la hoja — el código está escrito y probado
+  (tests de parseo) pero no desplegado a la espera de ambas cosas.
