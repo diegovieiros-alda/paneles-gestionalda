@@ -212,21 +212,31 @@ export default function HotelDesayunosPage() {
                   ) : data.actual.cumplimientoIngresos !== null ? (
                     (() => {
                       const e = etiquetaCumplimiento(data.actual.cumplimientoIngresos);
+                      // La fuente que NO ganó, para comparar — pedido explícito 2026-09-02
+                      const otraFuenteLabel =
+                        data.actual.presupuestoOrigen === "odoo" && data.actual.presupuestoIngresosExcel !== null
+                          ? `Excel: ${fmtEuro(data.actual.presupuestoIngresosExcel)}`
+                          : data.actual.presupuestoOrigen === "excel" && data.actual.presupuestoIngresosOdoo !== null
+                          ? `Odoo: ${fmtEuro(data.actual.presupuestoIngresosOdoo)}`
+                          : null;
                       return (
-                        <span className="inline-flex items-center gap-1.5">
-                          {e && (
-                            <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium", ETIQUETA_BADGE_CLASS[e])}>
-                              {fmtPct(data.actual.cumplimientoIngresos, 0)} · {ETIQUETA_LABEL[e]}
-                            </span>
-                          )}
-                          {data.actual.presupuestoOrigen && (
-                            <span
-                              className="text-[10px] uppercase tracking-wide text-muted-foreground/60 border border-border rounded px-1"
-                              title={`Presupuesto de ${ORIGEN_PRESUPUESTO_LABEL[data.actual.presupuestoOrigen]}`}
-                            >
-                              {ORIGEN_PRESUPUESTO_LABEL[data.actual.presupuestoOrigen]}
-                            </span>
-                          )}
+                        <span className="flex flex-col items-start gap-0.5">
+                          <span className="inline-flex items-center gap-1.5">
+                            {e && (
+                              <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium", ETIQUETA_BADGE_CLASS[e])}>
+                                {fmtPct(data.actual.cumplimientoIngresos, 0)} · {ETIQUETA_LABEL[e]}
+                              </span>
+                            )}
+                            {data.actual.presupuestoOrigen && (
+                              <span
+                                className="text-[10px] uppercase tracking-wide text-muted-foreground/60 border border-border rounded px-1"
+                                title={`Presupuesto de ${ORIGEN_PRESUPUESTO_LABEL[data.actual.presupuestoOrigen]}`}
+                              >
+                                {ORIGEN_PRESUPUESTO_LABEL[data.actual.presupuestoOrigen]}
+                              </span>
+                            )}
+                          </span>
+                          {otraFuenteLabel && <span className="text-[10px] text-muted-foreground/50">{otraFuenteLabel}</span>}
                         </span>
                       );
                     })()

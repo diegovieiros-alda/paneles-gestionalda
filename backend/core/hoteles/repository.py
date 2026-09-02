@@ -836,21 +836,36 @@ def fetch_presupuesto_desayuno_excel(fecha_inicio: datetime.date, fecha_fin: dat
     return resultado
 
 
+def _combinar_presupuesto(odoo: dict, excel: dict) -> dict:
+    """Combina presupuesto de Odoo (prioritario, oficial confirmado) y de
+    la hoja de Finanzas (respaldo) por clave (hotel_id o mes) — nunca se
+    mezclan los dos dentro de la misma clave para la cifra "elegida"
+    (presupuestoIngresos/Gastos), pero se conservan también los dos valores
+    por separado (…Odoo/…Excel, None si esa fuente no tiene dato) para
+    poder compararlos en el frontend — pedido explícito 2026-09-02:
+    "vamos a poner los 2 presupuestos... para comparar"."""
+    resultado: dict = {}
+    for clave in set(odoo) | set(excel):
+        o, e = odoo.get(clave), excel.get(clave)
+        elegido, origen = (o, "odoo") if o is not None else (e, "excel")
+        resultado[clave] = {
+            **elegido,
+            "presupuestoOrigen": origen,
+            "presupuestoIngresosOdoo": o["presupuestoIngresos"] if o else None,
+            "presupuestoGastosOdoo": o["presupuestoGastos"] if o else None,
+            "presupuestoIngresosExcel": e["presupuestoIngresos"] if e else None,
+            "presupuestoGastosExcel": e["presupuestoGastos"] if e else None,
+        }
+    return resultado
+
+
 def fetch_presupuesto_desayuno(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[int, dict]:
     """Combina Odoo (prioritario, presupuesto oficial confirmado) y la
     hoja de Finanzas (rellena los hoteles/meses que Odoo no tiene
-    confirmados todavía) — nunca se mezclan los dos dentro del mismo
-    hotel: se elige uno completo, y se indica cuál en "presupuestoOrigen"
-    para que se sepa de dónde sale el número."""
+    confirmados todavía) — ver _combinar_presupuesto."""
     odoo = fetch_presupuesto_desayuno_odoo(fecha_inicio, fecha_fin)
     excel = fetch_presupuesto_desayuno_excel(fecha_inicio, fecha_fin)
-    resultado: dict[int, dict] = {}
-    for hotel_id in set(odoo) | set(excel):
-        if hotel_id in odoo:
-            resultado[hotel_id] = {**odoo[hotel_id], "presupuestoOrigen": "odoo"}
-        else:
-            resultado[hotel_id] = {**excel[hotel_id], "presupuestoOrigen": "excel"}
-    return resultado
+    return _combinar_presupuesto(odoo, excel)
 
 
 @cache_result
@@ -894,16 +909,10 @@ def fetch_presupuesto_serie_mensual_excel(fecha_inicio: datetime.date, fecha_fin
 
 def fetch_presupuesto_serie_mensual(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[str, dict]:
     """Igual que fetch_presupuesto_desayuno pero agregado por mes (cadena
-    completa) — mismo criterio de combinación Odoo/Excel por mes."""
+    completa) — ver _combinar_presupuesto."""
     odoo = fetch_presupuesto_serie_mensual_odoo(fecha_inicio, fecha_fin)
     excel = fetch_presupuesto_serie_mensual_excel(fecha_inicio, fecha_fin)
-    resultado: dict[str, dict] = {}
-    for mes in set(odoo) | set(excel):
-        if mes in odoo:
-            resultado[mes] = {**odoo[mes], "presupuestoOrigen": "odoo"}
-        else:
-            resultado[mes] = {**excel[mes], "presupuestoOrigen": "excel"}
-    return resultado
+    return _combinar_presupuesto(odoo, excel)
 
 
 @cache_result
@@ -1033,16 +1042,10 @@ def fetch_presupuesto_serie_mensual_hotel(
     hotel_id: int, fecha_inicio: datetime.date, fecha_fin: datetime.date
 ) -> dict[str, dict]:
     """Igual que fetch_presupuesto_serie_mensual pero para un único hotel
-    (ficha individual) — mismo criterio de combinación Odoo/Excel por mes."""
+    (ficha individual) — ver _combinar_presupuesto."""
     odoo = fetch_presupuesto_serie_mensual_hotel_odoo(hotel_id, fecha_inicio, fecha_fin)
     excel = fetch_presupuesto_serie_mensual_hotel_excel(hotel_id, fecha_inicio, fecha_fin)
-    resultado: dict[str, dict] = {}
-    for mes in set(odoo) | set(excel):
-        if mes in odoo:
-            resultado[mes] = {**odoo[mes], "presupuestoOrigen": "odoo"}
-        else:
-            resultado[mes] = {**excel[mes], "presupuestoOrigen": "excel"}
-    return resultado
+    return _combinar_presupuesto(odoo, excel)
 
 
 @cache_result
