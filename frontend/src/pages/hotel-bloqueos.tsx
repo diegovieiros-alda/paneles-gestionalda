@@ -10,29 +10,22 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { fetchHotelInfo, type HotelDirectorio } from "@/lib/hoteles-api";
 import { fetchHotelBloqueos, type HotelBloqueosReport } from "@/lib/bloqueos-api";
 import { fmtNum } from "@/lib/mock-data";
-import { rangeForPreset, type RangePreset } from "@/lib/date-range";
-
-function useRango(inicial: RangePreset) {
-  const [preset, setPreset] = useState<RangePreset>(inicial);
-  const [custom, setCustom] = useState(() => rangeForPreset(inicial === "custom" ? "30d" : inicial));
-  const { desde, hasta } = preset === "custom" ? custom : rangeForPreset(preset);
-  return {
-    desde, hasta, preset, custom,
-    onPreset: (p: RangePreset) => {
-      setPreset(p);
-      if (p !== "custom") setCustom(rangeForPreset(p));
-    },
-    onCustom: setCustom,
-  };
-}
+import { useRangePreset } from "@/lib/use-range-preset";
 
 function OcupacionSection({ hotelId }: { hotelId: string }) {
-  const rango = useRango("30d");
+  const rango = useRangePreset("30d");
   const [data, setData] = useState<HotelBloqueosReport | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetchHotelBloqueos(hotelId, rango.desde, rango.hasta).then(setData).catch((e) => setError(e.message));
+    let vivo = true;
+    setLoading(true);
+    fetchHotelBloqueos(hotelId, rango.desde, rango.hasta)
+      .then((d) => { if (vivo) setData(d); })
+      .catch((e) => { if (vivo) setError(e.message); })
+      .finally(() => { if (vivo) setLoading(false); });
+    return () => { vivo = false; };
   }, [hotelId, rango.desde, rango.hasta]);
 
   return (
@@ -41,6 +34,9 @@ function OcupacionSection({ hotelId }: { hotelId: string }) {
       <div className="flex flex-wrap items-center gap-2">
         <RangeFilter preset={rango.preset} custom={rango.custom} onPreset={rango.onPreset} onCustom={rango.onCustom} compact />
         <DataSourceBadge origen={data?.origenDatos} />
+        {loading && data && (
+          <span className="h-3.5 w-3.5 rounded-full border-2 border-border border-t-primary animate-spin" title="Actualizando…" />
+        )}
       </div>
 
       {error && <p className="text-sm text-danger">{error}</p>}
@@ -86,12 +82,19 @@ function OcupacionSection({ hotelId }: { hotelId: string }) {
 }
 
 function BloqueosSection({ hotelId }: { hotelId: string }) {
-  const rango = useRango("30d");
+  const rango = useRangePreset("30d");
   const [data, setData] = useState<HotelBloqueosReport | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetchHotelBloqueos(hotelId, rango.desde, rango.hasta).then(setData).catch((e) => setError(e.message));
+    let vivo = true;
+    setLoading(true);
+    fetchHotelBloqueos(hotelId, rango.desde, rango.hasta)
+      .then((d) => { if (vivo) setData(d); })
+      .catch((e) => { if (vivo) setError(e.message); })
+      .finally(() => { if (vivo) setLoading(false); });
+    return () => { vivo = false; };
   }, [hotelId, rango.desde, rango.hasta]);
 
   return (
@@ -100,6 +103,9 @@ function BloqueosSection({ hotelId }: { hotelId: string }) {
       <div className="flex flex-wrap items-center gap-2">
         <RangeFilter preset={rango.preset} custom={rango.custom} onPreset={rango.onPreset} onCustom={rango.onCustom} compact />
         <DataSourceBadge origen={data?.origenDatos} />
+        {loading && data && (
+          <span className="h-3.5 w-3.5 rounded-full border-2 border-border border-t-primary animate-spin" title="Actualizando…" />
+        )}
       </div>
 
       {error && <p className="text-sm text-danger">{error}</p>}

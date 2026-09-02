@@ -24,7 +24,8 @@ import {
   fmtEuro, fmtNum, fmtPct, type Etiqueta,
 } from "@/lib/mock-data";
 import { useAjustesDesayuno } from "@/lib/ajustes-desayuno-context";
-import { rangeForPreset, RANGE_PRESETS_DESAYUNOS, fmtRangoFechas, type RangePreset } from "@/lib/date-range";
+import { RANGE_PRESETS_DESAYUNOS, fmtRangoFechas } from "@/lib/date-range";
+import { useRangePreset } from "@/lib/use-range-preset";
 import { Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type KpiTone } from "@/components/dashboard/kpi-card";
@@ -103,12 +104,10 @@ export default function HotelDesayunosPage() {
   const { hotelId } = useParams<{ hotelId: string }>();
   const [hotel, setHotel] = useState<HotelDirectorio | null>(null);
   const [hotelError, setHotelError] = useState<string | null>(null);
-  const [preset, setPreset] = useState<RangePreset>("dia");
-  const [custom, setCustom] = useState(() => rangeForPreset("dia"));
+  const { preset, custom, desde, hasta, onPreset, onCustom } = useRangePreset("dia");
   const [data, setData] = useState<HotelDesayunos | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const { desde, hasta } = preset === "custom" ? custom : rangeForPreset(preset);
 
   useEffect(() => {
     if (!hotelId) return;
@@ -154,7 +153,7 @@ export default function HotelDesayunosPage() {
         {hotel && <HotelDetailHeader hotel={hotel} backTo="/desayunos" backLabel="Volver a Desayunos" />}
 
         <div className="flex flex-wrap items-center gap-2">
-          <RangeFilter preset={preset} custom={custom} onPreset={(p) => { setPreset(p); if (p !== "custom") setCustom(rangeForPreset(p)); }} onCustom={setCustom} compact presets={RANGE_PRESETS_DESAYUNOS} />
+          <RangeFilter preset={preset} custom={custom} onPreset={onPreset} onCustom={onCustom} compact presets={RANGE_PRESETS_DESAYUNOS} />
           <DataSourceBadge origen={data?.origenDatos} />
         </div>
 
