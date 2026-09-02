@@ -30,7 +30,15 @@ _DESAYUNO_VACIO = {
     "produccion_sin_facturar": 0.0,
 }
 _FNB_VACIO = {"ingresos": 0.0, "unidades": 0.0, "gastos": 0.0}
-_PRESUPUESTO_VACIO = {"presupuestoIngresos": 0.0, "presupuestoGastos": 0.0, "presupuestoOrigen": None}
+_PRESUPUESTO_VACIO = {
+    "presupuestoIngresos": 0.0,
+    "presupuestoGastos": 0.0,
+    "presupuestoOrigen": None,
+    "presupuestoIngresosOdoo": None,
+    "presupuestoGastosOdoo": None,
+    "presupuestoIngresosExcel": None,
+    "presupuestoGastosExcel": None,
+}
 
 
 def _precio_medio(d: dict) -> float:
@@ -91,11 +99,20 @@ def _fnb_json(f: dict, presupuesto: dict = _PRESUPUESTO_VACIO, motivo_presupuest
     (confirmado, prioritario) y la hoja de Finanzas (respaldo) y ya decide
     cuál de los dos se usa por hotel/mes; aquí solo se propaga ese dato
     para que el frontend lo muestre (pedido explícito: "sería bueno
-    indicar de dónde viene el dato")."""
+    indicar de dónde viene el dato").
+
+    presupuestoIngresos/GastosOdoo/Excel: los dos valores por separado
+    (None si esa fuente no tiene dato para el hotel/periodo), además del
+    elegido — pedido explícito 2026-09-02: "vamos a poner los 2
+    presupuestos... para comparar"."""
     ingresos, gastos = f["ingresos"], f["gastos"]
     unidades = f["unidades"]
     presupuesto_ingresos = presupuesto["presupuestoIngresos"]
     presupuesto_gastos = presupuesto["presupuestoGastos"]
+
+    def _o(valor):
+        return round(valor, 2) if valor is not None else None
+
     return {
         "ingresos": round(ingresos, 2),
         "gastos": round(gastos, 2),
@@ -109,6 +126,10 @@ def _fnb_json(f: dict, presupuesto: dict = _PRESUPUESTO_VACIO, motivo_presupuest
         "cumplimientoGastos": round(gastos / presupuesto_gastos, 4) if presupuesto_gastos > 0 else None,
         "presupuestoMotivo": motivo_presupuesto,
         "presupuestoOrigen": presupuesto.get("presupuestoOrigen"),
+        "presupuestoIngresosOdoo": _o(presupuesto.get("presupuestoIngresosOdoo")),
+        "presupuestoGastosOdoo": _o(presupuesto.get("presupuestoGastosOdoo")),
+        "presupuestoIngresosExcel": _o(presupuesto.get("presupuestoIngresosExcel")),
+        "presupuestoGastosExcel": _o(presupuesto.get("presupuestoGastosExcel")),
     }
 
 

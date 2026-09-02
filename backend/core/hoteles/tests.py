@@ -284,6 +284,26 @@ class PresupuestoDesayunoOdooVsExcelTests(SimpleTestCase):
         self.assertEqual(resultado[1]["presupuestoOrigen"], "odoo")
         self.assertEqual(resultado[1]["presupuestoIngresos"], 100.0)  # no la de Excel
 
+    def test_se_conservan_los_dos_valores_por_separado_para_comparar(self):
+        with mock.patch.object(repository, "fetch_presupuesto_desayuno_odoo",
+                                return_value={1: {"presupuestoIngresos": 100.0, "presupuestoGastos": 40.0}}), \
+             mock.patch.object(repository, "fetch_presupuesto_desayuno_excel",
+                                return_value={1: {"presupuestoIngresos": 999.0, "presupuestoGastos": 555.0}}):
+            resultado = repository.fetch_presupuesto_desayuno(datetime.date(2026, 7, 1), datetime.date(2026, 7, 31))
+        # aunque "gane" Odoo, Excel no desaparece — se puede comparar en el frontend
+        self.assertEqual(resultado[1]["presupuestoIngresosOdoo"], 100.0)
+        self.assertEqual(resultado[1]["presupuestoGastosOdoo"], 40.0)
+        self.assertEqual(resultado[1]["presupuestoIngresosExcel"], 999.0)
+        self.assertEqual(resultado[1]["presupuestoGastosExcel"], 555.0)
+
+    def test_valor_de_la_fuente_ausente_es_none_no_cero(self):
+        with mock.patch.object(repository, "fetch_presupuesto_desayuno_odoo",
+                                return_value={1: {"presupuestoIngresos": 100.0, "presupuestoGastos": 40.0}}), \
+             mock.patch.object(repository, "fetch_presupuesto_desayuno_excel", return_value={}):
+            resultado = repository.fetch_presupuesto_desayuno(datetime.date(2026, 7, 1), datetime.date(2026, 7, 31))
+        self.assertIsNone(resultado[1]["presupuestoIngresosExcel"])
+        self.assertIsNone(resultado[1]["presupuestoGastosExcel"])
+
     def test_hoteles_distintos_no_se_mezclan(self):
         with mock.patch.object(repository, "fetch_presupuesto_desayuno_odoo",
                                 return_value={1: {"presupuestoIngresos": 100.0, "presupuestoGastos": 40.0}}), \

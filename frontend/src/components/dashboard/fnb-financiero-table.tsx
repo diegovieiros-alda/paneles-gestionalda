@@ -29,17 +29,26 @@ function buildCols(objetivoOportunidad: number): Array<{ key: Key; label: string
         h.presupuestoMotivo === "rango_no_es_mes_natural" ? (
           <span className="text-muted-foreground/50" title="Elige un mes completo para ver el presupuesto">Elige mes completo</span>
         ) : h.presupuestoIngresos > 0 ? (
-          <span className="text-muted-foreground inline-flex items-center gap-1">
-            {fmtEuro(h.presupuestoIngresos)}
-            {h.presupuestoOrigen && (
-              <span
-                className="text-[10px] uppercase tracking-wide text-muted-foreground/60 border border-border rounded px-1"
-                title={`Presupuesto de ${ORIGEN_PRESUPUESTO_LABEL[h.presupuestoOrigen]}`}
-              >
-                {ORIGEN_PRESUPUESTO_LABEL[h.presupuestoOrigen]}
-              </span>
+          <div className="flex flex-col items-center leading-tight">
+            <span className="text-muted-foreground inline-flex items-center gap-1">
+              {fmtEuro(h.presupuestoIngresos)}
+              {h.presupuestoOrigen && (
+                <span
+                  className="text-[10px] uppercase tracking-wide text-muted-foreground/60 border border-border rounded px-1"
+                  title={`Presupuesto de ${ORIGEN_PRESUPUESTO_LABEL[h.presupuestoOrigen]}`}
+                >
+                  {ORIGEN_PRESUPUESTO_LABEL[h.presupuestoOrigen]}
+                </span>
+              )}
+            </span>
+            {/* La fuente que NO ganó, para comparar — pedido explícito 2026-09-02 */}
+            {h.presupuestoOrigen === "odoo" && h.presupuestoIngresosExcel !== null && (
+              <span className="text-[10px] text-muted-foreground/50">Excel: {fmtEuro(h.presupuestoIngresosExcel)}</span>
             )}
-          </span>
+            {h.presupuestoOrigen === "excel" && h.presupuestoIngresosOdoo !== null && (
+              <span className="text-[10px] text-muted-foreground/50">Odoo: {fmtEuro(h.presupuestoIngresosOdoo)}</span>
+            )}
+          </div>
         ) : (
           <span className="text-muted-foreground/50">Sin presupuesto</span>
         ),
@@ -70,11 +79,14 @@ function buildCols(objetivoOportunidad: number): Array<{ key: Key; label: string
 function exportar(hoteles: HotelReal[], objetivoOportunidad: number) {
   exportarCsv(
     `fnb-desayunos-${new Date().toISOString().slice(0, 10)}`,
-    ["Hotel", "Ingresos", "Presupuesto ingresos", "Cumplimiento", "Gastos", "Margen bruto %", "Precio medio venta", "Coste medio", "Resultado F&B", "Facturación potencial"],
+    ["Hotel", "Ingresos", "Presupuesto ingresos", "Origen presupuesto", "Presupuesto Odoo", "Presupuesto Excel", "Cumplimiento", "Gastos", "Margen bruto %", "Precio medio venta", "Coste medio", "Resultado F&B", "Facturación potencial"],
     hoteles.map((h) => [
       h.name,
       h.ingresos.toFixed(2),
       h.presupuestoIngresos > 0 ? h.presupuestoIngresos.toFixed(2) : "",
+      h.presupuestoOrigen ? ORIGEN_PRESUPUESTO_LABEL[h.presupuestoOrigen] : "",
+      h.presupuestoIngresosOdoo !== null ? h.presupuestoIngresosOdoo.toFixed(2) : "",
+      h.presupuestoIngresosExcel !== null ? h.presupuestoIngresosExcel.toFixed(2) : "",
       h.cumplimientoIngresos !== null ? (h.cumplimientoIngresos * 100).toFixed(1) : "",
       h.gastos.toFixed(2),
       (h.margenBruto * 100).toFixed(1),
