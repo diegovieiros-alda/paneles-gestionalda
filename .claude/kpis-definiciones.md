@@ -20,13 +20,23 @@ Verificado (2026-08-26) contra `backend/core/hoteles/repository.py` real:
 ninguna de las funciones de aquí (`fetch_rn`, `fetch_alojados_reservas`,
 `calcular_ratio_penetracion`, etc.) existe con ese nombre en el repo. El repo
 real usa otra familia (`fetch_alojados`, `fetch_desayunos`,
-`fetch_fnb_desayuno`, `fetch_presupuesto_desayuno`...) con su propia lógica,
-que en dos puntos concretos **todavía tiene hoy** los mismos fallos que este
-documento corrige más abajo: el presupuesto se une por cuenta analítica en
-vez de `pms_property_id` directo (punto 2), y los ingresos/gastos reales de
-F&B se calculan con `price_subtotal` en vez de saldo contable, sin filtrar
-`move_type` (punto 3). Hasta que alguien traslade estas correcciones también
-a `repository.py`, este documento y el dashboard en producción divergirán.
+`fetch_fnb_desayuno`, `fetch_presupuesto_desayuno`...) con su propia lógica.
+
+**Actualizado (2026-09-02, verificación de rutina, sin cambios de código en
+esta sesión)**: la afirmación de arriba de que el repo real "todavía tiene
+hoy" los fallos de los puntos 2 y 3 está **desactualizada**. Releído
+`repository.py` (`_FNB_SQL`, comentario en las líneas previas a su
+definición): el punto 3 (saldo contable `credit-debit`/`debit-credit` en vez
+de `price_subtotal`, con signo correcto en unidades vía `move_type` y
+fallback por `hotel_analytic_account_id`) ya está aplicado, con fecha
+2026-08-27/2026-08-28, citando este mismo documento. El punto 2 (presupuesto
+por cuenta analítica) nunca fue un bug a corregir — ver la sección de
+`fetch_ingresos_desayuno_presupuesto` más abajo, retractada el mismo día: el
+módulo que daría `pms_property_id` directo no está instalado en producción,
+así que el JOIN por analítica ya en `repository.py` es el único camino
+disponible, no una desviación. `fetch_alojados` (repo real) también usa ya
+`children_occupying`, igual que propone la decisión 5.5 más abajo. No se ha
+tocado ningún código en esta verificación — ver Historial de cambios.
 
 ## Criterio unificado de "reserva viva"
 
@@ -1895,3 +1905,23 @@ WHERE state NOT IN ('draft', 'cancel')
     `fetch_gastos_desayuno_facturacion` de este documento (cerraba el
     "aviso pendiente de comprobar" del punto 6 que quedó abierto en la
     revisión del 2026-08-26).
+- 2026-09-02: **verificación de rutina, sin cambios de código** (pedida como
+  "verifica también todas las fuentes de datos y los cálculos"). Releído
+  `repository.py` contra este documento:
+  - El aviso de la cabecera del documento (arriba del todo) decía que el
+    repo real "todavía tiene hoy" los fallos de los puntos 2 y 3 — ya no es
+    cierto, corregido in situ con fecha de esta entrada. `_FNB_SQL` ya usa
+    saldo contable (no `price_subtotal`) desde 2026-08-27/28, y el JOIN de
+    presupuesto por cuenta analítica nunca fue el bug (el módulo que daría
+    `pms_property_id` directo sigue sin instalar).
+  - `fetch_alojados` (repo real) ya usa `children_occupying`, igual que
+    propone la decisión 5.5 — sin divergencia.
+  - `fetch_presupuesto_desayuno`/`service.py` ya aplican el criterio de mes
+    natural de la decisión 5.2 (lado desayuno, PR #7).
+  - Decisiones 5.3 (perímetros mezclados en precio medio de facturación) y
+    5.4 (cuenta fantasma `60100000003`) siguen tal cual, sin cambios ni
+    urgencia nueva — no son bugs de cifra, son advertencias de alcance ya
+    documentadas.
+  - No se ha ejecutado ninguna consulta nueva contra producción en esta
+    verificación (solo lectura de código) — las cifras "pendientes de
+    revalidar" de este documento siguen pendientes, sin cambios.
