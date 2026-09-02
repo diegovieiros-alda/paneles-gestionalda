@@ -1,27 +1,33 @@
-import { type ReactNode } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import { BrowserRouter, Routes, Route, Link, Navigate, Outlet } from "react-router-dom";
-import HotelDesayunosPage from "@/pages/hotel-desayunos";
-import HotelBloqueosPage from "@/pages/hotel-bloqueos";
-import BloqueosPage from "@/pages/bloqueos";
-import BloqueosOportunidadesPage from "@/pages/bloqueos-oportunidades";
-import BloqueosTendenciasPage from "@/pages/bloqueos-tendencias";
-import BloqueosAlertasPage from "@/pages/bloqueos-alertas";
-import BloqueosAjustesPage from "@/pages/bloqueos-ajustes";
-import DesayunosPage from "@/pages/desayunos";
-import DesayunosDetallePage from "@/pages/desayunos-detalle";
-import DesayunosOportunidadesPage from "@/pages/desayunos-oportunidades";
-import DesayunosTendenciasPage from "@/pages/desayunos-tendencias";
-import DesayunosAlertasPage from "@/pages/desayunos-alertas";
-import DesayunosAjustesPage from "@/pages/desayunos-ajustes";
-import RegistroPage from "@/pages/registro";
-import LoginPage from "@/pages/login";
-import UsuariosPage from "@/pages/usuarios";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { AjustesDesayunoProvider } from "@/lib/ajustes-desayuno-context";
 import { DesayunosFiltrosProvider } from "@/lib/desayunos-filtros-context";
 import { ProtectedRoute, SuperuserRoute } from "@/components/dashboard/protected-route";
 import { LoadingScreen } from "@/components/dashboard/loading-screen";
 import { NAV } from "@/components/dashboard/sidebar";
+
+// Cada página es su propio chunk (antes: un único bundle de ~805KB con las
+// 16 páginas y sus dependencias — recharts incluido — cargado entero para
+// entrar a Login). React Router ya muestra <Suspense fallback> mientras
+// carga el chunk de la ruta destino, así que no hace falta loading manual
+// por página.
+const HotelDesayunosPage = lazy(() => import("@/pages/hotel-desayunos"));
+const HotelBloqueosPage = lazy(() => import("@/pages/hotel-bloqueos"));
+const BloqueosPage = lazy(() => import("@/pages/bloqueos"));
+const BloqueosOportunidadesPage = lazy(() => import("@/pages/bloqueos-oportunidades"));
+const BloqueosTendenciasPage = lazy(() => import("@/pages/bloqueos-tendencias"));
+const BloqueosAlertasPage = lazy(() => import("@/pages/bloqueos-alertas"));
+const BloqueosAjustesPage = lazy(() => import("@/pages/bloqueos-ajustes"));
+const DesayunosPage = lazy(() => import("@/pages/desayunos"));
+const DesayunosDetallePage = lazy(() => import("@/pages/desayunos-detalle"));
+const DesayunosOportunidadesPage = lazy(() => import("@/pages/desayunos-oportunidades"));
+const DesayunosTendenciasPage = lazy(() => import("@/pages/desayunos-tendencias"));
+const DesayunosAlertasPage = lazy(() => import("@/pages/desayunos-alertas"));
+const DesayunosAjustesPage = lazy(() => import("@/pages/desayunos-ajustes"));
+const RegistroPage = lazy(() => import("@/pages/registro"));
+const LoginPage = lazy(() => import("@/pages/login"));
+const UsuariosPage = lazy(() => import("@/pages/usuarios"));
 
 // Todas las rutas de Desayunos comparten los ajustes editables (objetivo de
 // penetración, umbral de alerta, objetivo de oportunidad) — un solo fetch
@@ -88,37 +94,39 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/registro" element={<RegistroPage />} />
+        <Suspense fallback={<LoadingScreen />}>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/registro" element={<RegistroPage />} />
 
-          {/* Bloqueos y Desayunos están conectados a datos reales de Odoo; el
-              resto sigue con datos de ejemplo hasta que se conecten, pero ya
-              son navegables y respetan el rol del usuario.
+            {/* Bloqueos y Desayunos están conectados a datos reales de Odoo; el
+                resto sigue con datos de ejemplo hasta que se conecten, pero ya
+                son navegables y respetan el rol del usuario.
 
-              No existe una sección "Hoteles" independiente: cada dashboard
-              con datos por hotel trae su propio listado (dentro de la
-              página del dashboard) y su propia ficha de detalle, gateada
-              por el permiso de ese dashboard, no por uno genérico. */}
-          <Route path="/" element={<Inicio />} />
-          <Route path="/bloqueos" element={<ProtectedRoute dashboard="bloqueos"><BloqueosPage /></ProtectedRoute>} />
-          <Route path="/bloqueos/oportunidades" element={<ProtectedRoute dashboard="bloqueos"><BloqueosOportunidadesPage /></ProtectedRoute>} />
-          <Route path="/bloqueos/tendencias" element={<ProtectedRoute dashboard="bloqueos"><BloqueosTendenciasPage /></ProtectedRoute>} />
-          <Route path="/bloqueos/alertas" element={<ProtectedRoute dashboard="bloqueos"><BloqueosAlertasPage /></ProtectedRoute>} />
-          <Route path="/bloqueos/ajustes" element={<ProtectedRoute dashboard="bloqueos"><BloqueosAjustesPage /></ProtectedRoute>} />
-          <Route path="/bloqueos/:hotelId" element={<ProtectedRoute dashboard="bloqueos"><HotelBloqueosPage /></ProtectedRoute>} />
-          <Route path="/desayunos" element={<DesayunosRoute><DesayunosPage /></DesayunosRoute>} />
-          <Route element={<DesayunosSeccionesLayout />}>
-            <Route path="/desayunos/detalle" element={<DesayunosDetallePage />} />
-            <Route path="/desayunos/oportunidades" element={<DesayunosOportunidadesPage />} />
-            <Route path="/desayunos/tendencias" element={<DesayunosTendenciasPage />} />
-            <Route path="/desayunos/alertas" element={<DesayunosAlertasPage />} />
-          </Route>
-          <Route path="/desayunos/ajustes" element={<DesayunosRoute><DesayunosAjustesPage /></DesayunosRoute>} />
-          <Route path="/desayunos/:hotelId" element={<DesayunosRoute><HotelDesayunosPage /></DesayunosRoute>} />
-          <Route path="/usuarios" element={<SuperuserRoute><UsuariosPage /></SuperuserRoute>} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+                No existe una sección "Hoteles" independiente: cada dashboard
+                con datos por hotel trae su propio listado (dentro de la
+                página del dashboard) y su propia ficha de detalle, gateada
+                por el permiso de ese dashboard, no por uno genérico. */}
+            <Route path="/" element={<Inicio />} />
+            <Route path="/bloqueos" element={<ProtectedRoute dashboard="bloqueos"><BloqueosPage /></ProtectedRoute>} />
+            <Route path="/bloqueos/oportunidades" element={<ProtectedRoute dashboard="bloqueos"><BloqueosOportunidadesPage /></ProtectedRoute>} />
+            <Route path="/bloqueos/tendencias" element={<ProtectedRoute dashboard="bloqueos"><BloqueosTendenciasPage /></ProtectedRoute>} />
+            <Route path="/bloqueos/alertas" element={<ProtectedRoute dashboard="bloqueos"><BloqueosAlertasPage /></ProtectedRoute>} />
+            <Route path="/bloqueos/ajustes" element={<ProtectedRoute dashboard="bloqueos"><BloqueosAjustesPage /></ProtectedRoute>} />
+            <Route path="/bloqueos/:hotelId" element={<ProtectedRoute dashboard="bloqueos"><HotelBloqueosPage /></ProtectedRoute>} />
+            <Route path="/desayunos" element={<DesayunosRoute><DesayunosPage /></DesayunosRoute>} />
+            <Route element={<DesayunosSeccionesLayout />}>
+              <Route path="/desayunos/detalle" element={<DesayunosDetallePage />} />
+              <Route path="/desayunos/oportunidades" element={<DesayunosOportunidadesPage />} />
+              <Route path="/desayunos/tendencias" element={<DesayunosTendenciasPage />} />
+              <Route path="/desayunos/alertas" element={<DesayunosAlertasPage />} />
+            </Route>
+            <Route path="/desayunos/ajustes" element={<DesayunosRoute><DesayunosAjustesPage /></DesayunosRoute>} />
+            <Route path="/desayunos/:hotelId" element={<DesayunosRoute><HotelDesayunosPage /></DesayunosRoute>} />
+            <Route path="/usuarios" element={<SuperuserRoute><UsuariosPage /></SuperuserRoute>} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
       </AuthProvider>
     </BrowserRouter>
   );

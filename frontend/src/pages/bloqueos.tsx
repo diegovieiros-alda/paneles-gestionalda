@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Ban, Percent } from "lucide-react";
 import { DashboardShell } from "@/components/dashboard/shell";
 import { fetchBloqueos, type BloqueoHotel, type BloqueosReport } from "@/lib/bloqueos-api";
-import { rangeForPreset, type RangePreset } from "@/lib/date-range";
+import { useRangePreset } from "@/lib/use-range-preset";
 import { fmtEuro, fmtNum } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { fmtFecha, HotelBlockCard } from "@/components/dashboard/hotel-block-card";
@@ -33,21 +33,20 @@ function SummaryCard({
 }
 
 export default function BloqueosPage() {
-  const [preset, setPreset] = useState<RangePreset>("ayer");
-  const [custom, setCustom] = useState(() => rangeForPreset("ayer"));
+  const { preset, custom, desde, hasta, onPreset, onCustom } = useRangePreset("ayer");
   const [report, setReport] = useState<BloqueosReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { desde, hasta } = preset === "custom" ? custom : rangeForPreset(preset);
-
   useEffect(() => {
+    let vivo = true;
     setLoading(true);
     setError(null);
     fetchBloqueos(desde, hasta)
-      .then(setReport)
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+      .then((d) => { if (vivo) setReport(d); })
+      .catch((e) => { if (vivo) setError(e.message); })
+      .finally(() => { if (vivo) setLoading(false); });
+    return () => { vivo = false; };
   }, [desde, hasta]);
 
   const porZona = useMemo(() => {
@@ -67,16 +66,8 @@ export default function BloqueosPage() {
     : "Habitaciones fuera de servicio";
 
   return (
-    <DashboardShell title="Bloqueos" subtitle={subtitle} origenDatos={report?.origenDatos}>
-      <RangeFilter
-        preset={preset}
-        custom={custom}
-        onPreset={(p) => {
-          setPreset(p);
-          if (p !== "custom") setCustom(rangeForPreset(p));
-        }}
-        onCustom={setCustom}
-      />
+    <DashboardShell title="Bloqueos" subtitle={subtitle} origenDatos={report?.origenDatos} cargando={loading && !!report}>
+      <RangeFilter preset={preset} custom={custom} onPreset={onPreset} onCustom={onCustom} />
 
       <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
         {error && (
