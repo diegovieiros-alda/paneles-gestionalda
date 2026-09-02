@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -130,6 +131,20 @@ CACHES = {
         'LOCATION': BASE_DIR / 'django_cache',
     }
 }
+
+# Bug real encontrado 2026-09-02: un test que llama a una función real
+# decorada con @cache_result (con las dependencias mockeadas, pero la
+# función y su caché SIN mockear) con una fecha_inicio/fecha_fin que
+# coincide con una consultada de verdad en producción, escribe el
+# resultado FALSO del test en la misma caché de disco que usa gunicorn —
+# quedó ahí hasta que se vació a mano, sirviendo presupuesto de un hotel
+# inventado a usuarios reales durante ese rato. `cache.clear()` en
+# setUp() (ver hoteles/tests.py) protege al test de caché vieja, pero no
+# protege a producción de la caché que el test ACABA de escribir. Con
+# 'test' en sys.argv, manage.py test usa una caché en memoria propia del
+# proceso, nunca el fichero compartido.
+if 'test' in sys.argv:
+    CACHES['default'] = {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'}
 
 
 # Password validation

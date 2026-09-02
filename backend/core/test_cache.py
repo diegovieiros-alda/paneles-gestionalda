@@ -1,13 +1,26 @@
 """Comprobación mínima de que cache_result evita llamadas repetidas.
 
-La cache es FileBasedCache (ver settings.py, compartida entre workers de
-gunicorn) y por tanto persiste en disco entre ejecuciones sueltas de
-`manage.py test`, a diferencia de LocMemCache. cache.clear() en cada test
-evita que una ejecución anterior deje un hit ya calentado."""
+En producción la cache es FileBasedCache (ver settings.py, compartida
+entre workers de gunicorn); bajo `manage.py test` settings.py la cambia a
+LocMemCache (bug real 2026-09-02: un test que llamaba a una función real
+cacheada con fechas de producción escribió su resultado falso en el
+fichero compartido, sirviéndolo a usuarios reales durante un rato — ver
+el comentario junto a CACHES en settings.py). cache.clear() en cada test
+sigue haciendo falta: LocMemCache es por proceso, no por test."""
+from django.conf import settings
 from django.core.cache import cache
 from django.test import SimpleTestCase
 
 from .cache import cache_result, origen_datos, tracking
+
+
+class CacheBackendEnTestsTests(SimpleTestCase):
+    """Guarda el arreglo del bug de 2026-09-02 (ver settings.py junto a
+    CACHES): si alguien quita el `if 'test' in sys.argv` de settings.py,
+    este test avisa antes de que vuelva a pasar."""
+
+    def test_los_tests_no_usan_el_fichero_compartido_de_produccion(self):
+        self.assertEqual(settings.CACHES["default"]["BACKEND"], "django.core.cache.backends.locmem.LocMemCache")
 
 
 class CacheResultTests(SimpleTestCase):
