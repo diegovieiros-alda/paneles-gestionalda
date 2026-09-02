@@ -80,6 +80,54 @@ class MapeoRolPuesto(models.Model):
         return f"{self.puesto_trabajo} → {self.grupo.name}"
 
 
+class PresupuestoDesayunoMensual(models.Model):
+    """Previsión de desayuno por hotel y mes, importada periódicamente
+    desde la hoja de cálculo de Finanzas "PRESUPUESTOS F&B" (Google
+    Sheets) — ver management/commands/importar_presupuesto_fb.py.
+
+    Se guardan los 4 componentes de la hoja (Alojados previstos, %
+    desayunos/alojados previsto, precio interno, coste interno), no el
+    ingreso/gasto ya calculado: 2026-09-02, pedido explícitamente ("hay
+    que... indicar de dónde viene el dato") — guardar los componentes deja
+    la fórmula (unidades × precio, unidades × coste) visible y auditable
+    en repository.fetch_presupuesto_desayuno_excel, en vez de confiar en
+    una celda ya calculada dentro de la hoja.
+
+    Es UNA de las dos fuentes de presupuesto que combina
+    repository.fetch_presupuesto_desayuno — la otra es Odoo
+    (account_move_budget_line, confirmado), que sigue consultándose
+    (decisión 2026-09-02: "hay que traer también el dato de Odoo", revierte
+    la decisión anterior de sustituirlo por completo). Odoo tiene prioridad
+    cuando existe para ese hotel/mes (es el presupuesto oficial confirmado);
+    esta hoja rellena los huecos donde Odoo todavía no tiene nada
+    confirmado. El origen efectivamente usado se expone en la API como
+    "presupuestoOrigen" — ver hoteles/service.py::_fnb_json.
+
+    property_code, no pms_property_id: la hoja identifica el hotel por su
+    código de propiedad (el mismo que usa bloqueos.engine.MAPEO_ZONAS), no
+    por el id interno de Odoo — se resuelve a pms_property_id en el
+    momento de leer (hoteles.repository, vía fetch_hoteles), no al
+    guardar, así que un cambio de id en Odoo no invalida lo ya importado."""
+
+    property_code = models.CharField(max_length=20)
+    mes = models.DateField(help_text="Día 1 del mes presupuestado")
+    alojados_previstos = models.FloatField(default=0.0)
+    penetracion_prevista = models.FloatField(default=0.0, help_text="Fracción (0,4508 = 45,08%), no porcentaje")
+    precio_interno = models.FloatField(default=0.0)
+    coste_interno = models.FloatField(default=0.0)
+    actualizado_en = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["property_code", "mes"], name="unico_presupuesto_fb_por_hotel_mes")
+        ]
+        verbose_name = "Presupuesto de desayuno (mensual)"
+        verbose_name_plural = "Presupuestos de desayuno (mensuales)"
+
+    def __str__(self):
+        return f"{self.property_code} {self.mes.isoformat()}"
+
+
 class PerfilUsuario(models.Model):
     """Departamento y puesto de trabajo de Odoo del usuario, cacheados en
     cada login para mostrarlos en la pantalla de administración sin

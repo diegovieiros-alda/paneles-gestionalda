@@ -1034,6 +1034,35 @@ analítica pierde su presupuesto; dos propiedades que comparten analítica
 duplican el total) siguen siendo un riesgo teórico real del JOIN por
 analítica, pero no se puede evitar sin instalar el módulo — **queda anotado
 como mejora futura condicionada a esa instalación, no como algo a corregir
+
+**Ampliado (2026-09-02)**: lo anterior de esta sección sigue vigente para
+el lado Odoo, pero ya no es la única fuente. `repository.py` ahora combina
+DOS fuentes: Odoo (`account_move_budget_line`, exactamente el criterio de
+esta sección — sin cambios) con prioridad cuando existe, y la hoja de
+Finanzas "PRESUPUESTOS F&B" (Google Sheets) como respaldo, importada a
+diario a la tabla propia `core.models.PresupuestoDesayunoMensual` por
+`management/commands/importar_presupuesto_fb.py`, resuelta a hotel por
+`property_code` (no por `hotel_analytic_account_id`).
+
+Primero se planteó (misma sesión) sustituir Odoo por completo — se
+corrigió sobre la marcha: "me he equivocado, hay que traer también el dato
+de Odoo, creo que sería bueno indicar de dónde viene el dato". Por eso el
+resultado combinado expone qué fuente se usó por hotel/mes
+(`presupuestoOrigen`: `"odoo"` o `"excel"`, ver `hoteles/service.py::_fnb_json`
+y el frontend), en vez de mezclar los dos en un solo número sin avisar.
+
+La hoja NO trae "Ingresos (705.20)"/"Costes internos (601.1)" ya
+calculados — trae los 4 componentes (Alojados previstos, % desayunos/
+alojados, precio interno, coste interno) y `repository.
+fetch_presupuesto_desayuno_excel` calcula ingresos = alojados × % ×
+precio, gastos = lo mismo × coste. Motivo (pedido explícito): que la
+fórmula sea visible y auditable en código, no una celda opaca de la hoja.
+
+**Pendiente de aprobación explícita del responsable de administración
+antes de desplegar** (cambia de dónde puede salir un importe financiero,
+ver regla de CLAUDE.md) y de crear la cuenta de servicio de Google que
+lee la hoja — el código está escrito y probado (tests de parseo y de la
+combinación Odoo/Excel) pero no desplegado a la espera de ambas cosas.
 ahora en el código**.
 
 **Criterio**:
@@ -1925,3 +1954,62 @@ WHERE state NOT IN ('draft', 'cancel')
   - No se ha ejecutado ninguna consulta nueva contra producción en esta
     verificación (solo lectura de código) — las cifras "pendientes de
     revalidar" de este documento siguen pendientes, sin cambios.
+- 2026-09-02: **presupuesto de desayuno deja de salir de Odoo**. Pedido:
+  "los presupuestos de los hoteles para los desayunos se encuentran en un
+  excel, ¿cómo lo implementamos en el dashboard?" (hoja de Google Sheets
+  "PRESUPUESTOS F&B - REAL- 26/27", Finanzas). Decisión confirmada con el
+  usuario: la hoja sustituye por completo a `account_move_budget_line`
+  como fuente de presupuesto de desayuno (no queda como respaldo ni se
+  muestran ambas). Implementado: `core.models.PresupuestoDesayunoMensual`
+  (tabla propia, `property_code` + mes), importada por
+  `manage.py importar_presupuesto_fb` (cuenta de servicio de Google,
+  pensado para cron diario) desde la pestaña de la hoja identificada por
+  su `gid`. `repository.fetch_presupuesto_desayuno`/
+  `fetch_presupuesto_serie_mensual`/`_hotel` reescritas para leer de esa
+  tabla en vez de Odoo — mismo `dict` de salida
+  (`presupuestoIngresos`/`presupuestoGastos`), así que `service.py` y el
+  frontend no cambian. Solo se importan Ingresos (705.20) y Costes
+  internos (601.1) de la hoja — Costes externos (607.0) NO se importa,
+  para no mezclar un alcance de gasto distinto al que ya usa
+  `_CUENTAS_GASTO_DESAYUNO` (solo cuentas 601.x) en el "gasto real" con el
+  que se compara. Parseo verificado contra la hoja real (86 hoteles, 12
+  meses, 1031 registros extraídos correctamente) sin guardar ni repetir
+  ninguna cifra real fuera del propio Google Sheet — son datos de
+  presupuesto, confidenciales. **Pendiente de aprobación explícita del
+  responsable de administración antes de desplegar** (cambia el origen de
+  un importe financiero, CLAUDE.md) y de que se cree y comparta la cuenta
+  de servicio de Google con la hoja — el código está escrito y probado
+  (tests de parseo) pero no desplegado a la espera de ambas cosas.
+- 2026-09-02 (mismo día, corrección sobre la entrada anterior): **no se
+  sustituye Odoo, se combinan las dos fuentes**. El usuario corrigió la
+  decisión: "me he equivocado, hay que traer también el dato de Odoo,
+  creo que sería bueno indicar de dónde viene el dato." También aclaró
+  qué debía traerse de la hoja: no "Ingresos (705.20)"/"Costes internos
+  (601.1)" ya calculados, sino los 4 componentes (Alojados previstos, %
+  desayunos/alojados, precio interno, coste interno) para que el cálculo
+  (unidades × precio/coste) sea visible en código.
+  - `PresupuestoDesayunoMensual` cambia sus campos de
+    `ingresos`/`gastos` a los 4 componentes de la hoja.
+  - `fetch_presupuesto_desayuno_odoo`/`_excel` quedan como funciones
+    separadas; `fetch_presupuesto_desayuno` (mismo nombre público que
+    antes, `service.py` no cambia su llamada) las combina: Odoo
+    prioritario cuando existe, Excel de respaldo, con `presupuestoOrigen`
+    ("odoo"/"excel") en el resultado. Mismo patrón para las series
+    mensuales (cadena completa y por hotel).
+  - `_fnb_json` (service.py) propaga `presupuestoOrigen` a la API; el
+    frontend muestra una etiqueta pequeña ("Odoo"/"Excel") junto a la
+    cifra de presupuesto en la tabla F&B y en la ficha de hotel.
+  - Parseo re-verificado contra la hoja real con los 4 componentes
+    (1032 registros, 86 hoteles) — sin guardar ninguna cifra real.
+  - De paso, se encontró y corrigió un bug preexistente en
+    `core/hoteles/tests.py` (`GetHotelesTests`, no introducido por este
+    cambio): un test anidaba dos `mock.patch.object` sobre el mismo
+    nombre (`fetch_presupuesto_desayuno`) sin usar el mock que ya
+    devolvía `_mock_repository`, dejando un `MagicMock` permanente en
+    `repository.fetch_presupuesto_desayuno` para el resto de la
+    ejecución de tests tras pasar por ese test — invisible hasta que un
+    test posterior (los nuevos de esta entrada) dependió de la función
+    real. Corregido: `_mock_repository` devuelve ahora los mocks creados
+    en vez de que el test cree uno propio encima.
+  - Sigue pendiente lo mismo que la entrada anterior: aprobación de
+    administración y la cuenta de servicio de Google — no desplegado.

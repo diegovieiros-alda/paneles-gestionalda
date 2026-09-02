@@ -30,7 +30,7 @@ _DESAYUNO_VACIO = {
     "produccion_sin_facturar": 0.0,
 }
 _FNB_VACIO = {"ingresos": 0.0, "unidades": 0.0, "gastos": 0.0}
-_PRESUPUESTO_VACIO = {"presupuestoIngresos": 0.0, "presupuestoGastos": 0.0}
+_PRESUPUESTO_VACIO = {"presupuestoIngresos": 0.0, "presupuestoGastos": 0.0, "presupuestoOrigen": None}
 
 
 def _precio_medio(d: dict) -> float:
@@ -84,7 +84,14 @@ def _fnb_json(f: dict, presupuesto: dict = _PRESUPUESTO_VACIO, motivo_presupuest
     presupuesto). motivo_presupuesto distingue esa razón de la otra posible
     ("rango_no_es_mes_natural", ver _rango_es_mes_natural) — quien llame ya
     debe pasar presupuesto={} en ese caso, este parámetro es solo para que
-    el frontend sepa por qué está vacío."""
+    el frontend sepa por qué está vacío.
+
+    presupuestoOrigen ("odoo"/"excel"/None): de dónde sale el presupuesto
+    mostrado — repository.fetch_presupuesto_desayuno combina Odoo
+    (confirmado, prioritario) y la hoja de Finanzas (respaldo) y ya decide
+    cuál de los dos se usa por hotel/mes; aquí solo se propaga ese dato
+    para que el frontend lo muestre (pedido explícito: "sería bueno
+    indicar de dónde viene el dato")."""
     ingresos, gastos = f["ingresos"], f["gastos"]
     unidades = f["unidades"]
     presupuesto_ingresos = presupuesto["presupuestoIngresos"]
@@ -101,6 +108,7 @@ def _fnb_json(f: dict, presupuesto: dict = _PRESUPUESTO_VACIO, motivo_presupuest
         "cumplimientoIngresos": round(ingresos / presupuesto_ingresos, 4) if presupuesto_ingresos > 0 else None,
         "cumplimientoGastos": round(gastos / presupuesto_gastos, 4) if presupuesto_gastos > 0 else None,
         "presupuestoMotivo": motivo_presupuesto,
+        "presupuestoOrigen": presupuesto.get("presupuestoOrigen"),
     }
 
 

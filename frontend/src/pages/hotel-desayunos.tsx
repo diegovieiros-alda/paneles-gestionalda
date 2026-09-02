@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { fetchHotelInfo, fetchHotelDesayunos, type HotelDirectorio, type HotelDesayunos, type MesHotel, type FnbFields, type FacturacionFields } from "@/lib/hoteles-api";
 import { exportarCsv } from "@/lib/export-csv";
 import {
-  ETIQUETA_BADGE_CLASS, ETIQUETA_LABEL, etiqueta, etiquetaCumplimiento,
+  ETIQUETA_BADGE_CLASS, ETIQUETA_LABEL, ORIGEN_PRESUPUESTO_LABEL, etiqueta, etiquetaCumplimiento,
   fmtEuro, fmtNum, fmtPct, type Etiqueta,
 } from "@/lib/mock-data";
 import { useAjustesDesayuno } from "@/lib/ajustes-desayuno-context";
@@ -207,18 +207,32 @@ export default function HotelDesayunosPage() {
                 value={data.actual.presupuestoIngresos > 0 ? fmtEuro(data.actual.presupuestoIngresos) : "—"}
                 tone="neutral"
                 footer={
-                  data.actual.presupuestoMotivo === "rango_no_es_mes_natural"
-                    ? "Elige un mes completo para ver el cumplimiento"
-                    : data.actual.cumplimientoIngresos !== null
-                      ? (() => {
-                          const e = etiquetaCumplimiento(data.actual.cumplimientoIngresos);
-                          return e ? (
+                  data.actual.presupuestoMotivo === "rango_no_es_mes_natural" ? (
+                    "Elige un mes completo para ver el cumplimiento"
+                  ) : data.actual.cumplimientoIngresos !== null ? (
+                    (() => {
+                      const e = etiquetaCumplimiento(data.actual.cumplimientoIngresos);
+                      return (
+                        <span className="inline-flex items-center gap-1.5">
+                          {e && (
                             <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium", ETIQUETA_BADGE_CLASS[e])}>
                               {fmtPct(data.actual.cumplimientoIngresos, 0)} · {ETIQUETA_LABEL[e]}
                             </span>
-                          ) : undefined;
-                        })()
-                      : "Sin presupuesto confirmado"
+                          )}
+                          {data.actual.presupuestoOrigen && (
+                            <span
+                              className="text-[10px] uppercase tracking-wide text-muted-foreground/60 border border-border rounded px-1"
+                              title={`Presupuesto de ${ORIGEN_PRESUPUESTO_LABEL[data.actual.presupuestoOrigen]}`}
+                            >
+                              {ORIGEN_PRESUPUESTO_LABEL[data.actual.presupuestoOrigen]}
+                            </span>
+                          )}
+                        </span>
+                      );
+                    })()
+                  ) : (
+                    "Sin presupuesto confirmado"
+                  )
                 }
               />
             </section>

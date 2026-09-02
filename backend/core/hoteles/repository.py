@@ -518,16 +518,29 @@ _FNB_MENSUAL_SQL = """
     ORDER BY 1
 """
 
-# Presupuesto (account.move.budget): mismas cuentas que Ingresos/Gastos
-# reales, para poder comparar. La línea de presupuesto es mensual (fecha
-# siempre día 1) y solo cuenta si el presupuesto está state='confirmed'
-# (los 'draft' no son oficiales). El signo en contabilidad es al revés del
-# que parece intuitivo: en una cuenta de ingreso el importe presupuestado
-# vive en `credit` (balance = debit-credit sale negativo para ingresos);
-# en una cuenta de gasto vive en `debit`. Por eso credit-debit para
-# ingresos y debit-credit para gastos, no al revés.
-# hotel_analytic_account_id = pms_property.analytic_account_id (verificado
-# 2026-08-21) es como se une el presupuesto a un hotel concreto.
+# Presupuesto de desayuno: combina DOS fuentes (decisión 2026-09-02,
+# corregida sobre la marcha — primero se planteó sustituir Odoo por la hoja
+# de Finanzas, pero "hay que traer también el dato de Odoo, creo que sería
+# bueno indicar de dónde viene el dato"):
+#   - Odoo (account_move_budget_line, confirmed-only): el presupuesto
+#     oficial ya confirmado en contabilidad, cuando existe. Prioritario.
+#   - La hoja de Finanzas "PRESUPUESTOS F&B" (PresupuestoDesayunoMensual,
+#     importada por management/commands/importar_presupuesto_fb.py):
+#     rellena los meses/hoteles donde Odoo todavía no tiene nada
+#     confirmado (ver aviso de cobertura en kpis-definiciones.md — solo
+#     cubre algunos hoteles a partir de octubre 2026).
+# El origen efectivamente usado por hotel/mes se expone en la API como
+# "presupuestoOrigen" (ver fetch_presupuesto_desayuno más abajo y
+# hoteles/service.py::_fnb_json) — nunca se mezclan los dos dentro del
+# mismo hotel/mes, se elige uno completo.
+#
+# El signo en contabilidad es al revés del que parece intuitivo: en una
+# cuenta de ingreso el importe presupuestado vive en `credit` (balance =
+# debit-credit sale negativo para ingresos); en una cuenta de gasto vive
+# en `debit`. Por eso credit-debit para ingresos y debit-credit para
+# gastos, no al revés. hotel_analytic_account_id =
+# pms_property.analytic_account_id (verificado 2026-08-21) es como se une
+# el presupuesto de Odoo a un hotel concreto.
 _PRESUPUESTO_SQL = """
     SELECT
         p.id,
@@ -561,6 +574,32 @@ _PRESUPUESTO_MENSUAL_SQL = """
     GROUP BY 1
     ORDER BY 1
 """
+
+_PRESUPUESTO_MENSUAL_HOTEL_SQL = """
+    SELECT
+        date_trunc('month', bl.date)::date,
+        SUM(bl.credit) FILTER (WHERE aa.code = %(cuenta_ingreso)s)
+          - SUM(bl.debit) FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS presupuesto_ingresos,
+        SUM(bl.debit) FILTER (WHERE aa.code = ANY(%(cuentas_gasto)s))
+          - SUM(bl.credit) FILTER (WHERE aa.code = ANY(%(cuentas_gasto)s)) AS presupuesto_gastos
+    FROM account_move_budget_line bl
+    JOIN account_account aa ON aa.id = bl.account_id
+    JOIN account_move_budget b ON b.id = bl.budget_id
+    JOIN pms_property p ON p.analytic_account_id = bl.hotel_analytic_account_id
+    WHERE p.id = %(hotel_id)s AND b.state = 'confirmed'
+      AND date_trunc('month', bl.date) BETWEEN date_trunc('month', %(desde)s) AND date_trunc('month', %(hasta)s)
+      AND (aa.code = %(cuenta_ingreso)s OR aa.code = ANY(%(cuentas_gasto)s))
+    GROUP BY 1
+    ORDER BY 1
+"""
+
+# fecha_inicio.replace(day=1) en el filtro inferior de las funciones Excel
+# (más abajo): replica a propósito el date_trunc('month', ...) que ya hace
+# la consulta de Odoo sobre "desde" (mes/año fiscal/rango custom pueden
+# llegar con fecha_inicio que no sea día 1 en la serie de 12 meses de
+# get_resumen) — el límite superior no necesita el mismo tratamiento
+# porque "mes" siempre es día 1, así que "mes <= fecha_fin" ya equivale a
+# compararlo truncado.
 
 # Reemplaza el antiguo ranking "Vendedores" (nombre de la persona que creó
 # la línea contable, dato personal/laboral — ver instrucciones de
@@ -694,24 +733,6 @@ _FNB_MENSUAL_HOTEL_SQL = """
     ORDER BY 1
 """
 
-_PRESUPUESTO_MENSUAL_HOTEL_SQL = """
-    SELECT
-        date_trunc('month', bl.date)::date,
-        SUM(bl.credit) FILTER (WHERE aa.code = %(cuenta_ingreso)s)
-          - SUM(bl.debit) FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS presupuesto_ingresos,
-        SUM(bl.debit) FILTER (WHERE aa.code = ANY(%(cuentas_gasto)s))
-          - SUM(bl.credit) FILTER (WHERE aa.code = ANY(%(cuentas_gasto)s)) AS presupuesto_gastos
-    FROM account_move_budget_line bl
-    JOIN account_account aa ON aa.id = bl.account_id
-    JOIN account_move_budget b ON b.id = bl.budget_id
-    JOIN pms_property p ON p.analytic_account_id = bl.hotel_analytic_account_id
-    WHERE p.id = %(hotel_id)s AND b.state = 'confirmed'
-      AND date_trunc('month', bl.date) BETWEEN date_trunc('month', %(desde)s) AND date_trunc('month', %(hasta)s)
-      AND (aa.code = %(cuenta_ingreso)s OR aa.code = ANY(%(cuentas_gasto)s))
-    GROUP BY 1
-    ORDER BY 1
-"""
-
 _TURNOS_DESAYUNO_HOTEL_SQL = (
     _CTES_DESAYUNO
     + """
@@ -768,9 +789,9 @@ def fetch_fnb_desayuno(fecha_inicio: datetime.date, fecha_fin: datetime.date) ->
 
 
 @cache_result
-def fetch_presupuesto_desayuno(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[int, dict]:
-    """Presupuesto de ingresos/gastos de desayuno por hotel (account.move.budget,
-    solo state='confirmed'), mismas cuentas que fetch_fnb_desayuno."""
+def fetch_presupuesto_desayuno_odoo(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[int, dict]:
+    """Presupuesto confirmado en Odoo (account_move_budget_line) por
+    hotel — cobertura parcial, ver aviso en kpis-definiciones.md."""
     with connections["odoo"].cursor() as cur:
         cur.execute(
             _PRESUPUESTO_SQL,
@@ -790,9 +811,52 @@ def fetch_presupuesto_desayuno(fecha_inicio: datetime.date, fecha_fin: datetime.
 
 
 @cache_result
-def fetch_presupuesto_serie_mensual(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[str, dict]:
-    """Igual que fetch_presupuesto_desayuno pero agregado por mes (cadena
-    completa), para comparar contra lo real en el gráfico de evolución."""
+def fetch_presupuesto_desayuno_excel(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[int, dict]:
+    """Previsión de desayuno por hotel, calculada a partir de los 4
+    componentes de la hoja de Finanzas (PresupuestoDesayunoMensual):
+    ingresos = alojados_previstos × penetracion_prevista × precio_interno;
+    gastos = lo mismo × coste_interno en vez de precio. La fórmula vive
+    aquí a propósito (no en la hoja ni en el comando de importación) para
+    que sea visible y auditable."""
+    from ..models import PresupuestoDesayunoMensual
+
+    codigo_a_id = {h["property_code"]: h["id"] for h in fetch_hoteles() if h["property_code"]}
+    filas = PresupuestoDesayunoMensual.objects.filter(
+        mes__gte=fecha_inicio.replace(day=1), mes__lte=fecha_fin
+    ).values("property_code", "alojados_previstos", "penetracion_prevista", "precio_interno", "coste_interno")
+    resultado: dict[int, dict] = {}
+    for fila in filas:
+        hotel_id = codigo_a_id.get(fila["property_code"])
+        if hotel_id is None:
+            continue
+        unidades = fila["alojados_previstos"] * fila["penetracion_prevista"]
+        acc = resultado.setdefault(hotel_id, {"presupuestoIngresos": 0.0, "presupuestoGastos": 0.0})
+        acc["presupuestoIngresos"] += unidades * fila["precio_interno"]
+        acc["presupuestoGastos"] += unidades * fila["coste_interno"]
+    return resultado
+
+
+def fetch_presupuesto_desayuno(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[int, dict]:
+    """Combina Odoo (prioritario, presupuesto oficial confirmado) y la
+    hoja de Finanzas (rellena los hoteles/meses que Odoo no tiene
+    confirmados todavía) — nunca se mezclan los dos dentro del mismo
+    hotel: se elige uno completo, y se indica cuál en "presupuestoOrigen"
+    para que se sepa de dónde sale el número."""
+    odoo = fetch_presupuesto_desayuno_odoo(fecha_inicio, fecha_fin)
+    excel = fetch_presupuesto_desayuno_excel(fecha_inicio, fecha_fin)
+    resultado: dict[int, dict] = {}
+    for hotel_id in set(odoo) | set(excel):
+        if hotel_id in odoo:
+            resultado[hotel_id] = {**odoo[hotel_id], "presupuestoOrigen": "odoo"}
+        else:
+            resultado[hotel_id] = {**excel[hotel_id], "presupuestoOrigen": "excel"}
+    return resultado
+
+
+@cache_result
+def fetch_presupuesto_serie_mensual_odoo(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[str, dict]:
+    """Igual que fetch_presupuesto_desayuno_odoo pero agregado por mes
+    (cadena completa), para comparar contra lo real en el gráfico de evolución."""
     with connections["odoo"].cursor() as cur:
         cur.execute(
             _PRESUPUESTO_MENSUAL_SQL,
@@ -808,6 +872,38 @@ def fetch_presupuesto_serie_mensual(fecha_inicio: datetime.date, fecha_fin: date
         r[0].isoformat(): {"presupuestoIngresos": float(r[1] or 0), "presupuestoGastos": float(r[2] or 0)}
         for r in rows
     }
+
+
+@cache_result
+def fetch_presupuesto_serie_mensual_excel(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[str, dict]:
+    """Igual que fetch_presupuesto_desayuno_excel pero agregado por mes
+    (cadena completa, todos los hoteles sumados por mes)."""
+    from ..models import PresupuestoDesayunoMensual
+
+    filas = PresupuestoDesayunoMensual.objects.filter(
+        mes__gte=fecha_inicio.replace(day=1), mes__lte=fecha_fin
+    ).values("mes", "alojados_previstos", "penetracion_prevista", "precio_interno", "coste_interno")
+    resultado: dict[str, dict] = {}
+    for fila in filas:
+        unidades = fila["alojados_previstos"] * fila["penetracion_prevista"]
+        acc = resultado.setdefault(fila["mes"].isoformat(), {"presupuestoIngresos": 0.0, "presupuestoGastos": 0.0})
+        acc["presupuestoIngresos"] += unidades * fila["precio_interno"]
+        acc["presupuestoGastos"] += unidades * fila["coste_interno"]
+    return resultado
+
+
+def fetch_presupuesto_serie_mensual(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[str, dict]:
+    """Igual que fetch_presupuesto_desayuno pero agregado por mes (cadena
+    completa) — mismo criterio de combinación Odoo/Excel por mes."""
+    odoo = fetch_presupuesto_serie_mensual_odoo(fecha_inicio, fecha_fin)
+    excel = fetch_presupuesto_serie_mensual_excel(fecha_inicio, fecha_fin)
+    resultado: dict[str, dict] = {}
+    for mes in set(odoo) | set(excel):
+        if mes in odoo:
+            resultado[mes] = {**odoo[mes], "presupuestoOrigen": "odoo"}
+        else:
+            resultado[mes] = {**excel[mes], "presupuestoOrigen": "excel"}
+    return resultado
 
 
 @cache_result
@@ -888,8 +984,10 @@ def fetch_fnb_serie_mensual_hotel(hotel_id: int, fecha_inicio: datetime.date, fe
 
 
 @cache_result
-def fetch_presupuesto_serie_mensual_hotel(hotel_id: int, fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[str, dict]:
-    """Igual que fetch_presupuesto_serie_mensual pero para un único hotel (ficha individual)."""
+def fetch_presupuesto_serie_mensual_hotel_odoo(
+    hotel_id: int, fecha_inicio: datetime.date, fecha_fin: datetime.date
+) -> dict[str, dict]:
+    """Igual que fetch_presupuesto_serie_mensual_odoo pero para un único hotel."""
     with connections["odoo"].cursor() as cur:
         cur.execute(
             _PRESUPUESTO_MENSUAL_HOTEL_SQL,
@@ -906,6 +1004,45 @@ def fetch_presupuesto_serie_mensual_hotel(hotel_id: int, fecha_inicio: datetime.
         r[0].isoformat(): {"presupuestoIngresos": float(r[1] or 0), "presupuestoGastos": float(r[2] or 0)}
         for r in rows
     }
+
+
+@cache_result
+def fetch_presupuesto_serie_mensual_hotel_excel(
+    hotel_id: int, fecha_inicio: datetime.date, fecha_fin: datetime.date
+) -> dict[str, dict]:
+    """Igual que fetch_presupuesto_desayuno_excel pero para un único hotel, mes a mes."""
+    from ..models import PresupuestoDesayunoMensual
+
+    property_code = next((h["property_code"] for h in fetch_hoteles() if h["id"] == hotel_id), None)
+    if not property_code:
+        return {}
+    filas = PresupuestoDesayunoMensual.objects.filter(
+        property_code=property_code, mes__gte=fecha_inicio.replace(day=1), mes__lte=fecha_fin
+    ).values("mes", "alojados_previstos", "penetracion_prevista", "precio_interno", "coste_interno")
+    resultado: dict[str, dict] = {}
+    for fila in filas:
+        unidades = fila["alojados_previstos"] * fila["penetracion_prevista"]
+        resultado[fila["mes"].isoformat()] = {
+            "presupuestoIngresos": unidades * fila["precio_interno"],
+            "presupuestoGastos": unidades * fila["coste_interno"],
+        }
+    return resultado
+
+
+def fetch_presupuesto_serie_mensual_hotel(
+    hotel_id: int, fecha_inicio: datetime.date, fecha_fin: datetime.date
+) -> dict[str, dict]:
+    """Igual que fetch_presupuesto_serie_mensual pero para un único hotel
+    (ficha individual) — mismo criterio de combinación Odoo/Excel por mes."""
+    odoo = fetch_presupuesto_serie_mensual_hotel_odoo(hotel_id, fecha_inicio, fecha_fin)
+    excel = fetch_presupuesto_serie_mensual_hotel_excel(hotel_id, fecha_inicio, fecha_fin)
+    resultado: dict[str, dict] = {}
+    for mes in set(odoo) | set(excel):
+        if mes in odoo:
+            resultado[mes] = {**odoo[mes], "presupuestoOrigen": "odoo"}
+        else:
+            resultado[mes] = {**excel[mes], "presupuestoOrigen": "excel"}
+    return resultado
 
 
 @cache_result

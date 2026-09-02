@@ -113,6 +113,13 @@ DATABASES = {
 # third-party schema) — keep migrations off it and never route writes there.
 DATABASE_ROUTERS = ['core.db_routers.OdooReadOnlyRouter']
 
+# Ruta a la credencial JSON de la cuenta de servicio de Google usada por
+# `manage.py importar_presupuesto_fb` (ver ese comando para el porqué) — la
+# cuenta de servicio necesita acceso de "Lector" a la hoja de Finanzas,
+# compartido desde Google Sheets, no desde aquí. None (sin configurar) en
+# local: el comando falla con un mensaje explícito en vez de un traceback.
+GOOGLE_SHEETS_CREDENTIALS_FILE = os.environ.get('GOOGLE_SHEETS_CREDENTIALS_FILE') or None
+
 # Cache en disco (no LocMemCache): gunicorn corre con varios workers, cada
 # uno con su propia memoria, así que una cache en RAM del proceso solo
 # acierta 1 de cada N veces. Un directorio compartido en disco lo arregla
