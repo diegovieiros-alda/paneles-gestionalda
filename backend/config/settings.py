@@ -27,6 +27,13 @@ DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
 ALLOWED_HOSTS = [h for h in os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',') if h]
 CSRF_TRUSTED_ORIGINS = [o for o in os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', '').split(',') if o]
 
+# Sin esto, Django manda las cookies de sesión/CSRF también por HTTP plano
+# (su default es False, pensado para poder arrancar en local sin HTTPS).
+# En producción (DEBUG=False) siempre se sirve por HTTPS, así que se puede
+# exigir aquí sin romper el entorno local (DEBUG=True en .env de desarrollo).
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+
 
 # Application definition
 
