@@ -159,33 +159,18 @@ _CTES_DESAYUNO = """
 # fsl.price_subtotal (precio del folio, aún no hay importe de factura real)
 # — es una estimación, no un hecho contable, igual que ya lo era dentro de
 # produccion_total antes de este desglose.
-_DESAYUNOS_SQL = (
-    _CTES_DESAYUNO
-    + """
-    SELECT
-        fsl.pms_property_id,
-        SUM(fsl.product_uom_qty) FILTER (WHERE pd.default_code != ALL(%(colaborador)s)) AS cantidad_directa,
-        SUM(fsl.product_uom_qty) AS cantidad_total,
-        SUM(fsl.product_uom_qty) FILTER (WHERE f.sale_line_id IS NOT NULL) AS cantidad_facturada,
-        SUM(fsl.product_uom_qty) FILTER (WHERE f.sale_line_id IS NULL) AS cantidad_sin_facturar,
-        SUM(COALESCE(f.monto_facturado, fsl.price_subtotal)) AS produccion_total,
-        SUM(f.monto_facturado) FILTER (WHERE f.sale_line_id IS NOT NULL) AS produccion_facturada,
-        SUM(fsl.price_subtotal) FILTER (WHERE f.sale_line_id IS NULL) AS produccion_sin_facturar
-    FROM folio_sale_line fsl
-    JOIN productos_desayuno pd ON pd.product_id = fsl.product_id
-    LEFT JOIN facturado f ON f.sale_line_id = fsl.id
-    WHERE fsl.date_order BETWEEN %(desde)s AND %(hasta)s
-      AND fsl.state NOT IN ('draft', 'cancel')
-    GROUP BY fsl.pms_property_id
-"""
-)
-
-# Variante de _CTES_DESAYUNO/_DESAYUNOS_SQL que añade la clasificación por
-# Tipo Desayuno (ver _TODOS_TIPOS_DESAYUNO) y filtra por ella. Deliberadamente
-# UNA QUERY APARTE, no una modificación de las de arriba: así el camino sin
-# filtro (tipos_desayuno=None o los 4 completos) sigue ejecutando la SQL
-# original sin tocar, byte a byte — cero riesgo de cambiar el número de
-# Penetración/Producción que ya usa toda la app cuando no se pide este filtro.
+# Variante de _CTES_DESAYUNO que añade la clasificación por Tipo Desayuno
+# (ver _TODOS_TIPOS_DESAYUNO), sin filtrar por ella — fetch_desayunos_por_tipo
+# (más abajo) trae SIEMPRE el desglose completo de los 4 tipos, cacheado sin
+# depender de qué tipos se pidieron. Antes (hasta 2026-09-02) el filtro de
+# Producto elegía en tiempo de consulta entre esta query y una variante con
+# WHERE tipo_desayuno = ANY(...), así que cada combinación de tipos era una
+# entrada de caché distinta y una consulta nueva contra Odoo — cambiar
+# Producto era tan lento como cambiar de Periodo (reportado: "los filtros
+# tardan mucho en cargar"). Con el desglose siempre completo, fetch_desayunos
+# pasa a ser un compuesto que solo suma en Python (mismo patrón que
+# fetch_ud_desayunos_produccion en kpis-definiciones.md) — cambiar Producto
+# ya no toca la base de datos en absoluto tras el primer fetch del periodo.
 _CTES_DESAYUNO_CON_TIPO = (
     _CTES_DESAYUNO
     + """,
@@ -211,11 +196,12 @@ _CTES_DESAYUNO_CON_TIPO = (
 """
 )
 
-_DESAYUNOS_SQL_CON_TIPO = (
+_DESAYUNOS_POR_TIPO_SQL = (
     _CTES_DESAYUNO_CON_TIPO
     + """
     SELECT
         fsl.pms_property_id,
+        pty.tipo_desayuno,
         SUM(fsl.product_uom_qty) FILTER (WHERE pd.default_code != ALL(%(colaborador)s)) AS cantidad_directa,
         SUM(fsl.product_uom_qty) AS cantidad_total,
         SUM(fsl.product_uom_qty) FILTER (WHERE f.sale_line_id IS NOT NULL) AS cantidad_facturada,
@@ -229,8 +215,7 @@ _DESAYUNOS_SQL_CON_TIPO = (
     LEFT JOIN facturado f ON f.sale_line_id = fsl.id
     WHERE fsl.date_order BETWEEN %(desde)s AND %(hasta)s
       AND fsl.state NOT IN ('draft', 'cancel')
-      AND pty.tipo_desayuno = ANY(%(tipos)s)
-    GROUP BY fsl.pms_property_id
+    GROUP BY fsl.pms_property_id, pty.tipo_desayuno
 """
 )
 
@@ -323,39 +308,61 @@ def fetch_calidad_checkin(fecha_inicio: datetime.date, fecha_fin: datetime.date)
     }
 
 
+_CLAVES_DESAYUNO = (
+    "cantidad", "cantidad_total", "cantidad_facturada", "cantidad_sin_facturar",
+    "produccion", "produccion_facturada", "produccion_sin_facturar",
+)
+_DESAYUNO_VACIO = dict.fromkeys(_CLAVES_DESAYUNO, 0.0)
+
+
 @cache_result
+def fetch_desayunos_por_tipo(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[int, dict[str, dict]]:
+    """Desglose de fetch_desayunos por Tipo Desayuno (buffet/express/
+    colaborador/otros) — KPI base real: fetch_desayunos (más abajo) es un
+    compuesto que suma este desglose en Python, sin ninguna consulta propia,
+    para que cambiar el filtro de Producto no dependa de qué combinación de
+    tipos ya se pidió antes (ver comentario en _CTES_DESAYUNO_CON_TIPO)."""
+    with connections["odoo"].cursor() as cur:
+        cur.execute(
+            _DESAYUNOS_POR_TIPO_SQL,
+            {"regimenes": list(_REGIMENES_DESAYUNO), "colaborador": list(_REGIMENES_COLABORADOR),
+             "desde": fecha_inicio, "hasta": fecha_fin},
+        )
+        rows = cur.fetchall()
+    resultado: dict[int, dict[str, dict]] = {}
+    for hotel_id, tipo, c_directa, c_total, c_fact, c_sinfact, p_total, p_fact, p_sinfact in rows:
+        resultado.setdefault(hotel_id, {})[tipo] = {
+            "cantidad": float(c_directa or 0),
+            "cantidad_total": float(c_total or 0),
+            "cantidad_facturada": float(c_fact or 0),
+            "cantidad_sin_facturar": float(c_sinfact or 0),
+            "produccion": float(p_total or 0),
+            "produccion_facturada": float(p_fact or 0),
+            "produccion_sin_facturar": float(p_sinfact or 0),
+        }
+    return resultado
+
+
 def fetch_desayunos(
     fecha_inicio: datetime.date,
     fecha_fin: datetime.date,
     tipos_desayuno: tuple[str, ...] | None = None,
 ) -> dict[int, dict]:
-    filtrado = tipos_desayuno is not None and set(tipos_desayuno) != set(_TODOS_TIPOS_DESAYUNO)
-    params = {
-        "regimenes": list(_REGIMENES_DESAYUNO),
-        "colaborador": list(_REGIMENES_COLABORADOR),
-        "desde": fecha_inicio,
-        "hasta": fecha_fin,
-    }
-    if filtrado:
-        sql = _DESAYUNOS_SQL_CON_TIPO
-        params["tipos"] = list(tipos_desayuno)
-    else:
-        sql = _DESAYUNOS_SQL
-    with connections["odoo"].cursor() as cur:
-        cur.execute(sql, params)
-        rows = cur.fetchall()
-    return {
-        r[0]: {
-            "cantidad": float(r[1] or 0),
-            "cantidad_total": float(r[2] or 0),
-            "cantidad_facturada": float(r[3] or 0),
-            "cantidad_sin_facturar": float(r[4] or 0),
-            "produccion": float(r[5] or 0),
-            "produccion_facturada": float(r[6] or 0),
-            "produccion_sin_facturar": float(r[7] or 0),
-        }
-        for r in rows
-    }
+    """Compuesto: suma fetch_desayunos_por_tipo para los tipos pedidos (todos
+    si tipos_desayuno es None) — no ejecuta ninguna consulta SQL propia."""
+    desglose = fetch_desayunos_por_tipo(fecha_inicio, fecha_fin)
+    tipos = tipos_desayuno if tipos_desayuno is not None else _TODOS_TIPOS_DESAYUNO
+    resultado: dict[int, dict] = {}
+    for hotel_id, por_tipo in desglose.items():
+        suma = dict(_DESAYUNO_VACIO)
+        for tipo in tipos:
+            d = por_tipo.get(tipo)
+            if d is None:
+                continue
+            for clave in _CLAVES_DESAYUNO:
+                suma[clave] += d[clave]
+        resultado[hotel_id] = suma
+    return resultado
 
 
 @cache_result

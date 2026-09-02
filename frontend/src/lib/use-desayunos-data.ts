@@ -31,13 +31,7 @@ export function useDesayunosData() {
   const [custom, setCustom] = useState(() => rangeForPreset("dia"));
   const [hoteles, setHoteles] = useState<HotelReal[] | null>(null);
   const [serieMensual, setSerieMensual] = useState<SerieMensual[]>([]);
-  // Turnos de cadena completa (respeta Producto, ver service.get_resumen)
-  // pero NO Hotel/Zona/Submarca — ese filtro es client-side sobre
-  // `hoteles` y Turnos no tiene desglose por hotel que filtrar en el
-  // navegador. turnosFiltrados (más abajo) cubre ese caso con un fetch
-  // aparte cuando el filtro de hotel está activo.
   const [turnos, setTurnos] = useState<TurnoDesayuno[]>([]);
-  const [turnosFiltrados, setTurnosFiltrados] = useState<TurnoDesayuno[] | null>(null);
   const [origenDatos, setOrigenDatos] = useState<"odoo" | "cache" | undefined>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +59,6 @@ export function useDesayunosData() {
         if (!vivo) return;
         setHoteles(data.hoteles);
         setSerieMensual(data.serieMensual);
-        setTurnos(data.turnos ?? []);
         setOrigenDatos(data.origenDatos);
       })
       .catch((e) => {
@@ -78,6 +71,22 @@ export function useDesayunosData() {
       vivo = false;
     };
   }, [desde, hasta, tipos]);
+
+  // Precarga en segundo plano de "Mes actual" — la segunda selección de
+  // Periodo más probable tras el filtro por defecto (Día). Si el usuario
+  // la elige a los pocos segundos, fetchDesayunos ya tiene la respuesta en
+  // su caché en memoria (ver hoteles-api.ts) y no espera a la red ni a
+  // Odoo. Con 1s de margen para no competir con la petición del filtro
+  // por defecto, y solo desde el filtro por defecto (no tiene sentido
+  // precargar "Mes" si el usuario ya está mirando otra cosa).
+  useEffect(() => {
+    if (preset !== "dia") return;
+    const { desde: dm, hasta: hm } = rangeForPreset("mes");
+    const id = setTimeout(() => {
+      fetchDesayunos(dm, hm).catch(() => {});
+    }, 1000);
+    return () => clearTimeout(id);
+  }, [preset]);
 
   const zonas = useMemo(
     () => Array.from(new Set((hoteles ?? []).map((h) => h.zona))).sort((a, b) => a.localeCompare(b)),
@@ -108,8 +117,8 @@ export function useDesayunosData() {
   }, [q]);
 
   // IDs de los hoteles resultantes del filtro de Hotel (zona/submarca/
-  // búsqueda) — undefined si ese filtro no está activo, para no disparar
-  // el fetch aparte de turnosFiltrados sin necesidad.
+  // búsqueda) — undefined si ese filtro no está activo (turnos de cadena
+  // completa, ver más abajo).
   const hotelIdsActivos = useMemo(() => {
     if (!zona && !submarca && !qDebounced) return undefined;
     return filtraHoteles(hoteles ?? [], zona, submarca, qDebounced).map((h) => h.id);
@@ -117,22 +126,23 @@ export function useDesayunosData() {
 
   const [turnosLoading, setTurnosLoading] = useState(false);
 
+  // Turnos siempre se pide aparte de fetchDesayunos (2026-09-02, ver
+  // hoteles-api.ts) — antes viajaba embebido en ese resumen y bloqueaba la
+  // tabla de hoteles hasta que Turnos también terminara de calcularse en
+  // el backend, aunque el usuario no hubiera tocado ningún filtro de
+  // Hotel. Al pedirlo en paralelo, la tabla puede mostrarse en cuanto
+  // llegue su propia respuesta, sin esperar a esta.
   useEffect(() => {
-    if (!hotelIdsActivos) {
-      setTurnosFiltrados(null);
-      setTurnosLoading(false);
-      return;
-    }
     let vivo = true;
     setTurnosLoading(true);
     const tiposParam = tipos.length < TODOS_TIPOS.length ? tipos : undefined;
     fetchTurnos(desde, hasta, tiposParam, hotelIdsActivos)
       .then((data) => {
-        if (vivo) setTurnosFiltrados(data.turnos);
+        if (vivo) setTurnos(data.turnos);
       })
       .catch(() => {
-        // Si falla, se queda con el turnos de cadena completa anterior
-        // en vez de romper la página — no es el dato principal.
+        // Se queda con el turnos anterior en vez de romper la página —
+        // no es el dato principal.
       })
       .finally(() => {
         if (vivo) setTurnosLoading(false);
@@ -146,7 +156,7 @@ export function useDesayunosData() {
     hoteles,
     hotelesFiltrados,
     serieMensual,
-    turnos: turnosFiltrados ?? turnos,
+    turnos,
     turnosFiltradosPorHotel: !!hotelIdsActivos,
     origenDatos,
     loading: loading || turnosLoading,

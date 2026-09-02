@@ -187,9 +187,18 @@ def get_resumen(
 ) -> dict:
     """Resumen para la portada: hoteles del periodo (para alertas/ranking/
     oportunidad) + serie mensual de los últimos 12 meses (para los gráficos
-    de evolución) + desayunos por turno/canal del periodo, en una sola
-    llamada. La serie mensual junta PMS (desayunos/producción) y contable
-    (ingresos/gastos/margen) por mes — dos fuentes distintas, ver _fnb_json."""
+    de evolución), en una sola llamada. La serie mensual junta PMS
+    (desayunos/producción) y contable (ingresos/gastos/margen) por mes — dos
+    fuentes distintas, ver _fnb_json.
+
+    Turnos ya NO viaja embebido aquí (2026-09-02): antes, cambiar solo el
+    filtro de Producto obligaba a recalcular Turnos dentro de esta misma
+    llamada (mismo tipos_desayuno en la caché), aunque el usuario no
+    hubiera tocado ningún filtro de Hotel — este resumen pagaba ese coste
+    aunque a nadie le hiciera falta todavía. El frontend pide Turnos
+    siempre por separado (views.desayunos_turnos/fetchTurnos, con o sin
+    filtro de Hotel/Zona/Submarca) — así la tabla de hoteles puede
+    mostrarse en cuanto esté lista sin esperar a Turnos."""
     datos = get_hoteles(fecha_inicio, fecha_fin, tipos_desayuno)
     inicio_serie = _hace_n_meses(fecha_fin, 11)
     serie = repository.fetch_serie_mensual(inicio_serie, fecha_fin)
@@ -200,13 +209,6 @@ def get_resumen(
         p = presupuesto_por_mes.get(punto["mes"], _PRESUPUESTO_VACIO)
         punto.update(_fnb_json(f, p))
     datos["serieMensual"] = serie
-    # tipos_desayuno sí se propaga aquí (2026-08-28: antes se ignoraba,
-    # Turnos mostraba todos los tipos aunque el resto de la página ya
-    # estuviera filtrada por Producto). hotel_ids (Zona/Submarca/búsqueda
-    # de hotel) no se resuelve en esta llamada: ver
-    # views.desayunos_turnos, endpoint aparte para ese filtro porque es
-    # client-side y no dispara un refetch de este resumen completo.
-    datos["turnos"] = get_turnos_desayuno(fecha_inicio, fecha_fin, tipos_desayuno)
     return datos
 
 
