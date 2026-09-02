@@ -1,4 +1,4 @@
-import { Bell, LogOut, CalendarDays } from "lucide-react";
+import { Menu, LogOut, CalendarDays } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { DataSourceBadge, type OrigenDatos } from "@/components/dashboard/data-source-badge";
@@ -6,8 +6,11 @@ import { cerrarSesion } from "@/lib/auth-api";
 import { useAuth } from "@/lib/auth-context";
 
 export function Topbar({
-  title, subtitle, origenDatos, periodo, cargando,
-}: { title: string; subtitle?: string; origenDatos?: OrigenDatos; periodo?: string; cargando?: boolean }) {
+  title, subtitle, origenDatos, periodo, cargando, onMenuClick,
+}: {
+  title: string; subtitle?: string; origenDatos?: OrigenDatos; periodo?: string; cargando?: boolean;
+  onMenuClick?: () => void;
+}) {
   const navigate = useNavigate();
   const { usuario, refrescar } = useAuth();
 
@@ -20,6 +23,11 @@ export function Topbar({
   return (
     <header className="h-16 border-b border-border bg-surface/70 backdrop-blur sticky top-0 z-30">
       <div className="h-full flex items-center gap-4 px-6">
+        {onMenuClick && (
+          <Button variant="ghost" size="icon" className="lg:hidden -ml-2" onClick={onMenuClick} aria-label="Abrir menú">
+            <Menu className="h-5 w-5" />
+          </Button>
+        )}
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <h1 className="text-[15px] font-semibold text-foreground truncate">{title}</h1>
@@ -40,10 +48,6 @@ export function Topbar({
               {periodo}
             </span>
           )}
-          <Button variant="ghost" size="icon" className="relative" aria-label="Notificaciones">
-            <Bell className="h-4 w-4" />
-            <span className="absolute top-2 right-2 h-1.5 w-1.5 rounded-full bg-danger" />
-          </Button>
           <div className="h-8 w-8 rounded-full bg-primary/90 text-primary-foreground grid place-items-center text-xs font-semibold">
             {iniciales(usuario?.nombre || usuario?.email)}
           </div>
