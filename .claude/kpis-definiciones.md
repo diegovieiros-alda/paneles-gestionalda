@@ -2013,3 +2013,24 @@ WHERE state NOT IN ('draft', 'cancel')
     en vez de que el test cree uno propio encima.
   - Sigue pendiente lo mismo que la entrada anterior: aprobación de
     administración y la cuenta de servicio de Google — no desplegado.
+- 2026-09-02 (mismo día, desplegado): aprobación de administración
+  confirmada por el usuario ("está confirmado, despliega") y cuenta de
+  servicio de Google creada y compartida como Lector. Desplegado a
+  producción (migración `0010_presupuestodesayunomensual` aplicada,
+  `.env` con `GOOGLE_SHEETS_CREDENTIALS_FILE`, backend reiniciado).
+  **Bug encontrado en el primer import real**: `_leer_filas` leía una sola
+  pestaña por `gid` hardcodeado — la hoja real tiene una pestaña POR HOTEL
+  (~89), no una única pestaña con todos apilados; ese formato multi-pestaña
+  ya se había verificado antes de desplegar (de ahí la cifra "1032
+  registros, 86 hoteles" de la entrada anterior, obtenida por otra vía),
+  pero el código escrito no lo reflejaba. Primer import real: solo 12
+  registros (1 hotel). Corregido (PR #44, sin tocar `repository.py` ni
+  ninguna cifra/decisión): `_leer_filas` ahora recorre todas las pestañas
+  con una sola llamada `values_batch_get`. Reimportado y verificado: 1032
+  registros, 86 hoteles. `fetch_presupuesto_desayuno` para octubre 2026:
+  66 hoteles con presupuesto de Odoo, 21 de respaldo del Excel (87 en
+  total) — sin cifras reales en este documento ni en el código, solo
+  recuentos. Cron diario (`0 6 * * *`, usuario `paneles`) añadido en el
+  servidor. Ninguna cifra ya validada queda invalidada por este cambio: es
+  la primera vez que la fuente Excel tiene datos reales cargados, no había
+  nada previamente validado que corregir.
