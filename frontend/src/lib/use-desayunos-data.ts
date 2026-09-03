@@ -4,10 +4,16 @@ import { rangeForPreset, type RangePreset } from "@/lib/date-range";
 
 const TODOS_TIPOS = TIPOS_DESAYUNO.map((t) => t.value) as string[];
 
-function filtraHoteles(hoteles: HotelReal[], zona: string, submarca: string, q: string): HotelReal[] {
+function filtraHoteles(
+  hoteles: HotelReal[], zona: string, submarca: string, q: string, hotelIds: number[]
+): HotelReal[] {
   return hoteles.filter((h) => {
     if (zona && h.zona !== zona) return false;
     if (submarca && h.submarca !== submarca) return false;
+    // Selector explícito de hotel(es) (spec: "seleccionar un hotel concreto
+    // o varios") — distinto del buscador de texto de abajo, que sigue
+    // existiendo aparte para filtrar rápido sin abrir el selector.
+    if (hotelIds.length > 0 && !hotelIds.includes(h.id)) return false;
     if (q) {
       const s = q.toLowerCase();
       // (h.codigo ?? ""): 2 de 132 hoteles no tienen código en Odoo
@@ -40,6 +46,7 @@ export function useDesayunosData() {
   const [zona, setZona] = useState("");
   const [submarca, setSubmarca] = useState("");
   const [q, setQ] = useState("");
+  const [hotelIds, setHotelIds] = useState<number[]>([]);
 
   const { desde, hasta } = preset === "custom" ? custom : rangeForPreset(preset);
 
@@ -98,8 +105,8 @@ export function useDesayunosData() {
   );
 
   const hotelesFiltrados = useMemo(
-    () => (hoteles ? filtraHoteles(hoteles, zona, submarca, q) : hoteles),
-    [hoteles, zona, submarca, q]
+    () => (hoteles ? filtraHoteles(hoteles, zona, submarca, q, hotelIds) : hoteles),
+    [hoteles, zona, submarca, q, hotelIds]
   );
 
   // Escribir en el buscador de hotel disparaba antes una petición al
@@ -117,12 +124,12 @@ export function useDesayunosData() {
   }, [q]);
 
   // IDs de los hoteles resultantes del filtro de Hotel (zona/submarca/
-  // búsqueda) — undefined si ese filtro no está activo (turnos de cadena
-  // completa, ver más abajo).
+  // búsqueda/selección) — undefined si ninguno está activo (turnos de
+  // cadena completa, ver más abajo).
   const hotelIdsActivos = useMemo(() => {
-    if (!zona && !submarca && !qDebounced) return undefined;
-    return filtraHoteles(hoteles ?? [], zona, submarca, qDebounced).map((h) => h.id);
-  }, [hoteles, zona, submarca, qDebounced]);
+    if (!zona && !submarca && !qDebounced && hotelIds.length === 0) return undefined;
+    return filtraHoteles(hoteles ?? [], zona, submarca, qDebounced, hotelIds).map((h) => h.id);
+  }, [hoteles, zona, submarca, qDebounced, hotelIds]);
 
   const [turnosLoading, setTurnosLoading] = useState(false);
 
@@ -183,6 +190,11 @@ export function useDesayunosData() {
       submarcas,
       tipos,
       onTipos: setTipos,
+      hotelIds,
+      onHotelIds: setHotelIds,
+      // Lista completa para el selector (no la filtrada) — elegir un hotel
+      // no debería depender de qué otro filtro esté ya activo.
+      hotelesDisponibles: hoteles ?? [],
     },
   };
 }
