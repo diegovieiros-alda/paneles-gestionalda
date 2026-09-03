@@ -37,7 +37,6 @@ function exportar(hoteles: HotelReal[]) {
 export function FacturacionTable({ hoteles }: { hoteles: HotelReal[] }) {
   const [sort, setSort] = useState<{ key: Key; dir: "asc" | "desc" }>({ key: "produccionFacturada", dir: "desc" });
   const [q, setQ] = useState("");
-  const [limit, setLimit] = useState(15);
 
   const rows = useMemo(() => {
     const filtered = hoteles.filter((h) => !q || h.name.toLowerCase().includes(q.toLowerCase()));
@@ -97,7 +96,7 @@ export function FacturacionTable({ hoteles }: { hoteles: HotelReal[] }) {
             </tr>
           </thead>
           <tbody>
-            {rows.slice(0, limit).map((h) => (
+            {rows.map((h) => (
               <tr key={h.id} className="border-t border-border hover:bg-accent/30 transition-colors group">
                 {cols.map((c) => (
                   <td
@@ -127,14 +126,6 @@ export function FacturacionTable({ hoteles }: { hoteles: HotelReal[] }) {
           </tbody>
         </table>
       </div>
-
-      {limit < rows.length && (
-        <div className="p-3 border-t border-border text-center">
-          <button onClick={() => setLimit((l) => l + 25)} className="text-xs text-muted-foreground hover:text-foreground">
-            Mostrar más ({rows.length - limit} restantes)
-          </button>
-        </div>
-      )}
     </section>
   );
 }

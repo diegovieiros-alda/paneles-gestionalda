@@ -7,6 +7,7 @@ import { RangeFilter } from "@/components/dashboard/range-filter";
 import { DataSourceBadge } from "@/components/dashboard/data-source-badge";
 import { HotelDetailHeader } from "@/components/dashboard/hotel-detail-header";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingOverlay } from "@/components/dashboard/loading-screen";
 import { fetchHotelInfo, type HotelDirectorio } from "@/lib/hoteles-api";
 import { fetchHotelBloqueos, type HotelBloqueosReport } from "@/lib/bloqueos-api";
 import { fmtNum } from "@/lib/mock-data";
@@ -29,15 +30,13 @@ function OcupacionSection({ hotelId }: { hotelId: string }) {
   }, [hotelId, rango.desde, rango.hasta]);
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-4 relative">
       <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">Ocupación</h3>
       <div className="flex flex-wrap items-center gap-2">
         <RangeFilter preset={rango.preset} custom={rango.custom} onPreset={rango.onPreset} onCustom={rango.onCustom} compact />
         <DataSourceBadge origen={data?.origenDatos} />
-        {loading && data && (
-          <span className="h-3.5 w-3.5 rounded-full border-2 border-border border-t-primary animate-spin" title="Actualizando…" />
-        )}
       </div>
+      {loading && data && <LoadingOverlay />}
 
       {error && <p className="text-sm text-danger">{error}</p>}
       {!data && !error && (
@@ -98,15 +97,13 @@ function BloqueosSection({ hotelId }: { hotelId: string }) {
   }, [hotelId, rango.desde, rango.hasta]);
 
   return (
-    <section className="space-y-4">
+    <section className="space-y-4 relative">
       <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">Bloqueos</h3>
       <div className="flex flex-wrap items-center gap-2">
         <RangeFilter preset={rango.preset} custom={rango.custom} onPreset={rango.onPreset} onCustom={rango.onCustom} compact />
         <DataSourceBadge origen={data?.origenDatos} />
-        {loading && data && (
-          <span className="h-3.5 w-3.5 rounded-full border-2 border-border border-t-primary animate-spin" title="Actualizando…" />
-        )}
       </div>
+      {loading && data && <LoadingOverlay />}
 
       {error && <p className="text-sm text-danger">{error}</p>}
       {!data && !error && <Skeleton className="h-40 rounded-xl" />}

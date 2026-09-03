@@ -6,9 +6,9 @@ import { cerrarSesion } from "@/lib/auth-api";
 import { useAuth } from "@/lib/auth-context";
 
 export function Topbar({
-  title, subtitle, origenDatos, periodo, cargando, onMenuClick,
+  title, subtitle, origenDatos, periodo, onMenuClick,
 }: {
-  title: string; subtitle?: string; origenDatos?: OrigenDatos; periodo?: string; cargando?: boolean;
+  title: string; subtitle?: string; origenDatos?: OrigenDatos; periodo?: string;
   onMenuClick?: () => void;
 }) {
   const navigate = useNavigate();
@@ -36,12 +36,6 @@ export function Topbar({
           {subtitle && <p className="text-xs text-muted-foreground truncate">{subtitle}</p>}
         </div>
         <div className="ml-auto flex items-center gap-2">
-          {cargando && (
-            <span
-              className="h-3.5 w-3.5 rounded-full border-2 border-border border-t-primary animate-spin shrink-0"
-              title="Actualizando datos…"
-            />
-          )}
           {periodo && (
             <span className="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium text-foreground/90 bg-primary/5 border border-primary/15 rounded-full px-3 h-8 whitespace-nowrap">
               <CalendarDays className="h-3.5 w-3.5 text-primary shrink-0" />

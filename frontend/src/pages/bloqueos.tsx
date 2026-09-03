@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { fmtFecha, HotelBlockCard } from "@/components/dashboard/hotel-block-card";
 import { RangeFilter } from "@/components/dashboard/range-filter";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LoadingOverlay } from "@/components/dashboard/loading-screen";
 
 function SummaryCard({
   icon: Icon, label, value, sub, tone,
@@ -66,13 +67,15 @@ export default function BloqueosPage() {
     : "Habitaciones fuera de servicio";
 
   return (
-    <DashboardShell title="Bloqueos" subtitle={subtitle} origenDatos={report?.origenDatos} cargando={loading && !!report}>
+    <DashboardShell title="Bloqueos" subtitle={subtitle} origenDatos={report?.origenDatos}>
       <RangeFilter preset={preset} custom={custom} onPreset={onPreset} onCustom={onCustom} />
 
-      <div className="p-6 space-y-6 max-w-[1600px] mx-auto">
+      <div className="p-6 space-y-6 max-w-[1600px] mx-auto relative">
         {error && (
           <div className="rounded-xl border border-danger/30 bg-danger/5 p-4 text-sm text-danger">{error}</div>
         )}
+
+        {loading && report && <LoadingOverlay />}
 
         {loading && !report && (
           <div className="space-y-6">
