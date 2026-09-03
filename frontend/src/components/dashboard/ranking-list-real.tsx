@@ -11,7 +11,9 @@ const modes = [
   { key: "precioMedio", label: "Precio medio", fmt: (n: number) => `${n.toFixed(2)}€` },
 ] as const;
 
-export function RankingListReal({ hoteles, desde, hasta }: { hoteles: HotelReal[]; desde: string; hasta: string }) {
+export function RankingListReal({
+  hoteles, desde, hasta, tipos,
+}: { hoteles: HotelReal[]; desde: string; hasta: string; tipos: string[] }) {
   const [mode, setMode] = useState<(typeof modes)[number]["key"]>("produccion");
   const active = modes.find((m) => m.key === mode)!;
 
@@ -54,7 +56,7 @@ export function RankingListReal({ hoteles, desde, hasta }: { hoteles: HotelReal[
           const w = max > 0 ? (val / max) * 100 : 0;
           return (
             <li key={r.id}>
-              <Link to={hrefHotelDesayunos(r.id, desde, hasta)} className="group flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-accent/40 transition-colors">
+              <Link to={hrefHotelDesayunos(r.id, desde, hasta, tipos)} className="group flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-accent/40 transition-colors">
                 <div className="w-5 text-center text-[11px] font-semibold text-muted-foreground num">{i + 1}</div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-3">

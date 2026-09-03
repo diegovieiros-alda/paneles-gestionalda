@@ -17,7 +17,7 @@ import { TurnosPanel } from "@/components/dashboard/turnos-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataLoading, LoadingOverlay } from "@/components/dashboard/loading-screen";
 import { Button } from "@/components/ui/button";
-import { fetchHotelInfo, fetchHotelDesayunos, type HotelDirectorio, type HotelDesayunos, type MesHotel, type FnbFields, type FacturacionFields } from "@/lib/hoteles-api";
+import { fetchHotelInfo, fetchHotelDesayunos, TIPOS_DESAYUNO, type HotelDirectorio, type HotelDesayunos, type MesHotel, type FnbFields, type FacturacionFields } from "@/lib/hoteles-api";
 import { exportarCsv } from "@/lib/export-csv";
 import {
   ETIQUETA_BADGE_CLASS, ETIQUETA_LABEL, ORIGEN_PRESUPUESTO_LABEL, etiqueta, etiquetaCumplimiento,
@@ -36,12 +36,14 @@ function mesCorto(iso: string) {
 
 // La ficha de hotel no vive dentro de DesayunosFiltrosProvider (a
 // propósito: si compartiera ese contexto, montarla dispararía también el
-// fetch pesado de la cadena completa solo para heredar el rango de
-// fechas). En su lugar, las tablas/listas que enlazan aquí (ver
-// fnb-financiero-table.tsx y hermanas) pasan desde/hasta por query string
-// — bug real reportado 2026-09-03: "al seleccionar un hotel se resetean
-// los filtros", porque antes esta página siempre arrancaba en "Día" sin
-// mirar de dónde venía el usuario.
+// fetch pesado de la cadena completa solo para heredar los filtros). En su
+// lugar, las tablas/listas que enlazan aquí (ver fnb-financiero-table.tsx
+// y hermanas, vía hrefHotelDesayunos) pasan desde/hasta/tipo por query
+// string — dos bugs reales reportados 2026-09-03: "al seleccionar un
+// hotel se resetean los filtros" (fechas) y "las fichas individuales no
+// muestran los mismos datos que en la lista" (tipo de desayuno/Producto,
+// que esta página no tiene UI propia para cambiar — solo hereda el que
+// traiga la URL).
 const _FECHA_ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function rangoDesdeUrl(params: URLSearchParams): { desde: string; hasta: string } | undefined {
@@ -49,6 +51,10 @@ function rangoDesdeUrl(params: URLSearchParams): { desde: string; hasta: string 
   const hasta = params.get("hasta");
   if (!desde || !hasta || !_FECHA_ISO_RE.test(desde) || !_FECHA_ISO_RE.test(hasta) || desde > hasta) return undefined;
   return { desde, hasta };
+}
+
+function tiposDesdeParam(tipo: string | null): string[] | undefined {
+  return tipo ? tipo.split(",").filter(Boolean) : undefined;
 }
 
 type MesFila = MesHotel & FnbFields & FacturacionFields;
@@ -123,6 +129,7 @@ export default function HotelDesayunosPage() {
   const [hotelError, setHotelError] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
   const rangoUrl = rangoDesdeUrl(searchParams);
+  const tipoParam = searchParams.get("tipo");
   const { preset, custom, desde, hasta, onPreset, onCustom } = useRangePreset(rangoUrl ? "custom" : "dia", rangoUrl);
   const [data, setData] = useState<HotelDesayunos | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -137,12 +144,12 @@ export default function HotelDesayunosPage() {
     if (!hotelId) return;
     let vivo = true;
     setLoading(true);
-    fetchHotelDesayunos(hotelId, desde, hasta)
+    fetchHotelDesayunos(hotelId, desde, hasta, tiposDesdeParam(tipoParam))
       .then((d) => { if (vivo) setData(d); })
       .catch((e) => { if (vivo) setError(e.message); })
       .finally(() => { if (vivo) setLoading(false); });
     return () => { vivo = false; };
-  }, [hotelId, desde, hasta]);
+  }, [hotelId, desde, hasta, tipoParam]);
 
   if (hotelError || !hotelId) {
     return (
@@ -173,6 +180,19 @@ export default function HotelDesayunosPage() {
         <div className="flex flex-wrap items-center gap-2">
           <RangeFilter preset={preset} custom={custom} onPreset={onPreset} onCustom={onCustom} compact presets={RANGE_PRESETS_DESAYUNOS} />
           <DataSourceBadge origen={data?.origenDatos} />
+          {/* Sin selector propio de Producto en esta página — solo hereda el
+              filtro de la tabla de origen (ver hrefHotelDesayunos). Se avisa
+              aquí para que la cifra no parezca "distinta" sin motivo visible
+              (bug real reportado: "las fichas no muestran los mismos datos
+              que en la lista", causado por ignorar este filtro). */}
+          {tiposDesdeParam(tipoParam) && (
+            <span
+              className="text-[11px] text-muted-foreground bg-surface-muted border border-border rounded-full px-2.5 h-8 inline-flex items-center"
+              title="Heredado de la tabla desde la que abriste este hotel"
+            >
+              Producto: {tiposDesdeParam(tipoParam)!.map((t) => TIPOS_DESAYUNO.find((td) => td.value === t)?.label ?? t).join(", ")}
+            </span>
+          )}
         </div>
 
         {error && <p className="text-sm text-danger">{error}</p>}

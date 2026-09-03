@@ -15,7 +15,9 @@ function potencialHotel(h: HotelReal, objetivoOportunidad: number) {
   return { potenciales, valor };
 }
 
-export function OpportunityBlockReal({ hoteles, desde, hasta }: { hoteles: HotelReal[]; desde: string; hasta: string }) {
+export function OpportunityBlockReal({
+  hoteles, desde, hasta, tipos,
+}: { hoteles: HotelReal[]; desde: string; hasta: string; tipos: string[] }) {
   const { ajustes } = useAjustesDesayuno();
   const { facturacionPotencialTotal, potencialesTotal, penetracionMedia, produccionTotal, topHoteles } = useMemo(() => {
     const alojados = hoteles.reduce((a, h) => a + h.alojados, 0);
@@ -78,7 +80,7 @@ export function OpportunityBlockReal({ hoteles, desde, hasta }: { hoteles: Hotel
             {topHoteles.map(({ h, potenciales, valor }, i) => (
               <li key={h.id}>
                 <Link
-                  to={hrefHotelDesayunos(h.id, desde, hasta)}
+                  to={hrefHotelDesayunos(h.id, desde, hasta, tipos)}
                   className="group flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-accent/40 transition-colors"
                 >
                   <div className="w-5 text-center text-[11px] font-semibold text-muted-foreground num">{i + 1}</div>

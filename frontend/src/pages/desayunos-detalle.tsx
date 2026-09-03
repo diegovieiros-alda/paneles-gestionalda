@@ -42,12 +42,12 @@ export default function DesayunosDetallePage() {
           <>
             <SectionTitle title="Rendimiento operativo" subtitle="PMS · producción y penetración por hotel (incluye colaborador, salvo penetración)" />
             <ProduccionResumenCards hoteles={hoteles} />
-            <HotelsTableReal hoteles={hoteles} desde={desde} hasta={hasta} />
-            <FacturacionTable hoteles={hoteles} desde={desde} hasta={hasta} />
+            <HotelsTableReal hoteles={hoteles} desde={desde} hasta={hasta} tipos={filterProps.tipos} />
+            <FacturacionTable hoteles={hoteles} desde={desde} hasta={hasta} tipos={filterProps.tipos} />
 
             <SectionTitle title="Financiero F&B" subtitle="Contabilidad · ingresos, gastos, margen y presupuesto (excluye colaborador)" />
             <FnbResumenCards hoteles={hoteles} />
-            <FnbFinancieroTable hoteles={hoteles} desde={desde} hasta={hasta} />
+            <FnbFinancieroTable hoteles={hoteles} desde={desde} hasta={hasta} tipos={filterProps.tipos} />
 
             <SectionTitle title="Turnos" />
             <TurnosPanel turnos={turnos} scope={turnosFiltradosPorHotel ? "hoteles filtrados" : "cadena completa"} />

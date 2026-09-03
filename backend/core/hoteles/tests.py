@@ -186,6 +186,48 @@ class GetHotelesTests(SimpleTestCase):
         self.assertEqual([h["id"] for h in resultado["hoteles"]], [2, 1])
 
 
+class GetHotelDesayunosTests(SimpleTestCase):
+    """get_hotel_desayunos (ficha individual) debe filtrar por tipo igual
+    que get_hoteles (listado) — bug real reportado 2026-09-03: "las fichas
+    individuales no muestran los mismos datos que en la lista", porque
+    esta función ignoraba `tipos_desayuno` por completo y siempre pedía
+    todos los tipos, aunque la tabla de origen estuviera filtrada."""
+
+    def _mock_repository(self, **overrides):
+        defaults = dict(
+            fetch_alojados={1: 100},
+            fetch_desayunos={1: {**_DESAYUNO_VACIO, "cantidad": 40, "cantidad_total": 45, "produccion": 450.0}},
+            fetch_fnb_desayuno={},
+            fetch_presupuesto_desayuno={},
+            fetch_alojados_mensual_hotel={},
+            fetch_desayunos_mensual_hotel={},
+            fetch_fnb_serie_mensual_hotel={},
+            fetch_presupuesto_serie_mensual_hotel={},
+            fetch_turnos_desayuno_hotel=[],
+        )
+        defaults.update(overrides)
+        mocks = {}
+        for nombre, valor in defaults.items():
+            p = mock.patch.object(repository, nombre, return_value=valor)
+            mocks[nombre] = p.start()
+            self.addCleanup(p.stop)
+        return mocks
+
+    def test_reenvia_tipos_desayuno_a_fetch_desayunos(self):
+        mocks = self._mock_repository()
+        service.get_hotel_desayunos(
+            1, datetime.date(2026, 1, 1), datetime.date(2026, 1, 31), tipos_desayuno=("buffet", "express")
+        )
+        mocks["fetch_desayunos"].assert_called_once_with(
+            datetime.date(2026, 1, 1), datetime.date(2026, 1, 31), ("buffet", "express")
+        )
+
+    def test_sin_tipos_pide_todos_igual_que_antes(self):
+        mocks = self._mock_repository()
+        service.get_hotel_desayunos(1, datetime.date(2026, 1, 1), datetime.date(2026, 1, 31))
+        mocks["fetch_desayunos"].assert_called_once_with(datetime.date(2026, 1, 1), datetime.date(2026, 1, 31), None)
+
+
 class FetchDesayunosPorTipoTests(SimpleTestCase):
     """fetch_desayunos (repository.py) es un compuesto que suma
     fetch_desayunos_por_tipo en Python (2026-09-02) — antes cada combinación
