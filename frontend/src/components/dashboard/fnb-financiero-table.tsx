@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { useAjustesDesayuno } from "@/lib/ajustes-desayuno-context";
 import type { HotelReal } from "@/lib/hoteles-api";
 
-type Key = "name" | "ingresos" | "cumplimientoIngresos" | "gastos" | "margenBruto" | "precioMedioVenta" | "costeMedioGasto" | "resultadoFB" | "potencial";
+type Key = "name" | "ingresos" | "presupuestoIngresos" | "cumplimientoIngresos" | "gastos" | "margenBruto" | "precioMedioVenta" | "costeMedioGasto" | "resultadoFB" | "potencial";
 
 function potencial(h: HotelReal, objetivoOportunidad: number) {
   return facturacionPotencial(h.alojados, h.penetracion, h.precioMedioVenta, objetivoOportunidad);
@@ -23,7 +23,7 @@ function buildCols(objetivoOportunidad: number): Array<{ key: Key; label: string
     { key: "name", label: "Hotel", render: (h) => h.name },
     { key: "ingresos", label: "Ingresos", render: (h) => fmtEuro(h.ingresos) },
     {
-      key: "cumplimientoIngresos",
+      key: "presupuestoIngresos",
       label: "Presupuesto",
       render: (h) =>
         h.presupuestoMotivo === "rango_no_es_mes_natural" ? (
@@ -102,7 +102,6 @@ export function FnbFinancieroTable({ hoteles }: { hoteles: HotelReal[] }) {
   const { ajustes } = useAjustesDesayuno();
   const [sort, setSort] = useState<{ key: Key; dir: "asc" | "desc" }>({ key: "ingresos", dir: "desc" });
   const [q, setQ] = useState("");
-  const [limit, setLimit] = useState(15);
 
   const cols = useMemo(() => buildCols(ajustes.objetivoOportunidad), [ajustes.objetivoOportunidad]);
 
@@ -169,7 +168,7 @@ export function FnbFinancieroTable({ hoteles }: { hoteles: HotelReal[] }) {
             </tr>
           </thead>
           <tbody>
-            {rows.slice(0, limit).map((h) => {
+            {rows.map((h) => {
               const e = etiqueta(h.penetracion, ajustes.umbralPenetracion, ajustes.objetivoPenetracion);
               return (
                 <tr key={h.id} className="border-t border-border hover:bg-accent/30 transition-colors group">
@@ -208,14 +207,6 @@ export function FnbFinancieroTable({ hoteles }: { hoteles: HotelReal[] }) {
           </tbody>
         </table>
       </div>
-
-      {limit < rows.length && (
-        <div className="p-3 border-t border-border text-center">
-          <button onClick={() => setLimit((l) => l + 25)} className="text-xs text-muted-foreground hover:text-foreground">
-            Mostrar más ({rows.length - limit} restantes)
-          </button>
-        </div>
-      )}
     </section>
   );
 }
