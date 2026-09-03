@@ -4,7 +4,9 @@ import { fmtPct } from "@/lib/mock-data";
 import { useAjustesDesayuno } from "@/lib/ajustes-desayuno-context";
 import { hrefHotelDesayunos, type HotelReal } from "@/lib/hoteles-api";
 
-export function AlertsBlockReal({ hoteles, desde, hasta }: { hoteles: HotelReal[]; desde: string; hasta: string }) {
+export function AlertsBlockReal({
+  hoteles, desde, hasta, tipos,
+}: { hoteles: HotelReal[]; desde: string; hasta: string; tipos: string[] }) {
   const { ajustes } = useAjustesDesayuno();
   const alerts = hoteles
     .filter((h) => h.alojados > 0 && h.penetracion < ajustes.umbralPenetracion)
@@ -29,7 +31,7 @@ export function AlertsBlockReal({ hoteles, desde, hasta }: { hoteles: HotelReal[
           {alerts.map((h) => (
             <Link
               key={h.id}
-              to={hrefHotelDesayunos(h.id, desde, hasta)}
+              to={hrefHotelDesayunos(h.id, desde, hasta, tipos)}
               className="group flex items-center gap-3 rounded-lg border border-border bg-surface-muted/40 hover:bg-accent/50 transition-colors p-3"
             >
               <div className="grid place-items-center h-9 w-9 rounded-md bg-surface border border-border">

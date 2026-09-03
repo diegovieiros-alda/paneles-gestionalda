@@ -24,7 +24,7 @@ export default function DesayunosAlertasPage() {
         {loading && !hoteles && <DataLoading />}
         {loading && hoteles && <LoadingOverlay />}
 
-        {hoteles && <AlertsBlockReal hoteles={hoteles} desde={desde} hasta={hasta} />}
+        {hoteles && <AlertsBlockReal hoteles={hoteles} desde={desde} hasta={hasta} tipos={filterProps.tipos} />}
       </div>
     </DashboardShell>
   );

@@ -264,13 +264,28 @@ def hotel_existe(hotel_id: int) -> bool:
     return get_hotel_info(hotel_id) is not None
 
 
-def get_hotel_desayunos(hotel_id: int, fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict:
+def get_hotel_desayunos(
+    hotel_id: int,
+    fecha_inicio: datetime.date,
+    fecha_fin: datetime.date,
+    tipos_desayuno: tuple[str, ...] | None = None,
+) -> dict:
     """Datos de desayuno de un hotel: periodo [fecha_inicio, fecha_fin]
     elegido por el usuario + evolución mensual de contexto (últimos 12 meses
     terminando en fecha_fin, fija, no filtrable). No incluye identidad (ver
-    get_hotel_info)."""
+    get_hotel_info).
+
+    tipos_desayuno filtra "actual" igual que get_hoteles (mismo filtro de
+    Producto que la tabla de la que se viene) — bug real reportado
+    2026-09-03 ("las fichas individuales no muestran los mismos datos que
+    en la lista"): antes esta función ignoraba el filtro de tipo por
+    completo, así que la ficha mostraba siempre todos los tipos aunque la
+    tabla de origen estuviera filtrada. La serie mensual de contexto SÍ
+    sigue sin filtrar por tipo (fetch_desayunos_mensual_hotel no tiene esa
+    variante) — mismo comportamiento que la serie mensual de la cadena en
+    get_resumen, no es una inconsistencia nueva de este fix."""
     alojados = repository.fetch_alojados(fecha_inicio, fecha_fin).get(hotel_id, 0)
-    d = repository.fetch_desayunos(fecha_inicio, fecha_fin).get(hotel_id, _DESAYUNO_VACIO)
+    d = repository.fetch_desayunos(fecha_inicio, fecha_fin, tipos_desayuno).get(hotel_id, _DESAYUNO_VACIO)
     fnb = repository.fetch_fnb_desayuno(fecha_inicio, fecha_fin).get(hotel_id, _FNB_VACIO)
     rango_valido = _rango_es_mes_natural(fecha_inicio, fecha_fin)
     presupuesto = (

@@ -1,11 +1,17 @@
-// Enlace a la ficha de un hotel llevando el rango de fechas actual — la
-// ficha vive fuera de DesayunosFiltrosProvider a propósito (no dispara el
-// fetch pesado de la cadena completa solo por heredar el filtro), así que
-// sin esto siempre arrancaba en "Día" sin importar qué periodo se estaba
-// viendo en la tabla de origen (bug real reportado 2026-09-03: "al
-// seleccionar un hotel se resetean los filtros"). Ver hotel-desayunos.tsx.
-export function hrefHotelDesayunos(id: number, desde: string, hasta: string): string {
-  return `/desayunos/${id}?desde=${desde}&hasta=${hasta}`;
+// Enlace a la ficha de un hotel llevando el rango de fechas y el filtro de
+// Producto (tipo de desayuno) actuales — la ficha vive fuera de
+// DesayunosFiltrosProvider a propósito (no dispara el fetch pesado de la
+// cadena completa solo por heredar el filtro), así que sin esto siempre
+// arrancaba en "Día"/todos los tipos sin importar qué se estaba viendo en
+// la tabla de origen (bugs reales 2026-09-03: "al seleccionar un hotel se
+// resetean los filtros" y "las fichas individuales no muestran los mismos
+// datos que en la lista"). `tipos` se omite de la URL cuando son todos —
+// mismo criterio que fetchDesayunos/fetchTurnos, más abajo. Ver
+// hotel-desayunos.tsx.
+export function hrefHotelDesayunos(id: number, desde: string, hasta: string, tipos?: string[]): string {
+  const params = new URLSearchParams({ desde, hasta });
+  if (tipos && tipos.length && tipos.length < TIPOS_DESAYUNO.length) params.set("tipo", tipos.join(","));
+  return `/desayunos/${id}?${params}`;
 }
 
 export type HotelDirectorio = {
@@ -219,8 +225,11 @@ export type HotelDesayunos = {
   origenDatos?: "odoo" | "cache";
 };
 
-export async function fetchHotelDesayunos(id: string | number, desde: string, hasta: string): Promise<HotelDesayunos> {
+export async function fetchHotelDesayunos(
+  id: string | number, desde: string, hasta: string, tipos?: string[]
+): Promise<HotelDesayunos> {
   const params = new URLSearchParams({ desde, hasta });
+  if (tipos && tipos.length) params.set("tipo", tipos.join(","));
   const res = await fetch(`/api/hoteles/${id}/desayunos/?${params}`);
   if (!res.ok) {
     const body = await res.json().catch(() => null);

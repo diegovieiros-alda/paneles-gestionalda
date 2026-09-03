@@ -44,7 +44,9 @@ function exportar(hoteles: HotelReal[], objetivoOportunidad: number) {
   );
 }
 
-export function HotelsTableReal({ hoteles, desde, hasta }: { hoteles: HotelReal[]; desde: string; hasta: string }) {
+export function HotelsTableReal({
+  hoteles, desde, hasta, tipos,
+}: { hoteles: HotelReal[]; desde: string; hasta: string; tipos: string[] }) {
   const { ajustes } = useAjustesDesayuno();
   const cols = useMemo(() => buildCols(ajustes.objetivoOportunidad), [ajustes.objetivoOportunidad]);
   const [sort, setSort] = useState<{ key: Key; dir: "asc" | "desc" }>({ key: "produccion", dir: "desc" });
@@ -129,14 +131,14 @@ export function HotelsTableReal({ hoteles, desde, hasta }: { hoteles: HotelReal[
                     )}
                   >
                     {c.sticky ? (
-                      <Link to={hrefHotelDesayunos(h.id, desde, hasta)} className="hover:text-primary">
+                      <Link to={hrefHotelDesayunos(h.id, desde, hasta, tipos)} className="hover:text-primary">
                         {c.render(h)}
                       </Link>
                     ) : c.render(h)}
                   </td>
                 ))}
                 <td className="pr-3">
-                  <Link to={hrefHotelDesayunos(h.id, desde, hasta)} className="text-muted-foreground hover:text-primary inline-flex">
+                  <Link to={hrefHotelDesayunos(h.id, desde, hasta, tipos)} className="text-muted-foreground hover:text-primary inline-flex">
                     <ChevronRight className="h-4 w-4" />
                   </Link>
                 </td>

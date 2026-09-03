@@ -286,12 +286,16 @@ def hotel_desayunos(request, hotel_id):
     fecha_inicio, fecha_fin, error_response = _rango_mes_por_defecto(request, MAX_RANGO_DIAS_DESAYUNOS)
     if error_response is not None:
         return error_response
+    try:
+        tipos_desayuno = _parse_tipos_desayuno(request)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400)
 
     try:
         with tracking() as t:
             if get_hotel_info(hotel_id) is None:
                 return JsonResponse({"error": "Hotel no encontrado"}, status=404)
-            data = get_hotel_desayunos(hotel_id, fecha_inicio, fecha_fin)
+            data = get_hotel_desayunos(hotel_id, fecha_inicio, fecha_fin, tipos_desayuno)
         data["origenDatos"] = origen_datos(t)
         return JsonResponse(data)
     except Exception:
