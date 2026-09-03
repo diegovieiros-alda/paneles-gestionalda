@@ -71,6 +71,29 @@ class RangoEsMesNaturalTests(SimpleTestCase):
         self.assertTrue(service._rango_es_mes_natural(datetime.date(2026, 1, 1), datetime.date(2026, 2, 28)))
 
 
+class HaceUnAnoTests(SimpleTestCase):
+    def test_mismo_dia_del_ano_anterior(self):
+        self.assertEqual(service._hace_un_ano(datetime.date(2026, 7, 15)), datetime.date(2025, 7, 15))
+
+    def test_29_febrero_bisiesto_a_no_bisiesto_cae_en_28(self):
+        # 2028 es bisiesto, 2027 no — no existe un 29/02/2027 al que volver.
+        self.assertEqual(service._hace_un_ano(datetime.date(2028, 2, 29)), datetime.date(2027, 2, 28))
+
+    def test_29_febrero_bisiesto_a_bisiesto_se_mantiene(self):
+        self.assertEqual(service._hace_un_ano(datetime.date(2032, 2, 29)), datetime.date(2031, 2, 28))
+
+
+class VariacionTests(SimpleTestCase):
+    def test_variacion_positiva(self):
+        self.assertAlmostEqual(service._variacion(120.0, 100.0), 0.2)
+
+    def test_variacion_negativa(self):
+        self.assertAlmostEqual(service._variacion(80.0, 100.0), -0.2)
+
+    def test_ly_cero_da_none_no_division_por_cero(self):
+        self.assertIsNone(service._variacion(50.0, 0.0))
+
+
 class FnbJsonTests(SimpleTestCase):
     def test_sin_ingresos_margen_es_cero_no_error(self):
         resultado = service._fnb_json({**_FNB_VACIO})
@@ -185,6 +208,49 @@ class GetHotelesTests(SimpleTestCase):
         resultado = service.get_hoteles(datetime.date(2026, 1, 1), datetime.date(2026, 1, 31))
         self.assertEqual([h["id"] for h in resultado["hoteles"]], [2, 1])
 
+    def test_ly_pide_el_mismo_periodo_del_ano_anterior(self):
+        # fetch_alojados/fetch_desayunos/fetch_fnb_desayuno se llaman DOS
+        # veces: una con las fechas pedidas, otra con las mismas
+        # desplazadas un año (_hace_un_ano) — sin mockear con side_effect
+        # por fecha, las dos llamadas devolverían el mismo mock y no se
+        # podría distinguir "actual" de "LY" en el resultado.
+        def alojados_por_fecha(desde, hasta):
+            return {1: 100} if desde.year == 2026 else {1: 80}
+
+        def desayunos_por_fecha(desde, hasta, tipos=None):
+            if desde.year == 2026:
+                return {1: {**_DESAYUNO_VACIO, "cantidad": 40, "cantidad_total": 40, "produccion": 400.0}}
+            return {1: {**_DESAYUNO_VACIO, "cantidad": 20, "cantidad_total": 20, "produccion": 200.0}}
+
+        mocks = self._mock_repository()
+        mocks["fetch_alojados"].side_effect = alojados_por_fecha
+        mocks["fetch_alojados"].return_value = None
+        mocks["fetch_desayunos"].side_effect = desayunos_por_fecha
+        mocks["fetch_desayunos"].return_value = None
+
+        resultado = service.get_hoteles(datetime.date(2026, 1, 1), datetime.date(2026, 1, 31))
+        hotel_1 = next(h for h in resultado["hoteles"] if h["id"] == 1)
+
+        self.assertEqual(hotel_1["alojados"], 100)
+        self.assertEqual(hotel_1["alojadosLY"], 80.0)
+        self.assertAlmostEqual(hotel_1["alojadosVarLY"], 0.25)  # (100-80)/80
+        self.assertEqual(hotel_1["produccion"], 400.0)
+        self.assertEqual(hotel_1["produccionLY"], 200.0)
+        self.assertAlmostEqual(hotel_1["produccionVarLY"], 1.0)  # se dobló
+
+        # Las llamadas de LY usan fechas de 2025, no de 2026.
+        fechas_llamadas = {c.args[:2] for c in mocks["fetch_alojados"].call_args_list}
+        self.assertIn((datetime.date(2025, 1, 1), datetime.date(2025, 1, 31)), fechas_llamadas)
+
+    def test_ly_sin_datos_no_rompe_por_division_por_cero(self):
+        mocks = self._mock_repository()
+        mocks["fetch_alojados"].side_effect = lambda desde, hasta: {} if desde.year == 2025 else {1: 100}
+        mocks["fetch_alojados"].return_value = None
+        resultado = service.get_hoteles(datetime.date(2026, 1, 1), datetime.date(2026, 1, 31))
+        hotel_1 = next(h for h in resultado["hoteles"] if h["id"] == 1)
+        self.assertEqual(hotel_1["alojadosLY"], 0.0)
+        self.assertIsNone(hotel_1["alojadosVarLY"])  # sin línea base, no "+inf%"
+
 
 class GetHotelDesayunosTests(SimpleTestCase):
     """get_hotel_desayunos (ficha individual) debe filtrar por tipo igual
@@ -216,18 +282,37 @@ class GetHotelDesayunosTests(SimpleTestCase):
         return mocks
 
     def test_reenvia_tipos_desayuno_a_fetch_desayunos(self):
+        # fetch_desayunos se llama dos veces (actual + LY, ver
+        # test_incluye_comparativa_ly abajo) — assert_any_call en vez de
+        # assert_called_once_with, que ya no aplica desde que existe LY.
         mocks = self._mock_repository()
         service.get_hotel_desayunos(
             1, datetime.date(2026, 1, 1), datetime.date(2026, 1, 31), tipos_desayuno=("buffet", "express")
         )
-        mocks["fetch_desayunos"].assert_called_once_with(
+        mocks["fetch_desayunos"].assert_any_call(
             datetime.date(2026, 1, 1), datetime.date(2026, 1, 31), ("buffet", "express")
         )
 
     def test_sin_tipos_pide_todos_igual_que_antes(self):
         mocks = self._mock_repository()
         service.get_hotel_desayunos(1, datetime.date(2026, 1, 1), datetime.date(2026, 1, 31))
-        mocks["fetch_desayunos"].assert_called_once_with(datetime.date(2026, 1, 1), datetime.date(2026, 1, 31), None)
+        mocks["fetch_desayunos"].assert_any_call(datetime.date(2026, 1, 1), datetime.date(2026, 1, 31), None)
+
+    def test_incluye_comparativa_ly(self):
+        def desayunos_por_fecha(desde, hasta, tipos=None):
+            if desde.year == 2026:
+                return {1: {**_DESAYUNO_VACIO, "cantidad": 40, "cantidad_total": 40, "produccion": 400.0}}
+            return {1: {**_DESAYUNO_VACIO, "cantidad": 20, "cantidad_total": 20, "produccion": 200.0}}
+
+        mocks = self._mock_repository()
+        mocks["fetch_desayunos"].side_effect = desayunos_por_fecha
+        mocks["fetch_desayunos"].return_value = None
+
+        resultado = service.get_hotel_desayunos(1, datetime.date(2026, 1, 1), datetime.date(2026, 1, 31))
+        self.assertEqual(resultado["actual"]["produccion"], 400.0)
+        self.assertEqual(resultado["actual"]["produccionLY"], 200.0)
+        self.assertAlmostEqual(resultado["actual"]["produccionVarLY"], 1.0)
+        mocks["fetch_desayunos"].assert_any_call(datetime.date(2025, 1, 1), datetime.date(2025, 1, 31), None)
 
     def test_tipos_desayuno_lista_solo_los_que_tienen_unidades(self):
         # "Tipo desayuno (en caso de mezclar varios mostrar)" en la cabecera

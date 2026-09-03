@@ -6,6 +6,7 @@ import {
 import { DashboardShell } from "@/components/dashboard/shell";
 import { KpiCard } from "@/components/dashboard/kpi-card";
 import { GaugeKpiCard } from "@/components/dashboard/gauge-kpi-card";
+import { LyComparison } from "@/components/dashboard/ly-comparison";
 import { RangeFilter } from "@/components/dashboard/range-filter";
 import { DataSourceBadge } from "@/components/dashboard/data-source-badge";
 import { DesayunosOrigenDatos } from "@/components/dashboard/desayunos-origen-datos";
@@ -229,6 +230,8 @@ export default function HotelDesayunosPage() {
                 label="Producción"
                 value={fmtEuro(data.actual.produccion)}
                 tone="neutral"
+                delta={data.actual.produccionVarLY !== null ? data.actual.produccionVarLY * 100 : undefined}
+                deltaLabel="vs LY"
                 footer={`Facturado ${fmtEuro(data.actual.produccionFacturada)} (${fmtPct(data.actual.porcentajeFacturado, 0)}) · sin facturar ${fmtEuro(data.actual.produccionSinFacturar)}`}
               />
               <GaugeKpiCard
@@ -240,6 +243,7 @@ export default function HotelDesayunosPage() {
                 tone={data.actual.alojadosPrevistos
                   ? TONE_POR_ETIQUETA[etiqueta(data.actual.alojados / data.actual.alojadosPrevistos, 0.9, 1)]
                   : "neutral"}
+                footer={<LyComparison valorLY={data.actual.alojadosLY} variacion={data.actual.alojadosVarLY} formatear={fmtNum} />}
               />
               <GaugeKpiCard
                 label="Desayunos"
@@ -250,6 +254,7 @@ export default function HotelDesayunosPage() {
                 tone={data.actual.desayunosPrevistos
                   ? TONE_POR_ETIQUETA[etiqueta(data.actual.desayunos / data.actual.desayunosPrevistos, 0.9, 1)]
                   : "neutral"}
+                footer={<LyComparison valorLY={data.actual.desayunosLY} variacion={data.actual.desayunosVarLY} formatear={fmtNum} />}
               />
               <GaugeKpiCard
                 label="Penetración"
@@ -258,8 +263,15 @@ export default function HotelDesayunosPage() {
                 target={ajustes.objetivoPenetracion}
                 targetLabel={`Objetivo: ${fmtPct(ajustes.objetivoPenetracion, 0)}`}
                 tone={TONE_POR_ETIQUETA[etiqueta(data.actual.penetracion, ajustes.umbralPenetracion, ajustes.objetivoPenetracion)]}
+                footer={<LyComparison valorLY={data.actual.penetracionLY} variacion={data.actual.penetracionVarLY} formatear={(n) => fmtPct(n)} />}
               />
-              <KpiCard label="Precio medio" value={`${data.actual.precioMedio.toFixed(2)}€`} tone="neutral" />
+              <KpiCard
+                label="Precio medio"
+                value={`${data.actual.precioMedio.toFixed(2)}€`}
+                tone="neutral"
+                delta={data.actual.precioMedioVarLY !== null ? data.actual.precioMedioVarLY * 100 : undefined}
+                deltaLabel="vs LY"
+              />
             </section>
 
             <div className="h-64">
@@ -296,13 +308,18 @@ export default function HotelDesayunosPage() {
                   return e ? TONE_POR_ETIQUETA[e] : "neutral";
                 })()}
                 footer={
-                  // La fuente que NO ganó, para comparar — pedido explícito 2026-09-02
-                  (data.actual.presupuestoOrigen === "odoo" && data.actual.presupuestoIngresosExcel !== null) ||
-                  (data.actual.presupuestoOrigen === "excel" && data.actual.presupuestoIngresosOdoo !== null)
-                    ? data.actual.presupuestoOrigen === "odoo"
-                      ? `Excel: ${fmtEuro(data.actual.presupuestoIngresosExcel!)}`
-                      : `Odoo: ${fmtEuro(data.actual.presupuestoIngresosOdoo!)}`
-                    : undefined
+                  <span className="flex flex-col gap-0.5 items-start">
+                    {/* La fuente que NO ganó, para comparar — pedido explícito 2026-09-02 */}
+                    {((data.actual.presupuestoOrigen === "odoo" && data.actual.presupuestoIngresosExcel !== null) ||
+                      (data.actual.presupuestoOrigen === "excel" && data.actual.presupuestoIngresosOdoo !== null)) && (
+                      <span>
+                        {data.actual.presupuestoOrigen === "odoo"
+                          ? `Excel: ${fmtEuro(data.actual.presupuestoIngresosExcel!)}`
+                          : `Odoo: ${fmtEuro(data.actual.presupuestoIngresosOdoo!)}`}
+                      </span>
+                    )}
+                    <LyComparison valorLY={data.actual.ingresosLY} variacion={data.actual.ingresosVarLY} formatear={fmtEuro} />
+                  </span>
                 }
               />
               <GaugeKpiCard
@@ -312,11 +329,37 @@ export default function HotelDesayunosPage() {
                 target={data.actual.presupuestoGastos > 0 ? data.actual.presupuestoGastos : null}
                 targetLabel={data.actual.presupuestoGastos > 0 ? `Presupuesto: ${fmtEuro(data.actual.presupuestoGastos)}` : "Sin presupuesto confirmado"}
                 tone={tonoGastos(data.actual.cumplimientoGastos)}
+                footer={<LyComparison valorLY={data.actual.gastosLY} variacion={data.actual.gastosVarLY} formatear={fmtEuro} positivoEsBueno={false} />}
               />
-              <KpiCard label="Margen bruto" value={<SignedPct value={data.actual.margenBruto} />} tone="neutral" />
-              <KpiCard label="Precio medio venta" value={`${data.actual.precioMedioVenta.toFixed(2)}€`} tone="neutral" />
-              <KpiCard label="Coste medio" value={`${data.actual.costeMedioGasto.toFixed(2)}€`} tone="neutral" />
-              <KpiCard label="Resultado F&B" value={<SignedEuro value={data.actual.resultadoFB} />} tone="neutral" />
+              <KpiCard
+                label="Margen bruto"
+                value={<SignedPct value={data.actual.margenBruto} />}
+                tone="neutral"
+                delta={data.actual.margenBrutoVarLY !== null ? data.actual.margenBrutoVarLY * 100 : undefined}
+                deltaLabel="vs LY"
+              />
+              <KpiCard
+                label="Precio medio venta"
+                value={`${data.actual.precioMedioVenta.toFixed(2)}€`}
+                tone="neutral"
+                delta={data.actual.precioMedioVentaVarLY !== null ? data.actual.precioMedioVentaVarLY * 100 : undefined}
+                deltaLabel="vs LY"
+              />
+              <KpiCard
+                label="Coste medio"
+                value={`${data.actual.costeMedioGasto.toFixed(2)}€`}
+                tone="neutral"
+                delta={data.actual.costeMedioGastoVarLY !== null ? data.actual.costeMedioGastoVarLY * 100 : undefined}
+                deltaLabel="vs LY"
+                positivoEsBueno={false}
+              />
+              <KpiCard
+                label="Resultado F&B"
+                value={<SignedEuro value={data.actual.resultadoFB} />}
+                tone="neutral"
+                delta={data.actual.resultadoFBVarLY !== null ? data.actual.resultadoFBVarLY * 100 : undefined}
+                deltaLabel="vs LY"
+              />
             </section>
 
             {data.serieMensual.length > 0 && (

@@ -7,6 +7,7 @@ import { useAjustesDesayuno } from "@/lib/ajustes-desayuno-context";
 import { exportarCsv } from "@/lib/export-csv";
 import { Button } from "@/components/ui/button";
 import { hrefHotelDesayunos, type HotelReal } from "@/lib/hoteles-api";
+import { LyComparison } from "@/components/dashboard/ly-comparison";
 
 type Key = "name" | "alojados" | "desayunos" | "penetracion" | "produccion" | "precioMedio" | "oportunidad";
 
@@ -35,11 +36,56 @@ function buildCols(objetivoOportunidad: number): Array<{ key: Key; label: string
         </div>
       ),
     },
-    { key: "alojados", label: "Alojados", render: (h) => fmtNum(h.alojados) },
-    { key: "desayunos", label: "Desayunos", render: (h) => fmtNum(h.desayunos) },
-    { key: "penetracion", label: "Penetración", render: (h) => fmtPct(h.penetracion) },
-    { key: "produccion", label: "Producción", render: (h) => fmtEuro(h.produccion) },
-    { key: "precioMedio", label: "Precio med.", render: (h) => `${h.precioMedio.toFixed(2)}€` },
+    {
+      key: "alojados",
+      label: "Alojados",
+      render: (h) => (
+        <div className="flex flex-col items-end gap-0.5 leading-tight">
+          <span>{fmtNum(h.alojados)}</span>
+          <LyComparison valorLY={h.alojadosLY} variacion={h.alojadosVarLY} formatear={fmtNum} />
+        </div>
+      ),
+    },
+    {
+      key: "desayunos",
+      label: "Desayunos",
+      render: (h) => (
+        <div className="flex flex-col items-end gap-0.5 leading-tight">
+          <span>{fmtNum(h.desayunos)}</span>
+          <LyComparison valorLY={h.desayunosLY} variacion={h.desayunosVarLY} formatear={fmtNum} />
+        </div>
+      ),
+    },
+    {
+      key: "penetracion",
+      label: "Penetración",
+      render: (h) => (
+        <div className="flex flex-col items-end gap-0.5 leading-tight">
+          <span>{fmtPct(h.penetracion)}</span>
+          <LyComparison valorLY={h.penetracionLY} variacion={h.penetracionVarLY} formatear={(n) => fmtPct(n)} />
+        </div>
+      ),
+    },
+    {
+      key: "produccion",
+      label: "Producción",
+      render: (h) => (
+        <div className="flex flex-col items-end gap-0.5 leading-tight">
+          <span>{fmtEuro(h.produccion)}</span>
+          <LyComparison valorLY={h.produccionLY} variacion={h.produccionVarLY} formatear={fmtEuro} />
+        </div>
+      ),
+    },
+    {
+      key: "precioMedio",
+      label: "Precio med.",
+      render: (h) => (
+        <div className="flex flex-col items-end gap-0.5 leading-tight">
+          <span>{h.precioMedio.toFixed(2)}€</span>
+          <LyComparison valorLY={h.precioMedioLY} variacion={h.precioMedioVarLY} formatear={(n) => `${n.toFixed(2)}€`} />
+        </div>
+      ),
+    },
     { key: "oportunidad", label: "Oportunidad", render: (h) => fmtEuro(oportunidad(h, objetivoOportunidad)) },
   ];
 }
@@ -47,10 +93,19 @@ function buildCols(objetivoOportunidad: number): Array<{ key: Key; label: string
 function exportar(hoteles: HotelReal[], objetivoOportunidad: number) {
   exportarCsv(
     `desayunos-hoteles-${new Date().toISOString().slice(0, 10)}`,
-    ["Hotel", "Código", "Zona", "Sociedad", "Submarca", "Alojados", "Desayunos", "Penetración %", "Producción", "Precio medio", "Oportunidad"],
+    [
+      "Hotel", "Código", "Zona", "Sociedad", "Submarca",
+      "Alojados", "Alojados LY", "Desayunos", "Desayunos LY",
+      "Penetración %", "Penetración LY %", "Producción", "Producción LY",
+      "Precio medio", "Precio medio LY", "Oportunidad",
+    ],
     hoteles.map((h) => [
-      h.name, h.codigo, h.zona, h.sociedad, h.submarca, h.alojados, h.desayunos,
-      (h.penetracion * 100).toFixed(1), h.produccion.toFixed(2), h.precioMedio.toFixed(2), oportunidad(h, objetivoOportunidad).toFixed(2),
+      h.name, h.codigo, h.zona, h.sociedad, h.submarca,
+      h.alojados, h.alojadosLY, h.desayunos, h.desayunosLY,
+      (h.penetracion * 100).toFixed(1), (h.penetracionLY * 100).toFixed(1),
+      h.produccion.toFixed(2), h.produccionLY.toFixed(2),
+      h.precioMedio.toFixed(2), h.precioMedioLY.toFixed(2),
+      oportunidad(h, objetivoOportunidad).toFixed(2),
     ])
   );
 }

@@ -145,6 +145,45 @@ def _fnb_json(f: dict, presupuesto: dict = _PRESUPUESTO_VACIO, motivo_presupuest
 _CALIDAD_CHECKIN_VACIO = {"declarado": 0, "checkin": 0, "reservasTotal": 0, "reservasSinCheckin": 0}
 
 
+def _hace_un_ano(fecha: datetime.date) -> datetime.date:
+    """Mismo día del año anterior — 29 de febrero cae en 28 si el año
+    anterior no es bisiesto (no existe un 29/02 al que volver)."""
+    try:
+        return fecha.replace(year=fecha.year - 1)
+    except ValueError:
+        return fecha.replace(year=fecha.year - 1, day=28)
+
+
+def _variacion(actual: float, ly: float) -> float | None:
+    """(actual - LY) / LY — None si LY es 0 (sin línea base con la que
+    comparar; un "0%" o un "+inf%" serían ambos engañosos)."""
+    return round((actual - ly) / ly, 4) if ly else None
+
+
+# Campos con comparativa LY en las tablas de hoteles y en la ficha —
+# mismo nombre que ya usa "actual" en cada caso. "desayunos"/"produccion"
+# son PMS (incluyen colaborador); ingresos/gastos/margenBruto/
+# costeMedioGasto son contables (los devuelve _fnb_json, no se recalculan
+# aquí para no tener la fórmula del margen/coste medio duplicada en dos
+# sitios).
+_CAMPOS_LY = (
+    "alojados", "desayunos", "penetracion", "precioMedio", "produccion",
+    "ingresos", "gastos", "margenBruto", "costeMedioGasto", "precioMedioVenta", "resultadoFB",
+)
+
+
+def _ly_json(actual: dict, ly: dict) -> dict:
+    """`actual`/`ly` llevan ya calculadas las claves de _CAMPOS_LY para el
+    periodo correspondiente (el de LY, desplazado un año con
+    _hace_un_ano) — solo empaqueta el valor LY y la variación con signo
+    junto a cada campo (ej. "ingresosLY", "ingresosVarLY")."""
+    salida = {}
+    for campo in _CAMPOS_LY:
+        salida[f"{campo}LY"] = round(ly[campo], 4)
+        salida[f"{campo}VarLY"] = _variacion(actual[campo], ly[campo])
+    return salida
+
+
 def get_hoteles(
     fecha_inicio: datetime.date,
     fecha_fin: datetime.date,
@@ -161,6 +200,17 @@ def get_hoteles(
     motivo_presupuesto = None if rango_valido else _MOTIVO_RANGO_PARCIAL
     calidad_checkin = repository.fetch_calidad_checkin(fecha_inicio, fecha_fin)
 
+    # LY (año anterior): mismo periodo desplazado un año, mismas fetch_*
+    # que "actual" — sin presupuesto ni calidad de checkin, fuera del
+    # alcance de esta comparativa. Duplica 3 consultas contra Odoo por
+    # petición; verificado 2026-09-03 contra producción que el coste
+    # extra es asumible tras el fix de la CTE "facturado" (2026-09-02) que
+    # ya bajó cada una de estas de ~11s a <1s.
+    desde_ly, hasta_ly = _hace_un_ano(fecha_inicio), _hace_un_ano(fecha_fin)
+    alojados_ly = repository.fetch_alojados(desde_ly, hasta_ly)
+    desayunos_ly = repository.fetch_desayunos(desde_ly, hasta_ly, tipos_desayuno)
+    fnb_ly = repository.fetch_fnb_desayuno(desde_ly, hasta_ly)
+
     resultado = []
     for h in hoteles:
         if es_hotel_excluido(h["id"], h["property_code"]):
@@ -169,6 +219,14 @@ def get_hoteles(
         a = alojados.get(h["id"], 0)
         penetracion = (d["cantidad"] / a) if a > 0 else 0.0
         precio_medio = _precio_medio(d)
+        fnb_json = _fnb_json(fnb.get(h["id"], _FNB_VACIO), presupuesto.get(h["id"], _PRESUPUESTO_VACIO), motivo_presupuesto)
+
+        d_ly = desayunos_ly.get(h["id"], _DESAYUNO_VACIO)
+        a_ly = alojados_ly.get(h["id"], 0)
+        penetracion_ly = (d_ly["cantidad"] / a_ly) if a_ly > 0 else 0.0
+        precio_medio_ly = _precio_medio(d_ly)
+        fnb_json_ly = _fnb_json(fnb_ly.get(h["id"], _FNB_VACIO))
+
         resultado.append(
             {
                 "id": h["id"],
@@ -187,7 +245,11 @@ def get_hoteles(
                 "produccion": round(d["produccion"], 2),
                 "precioMedio": round(precio_medio, 2),
                 **_facturacion_json(d),
-                **_fnb_json(fnb.get(h["id"], _FNB_VACIO), presupuesto.get(h["id"], _PRESUPUESTO_VACIO), motivo_presupuesto),
+                **fnb_json,
+                **_ly_json(
+                    {"alojados": a, "desayunos": d["cantidad_total"], "penetracion": penetracion, "precioMedio": precio_medio, "produccion": d["produccion"], **fnb_json},
+                    {"alojados": a_ly, "desayunos": d_ly["cantidad_total"], "penetracion": penetracion_ly, "precioMedio": precio_medio_ly, "produccion": d_ly["produccion"], **fnb_json_ly},
+                ),
                 "calidadCheckin": calidad_checkin.get(h["id"], _CALIDAD_CHECKIN_VACIO),
             }
         )
@@ -310,6 +372,17 @@ def get_hotel_desayunos(
     motivo_presupuesto = None if rango_valido else _MOTIVO_RANGO_PARCIAL
     penetracion = (d["cantidad"] / alojados) if alojados > 0 else 0.0
     precio_medio = _precio_medio(d)
+    fnb_json = _fnb_json(fnb, presupuesto, motivo_presupuesto)
+
+    # LY (año anterior) — mismo criterio que get_hoteles: mismo periodo
+    # desplazado un año, sin presupuesto ni calidad de checkin.
+    desde_ly, hasta_ly = _hace_un_ano(fecha_inicio), _hace_un_ano(fecha_fin)
+    alojados_ly = repository.fetch_alojados(desde_ly, hasta_ly).get(hotel_id, 0)
+    d_ly = repository.fetch_desayunos(desde_ly, hasta_ly, tipos_desayuno).get(hotel_id, _DESAYUNO_VACIO)
+    penetracion_ly = (d_ly["cantidad"] / alojados_ly) if alojados_ly > 0 else 0.0
+    precio_medio_ly = _precio_medio(d_ly)
+    fnb_json_ly = _fnb_json(repository.fetch_fnb_desayuno(desde_ly, hasta_ly).get(hotel_id, _FNB_VACIO))
+
     actual = {
         "alojados": alojados,
         "desayunos": round(d["cantidad_total"]),
@@ -317,7 +390,11 @@ def get_hotel_desayunos(
         "produccion": round(d["produccion"], 2),
         "precioMedio": round(precio_medio, 2),
         **_facturacion_json(d),
-        **_fnb_json(fnb, presupuesto, motivo_presupuesto),
+        **fnb_json,
+        **_ly_json(
+            {"alojados": alojados, "desayunos": d["cantidad_total"], "penetracion": penetracion, "precioMedio": precio_medio, "produccion": d["produccion"], **fnb_json},
+            {"alojados": alojados_ly, "desayunos": d_ly["cantidad_total"], "penetracion": penetracion_ly, "precioMedio": precio_medio_ly, "produccion": d_ly["produccion"], **fnb_json_ly},
+        ),
     }
 
     inicio_serie = _hace_n_meses(fecha_fin, 11)
