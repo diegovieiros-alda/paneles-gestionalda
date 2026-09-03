@@ -8,7 +8,7 @@ import { exportarCsv } from "@/lib/export-csv";
 import { Button } from "@/components/ui/button";
 import { hrefHotelDesayunos, type HotelReal } from "@/lib/hoteles-api";
 
-type Key = "name" | "zona" | "sociedad" | "submarca" | "alojados" | "desayunos" | "penetracion" | "produccion" | "precioMedio" | "oportunidad";
+type Key = "name" | "alojados" | "desayunos" | "penetracion" | "produccion" | "precioMedio" | "oportunidad";
 
 // Misma base que la columna "Penetración" (directa, sin colaborador — ver
 // backend/core/hoteles/service.py): calcular el hueco sobre "desayunos"
@@ -19,18 +19,28 @@ function oportunidad(h: HotelReal, objetivoOportunidad: number) {
   return facturacionPotencial(h.alojados, h.penetracion, h.precioMedioVenta, objetivoOportunidad);
 }
 
-function buildCols(objetivoOportunidad: number): Array<{ key: Key; label: string; align?: "center"; render: (h: HotelReal) => string; sticky?: boolean }> {
+// Zona/Sociedad/Submarca eran 3 columnas propias — bastante para forzar
+// scroll horizontal por sí solas. Se leen igual de bien como segunda línea
+// bajo el nombre del hotel, y liberan sitio para las métricas.
+function buildCols(objetivoOportunidad: number): Array<{ key: Key; label: string; render: (h: HotelReal) => React.ReactNode; sticky?: boolean }> {
   return [
-    { key: "name", label: "Hotel", render: (h) => (h.codigo ? `${h.codigo} - ${h.name}` : h.name), sticky: true },
-    { key: "zona", label: "Zona", render: (h) => h.zona },
-    { key: "sociedad", label: "Sociedad", render: (h) => h.sociedad },
-    { key: "submarca", label: "Submarca", render: (h) => h.submarca },
-    { key: "alojados", label: "Alojados", align: "center", render: (h) => fmtNum(h.alojados) },
-    { key: "desayunos", label: "Desayunos", align: "center", render: (h) => fmtNum(h.desayunos) },
-    { key: "penetracion", label: "Penetración", align: "center", render: (h) => fmtPct(h.penetracion) },
-    { key: "produccion", label: "Producción", align: "center", render: (h) => fmtEuro(h.produccion) },
-    { key: "precioMedio", label: "Precio med.", align: "center", render: (h) => `${h.precioMedio.toFixed(2)}€` },
-    { key: "oportunidad", label: "Oportunidad", align: "center", render: (h) => fmtEuro(oportunidad(h, objetivoOportunidad)) },
+    {
+      key: "name",
+      label: "Hotel",
+      sticky: true,
+      render: (h) => (
+        <div className="flex flex-col">
+          <span>{h.codigo ? `${h.codigo} - ${h.name}` : h.name}</span>
+          <span className="text-xs font-normal text-muted-foreground">{h.zona} · {h.sociedad} · {h.submarca}</span>
+        </div>
+      ),
+    },
+    { key: "alojados", label: "Alojados", render: (h) => fmtNum(h.alojados) },
+    { key: "desayunos", label: "Desayunos", render: (h) => fmtNum(h.desayunos) },
+    { key: "penetracion", label: "Penetración", render: (h) => fmtPct(h.penetracion) },
+    { key: "produccion", label: "Producción", render: (h) => fmtEuro(h.produccion) },
+    { key: "precioMedio", label: "Precio med.", render: (h) => `${h.precioMedio.toFixed(2)}€` },
+    { key: "oportunidad", label: "Oportunidad", render: (h) => fmtEuro(oportunidad(h, objetivoOportunidad)) },
   ];
 }
 
@@ -101,12 +111,11 @@ export function HotelsTableReal({
                   key={c.key}
                   onClick={() => setSort((s) => ({ key: c.key, dir: s.key === c.key && s.dir === "desc" ? "asc" : "desc" }))}
                   className={cn(
-                    "text-[11px] font-medium text-muted-foreground uppercase tracking-wide px-4 py-3 cursor-pointer select-none whitespace-nowrap",
-                    c.align === "center" ? "text-center" : "text-left",
-                    c.sticky && "sticky left-0 bg-surface-muted/95 z-10"
+                    "text-[11px] font-medium text-muted-foreground uppercase tracking-wide px-5 py-3.5 cursor-pointer select-none whitespace-nowrap",
+                    c.sticky ? "text-left sticky left-0 bg-surface-muted/95 z-10" : "text-right"
                   )}
                 >
-                  <span className="inline-flex items-center gap-1">
+                  <span className={cn("inline-flex items-center gap-1", !c.sticky && "flex-row-reverse")}>
                     {c.label}
                     <ArrowUpDown className={cn("h-3 w-3 opacity-40", sort.key === c.key && "opacity-100 text-primary")} />
                   </span>
@@ -122,13 +131,10 @@ export function HotelsTableReal({
                   <td
                     key={c.key}
                     className={cn(
-                      "px-4 py-3 whitespace-nowrap num",
-                      c.align === "center" ? "text-center" : "text-left",
+                      "px-5 py-3.5 whitespace-nowrap num",
                       c.sticky
-                        ? "sticky left-0 bg-surface group-hover:bg-accent/30 font-medium text-foreground"
-                        : c.key === "zona" || c.key === "sociedad"
-                          ? "text-muted-foreground"
-                          : "text-foreground/90"
+                        ? "text-left sticky left-0 bg-surface group-hover:bg-accent/30 font-medium text-foreground"
+                        : "text-right text-foreground/90"
                     )}
                   >
                     {c.sticky ? (
@@ -138,7 +144,7 @@ export function HotelsTableReal({
                     ) : c.render(h)}
                   </td>
                 ))}
-                <td className="pr-3">
+                <td className="pr-4">
                   <Link to={hrefHotelDesayunos(h.id, desde, hasta, tipos)} className="text-muted-foreground hover:text-primary inline-flex">
                     <ChevronRight className="h-4 w-4" />
                   </Link>

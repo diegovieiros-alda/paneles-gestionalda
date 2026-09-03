@@ -12,17 +12,30 @@ import { Button } from "@/components/ui/button";
 import { useAjustesDesayuno } from "@/lib/ajustes-desayuno-context";
 import { hrefHotelDesayunos, type HotelReal } from "@/lib/hoteles-api";
 
-type Key = "name" | "zona" | "submarca" | "ingresos" | "presupuestoIngresos" | "cumplimientoIngresos" | "gastos" | "margenBruto" | "precioMedioVenta" | "costeMedioGasto" | "resultadoFB" | "potencial";
+type Key = "name" | "ingresos" | "presupuestoIngresos" | "gastos" | "precioMedioVenta" | "margenBruto" | "potencial";
 
 function potencial(h: HotelReal, objetivoOportunidad: number) {
   return facturacionPotencial(h.alojados, h.penetracion, h.precioMedioVenta, objetivoOportunidad);
 }
 
+// Cada columna ancha se merece su propio espacio, pero 5 métricas sueltas
+// (precio, coste, margen, resultado, cumplimiento) generaban scroll
+// horizontal en cualquier pantalla — se agrupan aquí en pares que ya se
+// leen juntos en la práctica (precio de venta y su coste; margen y el
+// resultado que produce), en dos líneas dentro de la misma celda, en vez
+// de una columna por cada número.
 function buildCols(objetivoOportunidad: number): Array<{ key: Key; label: string; render: (h: HotelReal) => React.ReactNode }> {
   return [
-    { key: "name", label: "Hotel", render: (h) => (h.codigo ? `${h.codigo} - ${h.name}` : h.name) },
-    { key: "zona", label: "Zona", render: (h) => h.zona },
-    { key: "submarca", label: "Submarca", render: (h) => h.submarca },
+    {
+      key: "name",
+      label: "Hotel",
+      render: (h) => (
+        <div className="flex flex-col">
+          <span>{h.codigo ? `${h.codigo} - ${h.name}` : h.name}</span>
+          <span className="text-xs font-normal text-muted-foreground">{h.zona} · {h.submarca}</span>
+        </div>
+      ),
+    },
     { key: "ingresos", label: "Ingresos", render: (h) => fmtEuro(h.ingresos) },
     {
       key: "presupuestoIngresos",
@@ -31,8 +44,8 @@ function buildCols(objetivoOportunidad: number): Array<{ key: Key; label: string
         h.presupuestoMotivo === "rango_no_es_mes_natural" ? (
           <span className="text-muted-foreground/50" title="Elige un mes completo para ver el presupuesto">Elige mes completo</span>
         ) : h.presupuestoIngresos > 0 ? (
-          <div className="flex flex-col items-center leading-tight">
-            <span className="text-muted-foreground inline-flex items-center gap-1">
+          <div className="flex flex-col gap-0.5 leading-tight items-end">
+            <span className="text-foreground/90 inline-flex items-center gap-1.5">
               {fmtEuro(h.presupuestoIngresos)}
               {h.presupuestoOrigen && (
                 <span
@@ -42,6 +55,14 @@ function buildCols(objetivoOportunidad: number): Array<{ key: Key; label: string
                   {ORIGEN_PRESUPUESTO_LABEL[h.presupuestoOrigen]}
                 </span>
               )}
+              {(() => {
+                const e = etiquetaCumplimiento(h.cumplimientoIngresos);
+                return e ? (
+                  <span className={cn("inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium", ETIQUETA_BADGE_CLASS[e])}>
+                    {fmtPct(h.cumplimientoIngresos!, 0)}
+                  </span>
+                ) : null;
+              })()}
             </span>
             {/* La fuente que NO ganó, para comparar — pedido explícito 2026-09-02 */}
             {h.presupuestoOrigen === "odoo" && h.presupuestoIngresosExcel !== null && (
@@ -55,26 +76,28 @@ function buildCols(objetivoOportunidad: number): Array<{ key: Key; label: string
           <span className="text-muted-foreground/50">Sin presupuesto</span>
         ),
     },
-    {
-      key: "cumplimientoIngresos",
-      label: "Cumplimiento",
-      render: (h) => {
-        if (h.presupuestoMotivo === "rango_no_es_mes_natural") return <span className="text-muted-foreground/50">—</span>;
-        const e = etiquetaCumplimiento(h.cumplimientoIngresos);
-        if (!e || h.cumplimientoIngresos === null) return <span className="text-muted-foreground/50">—</span>;
-        return (
-          <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium", ETIQUETA_BADGE_CLASS[e])}>
-            {fmtPct(h.cumplimientoIngresos, 0)}
-          </span>
-        );
-      },
-    },
     { key: "gastos", label: "Gastos", render: (h) => fmtEuro(h.gastos) },
-    { key: "margenBruto", label: "Margen bruto", render: (h) => <SignedPct value={h.margenBruto} /> },
-    { key: "precioMedioVenta", label: "Precio medio venta", render: (h) => `${h.precioMedioVenta.toFixed(2)}€` },
-    { key: "costeMedioGasto", label: "Coste medio", render: (h) => `${h.costeMedioGasto.toFixed(2)}€` },
-    { key: "resultadoFB", label: "Resultado F&B", render: (h) => <SignedEuro value={h.resultadoFB} /> },
-    { key: "potencial", label: "Facturación potencial", render: (h) => fmtEuro(potencial(h, objetivoOportunidad)) },
+    {
+      key: "precioMedioVenta",
+      label: "Precio / coste",
+      render: (h) => (
+        <div className="flex flex-col gap-0.5 leading-tight items-end">
+          <span className="text-foreground/90">{h.precioMedioVenta.toFixed(2)}€</span>
+          <span className="text-xs text-muted-foreground">{h.costeMedioGasto.toFixed(2)}€ coste</span>
+        </div>
+      ),
+    },
+    {
+      key: "margenBruto",
+      label: "Margen / resultado",
+      render: (h) => (
+        <div className="flex flex-col gap-0.5 leading-tight items-end">
+          <SignedPct value={h.margenBruto} />
+          <span className="text-xs text-muted-foreground"><SignedEuro value={h.resultadoFB} /></span>
+        </div>
+      ),
+    },
+    { key: "potencial", label: "Oportunidad", render: (h) => fmtEuro(potencial(h, objetivoOportunidad)) },
   ];
 }
 
@@ -150,7 +173,7 @@ export function FnbFinancieroTable({
       </header>
 
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm border-separate border-spacing-0">
           <thead className="bg-surface-muted/60">
             <tr>
               {cols.map((c) => (
@@ -158,17 +181,17 @@ export function FnbFinancieroTable({
                   key={c.label}
                   onClick={() => setSort((s) => ({ key: c.key, dir: s.key === c.key && s.dir === "desc" ? "asc" : "desc" }))}
                   className={cn(
-                    "text-[11px] font-medium text-muted-foreground uppercase tracking-wide px-4 py-3 cursor-pointer select-none whitespace-nowrap",
-                    c.key === "name" ? "text-left sticky left-0 bg-surface-muted/95 z-10" : "text-center"
+                    "text-[11px] font-medium text-muted-foreground uppercase tracking-wide px-5 py-3.5 cursor-pointer select-none whitespace-nowrap",
+                    c.key === "name" ? "text-left sticky left-0 bg-surface-muted/95 z-10" : "text-right"
                   )}
                 >
-                  <span className="inline-flex items-center gap-1">
+                  <span className={cn("inline-flex items-center gap-1", c.key !== "name" && "flex-row-reverse")}>
                     {c.label}
                     <ArrowUpDown className={cn("h-3 w-3 opacity-40", sort.key === c.key && "opacity-100 text-primary")} />
                   </span>
                 </th>
               ))}
-              <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide px-4 py-3 text-center whitespace-nowrap">
+              <th className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide px-5 py-3.5 text-center whitespace-nowrap">
                 Penetración
               </th>
               <th className="w-8" />
@@ -183,10 +206,10 @@ export function FnbFinancieroTable({
                     <td
                       key={c.label}
                       className={cn(
-                        "px-4 py-3 whitespace-nowrap num",
+                        "px-5 py-3.5 whitespace-nowrap num",
                         c.key === "name"
                           ? "text-left sticky left-0 bg-surface group-hover:bg-accent/30 font-medium text-foreground"
-                          : "text-center text-foreground/90"
+                          : "text-right text-foreground/90"
                       )}
                     >
                       {c.key === "name" ? (
@@ -198,12 +221,12 @@ export function FnbFinancieroTable({
                       )}
                     </td>
                   ))}
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-5 py-3.5 text-center">
                     <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium", ETIQUETA_BADGE_CLASS[e])}>
                       {ETIQUETA_LABEL[e]}
                     </span>
                   </td>
-                  <td className="pr-3">
+                  <td className="pr-4">
                     <Link to={hrefHotelDesayunos(h.id, desde, hasta, tipos)} className="text-muted-foreground hover:text-primary inline-flex">
                       <ChevronRight className="h-4 w-4" />
                     </Link>
