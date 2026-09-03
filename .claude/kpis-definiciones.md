@@ -2034,3 +2034,27 @@ WHERE state NOT IN ('draft', 'cancel')
   servidor. Ninguna cifra ya validada queda invalidada por este cambio: es
   la primera vez que la fuente Excel tiene datos reales cargados, no había
   nada previamente validado que corregir.
+- 2026-09-02 (mismo día): a petición del usuario ("vamos a poner los 2
+  presupuestos... para comparar"), `fetch_presupuesto_desayuno` y sus dos
+  variantes de serie mensual ya no descartan la fuente que no gana —
+  `presupuestoIngresos/GastosOdoo` y `...Excel` viajan ahora los dos por
+  separado (PR #45, `repository._combinar_presupuesto`), además de la
+  cifra elegida de siempre. No cambia ningún cálculo ni el criterio de
+  prioridad Odoo > Excel. Verificado: para octubre 2026, 65 de los 87
+  hoteles con presupuesto tienen las dos fuentes a la vez (Odoo gana en
+  esos 65, pero ahora también se ve qué decía el Excel).
+  - **Bug real encontrado durante la verificación de este cambio**: un test
+    (`PresupuestoDesayunoExcelFormulaTests`, ya existente desde la entrada
+    de más arriba) llama a la función real `fetch_presupuesto_desayuno_excel`
+    (decorada con `@cache_result`) con fecha_inicio/fecha_fin de octubre
+    2026 — el mismo rango que se consulta de verdad en producción — y con
+    `PresupuestoDesayunoMensual.objects` mockeado a un hotel inventado. La
+    caché (`FileBasedCache`, en disco, compartida con gunicorn) no
+    distingue "es un test": el resultado inventado del test se sirvió a
+    usuarios reales durante un rato tras ejecutar `manage.py test` en el
+    servidor, hasta vaciar la caché a mano. Corregido de raíz (no solo en
+    este test): `settings.py` usa `LocMemCache` bajo `manage.py test`
+    (detectado por `sys.argv`), así que ningún test futuro puede volver a
+    escribir en la caché real, la tenga o no en cuenta. Revalidado tras el
+    fix: excel=86 hoteles, combinado odoo=66/excel=21, sin rastro del
+    hotel inventado.
