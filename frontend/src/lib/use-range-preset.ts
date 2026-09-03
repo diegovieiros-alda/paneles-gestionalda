@@ -5,9 +5,9 @@ import { rangeForPreset, type RangePreset } from "@/lib/date-range";
 // hotel-bloqueos.tsx ×2, hotel-desayunos.tsx) antes de esta extracción —
 // centralizado aquí para no seguir divergiendo (use-desayunos-data.ts tiene
 // una variante ligeramente distinta con más estado propio, no se toca).
-export function useRangePreset(inicial: RangePreset) {
+export function useRangePreset(inicial: RangePreset, customInicial?: { desde: string; hasta: string }) {
   const [preset, setPreset] = useState<RangePreset>(inicial);
-  const [custom, setCustom] = useState(() => rangeForPreset(inicial === "custom" ? "30d" : inicial));
+  const [custom, setCustom] = useState(() => customInicial ?? rangeForPreset(inicial === "custom" ? "30d" : inicial));
   const { desde, hasta } = preset === "custom" ? custom : rangeForPreset(preset);
   return {
     desde,

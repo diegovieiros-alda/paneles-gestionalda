@@ -29,8 +29,8 @@ export default function DesayunosOportunidadesPage() {
         {hoteles && (
           <>
             <ObjetivoPenetracionCard hoteles={hoteles} />
-            <RankingListReal hoteles={hoteles} />
-            <OpportunityBlockReal hoteles={hoteles} />
+            <RankingListReal hoteles={hoteles} desde={desde} hasta={hasta} />
+            <OpportunityBlockReal hoteles={hoteles} desde={desde} hasta={hasta} />
           </>
         )}
       </div>

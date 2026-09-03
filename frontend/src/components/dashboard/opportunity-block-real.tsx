@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { ChevronRight, Sparkles, Target, TrendingUp } from "lucide-react";
 import { facturacionPotencial, fmtEuro, fmtNum, fmtPct } from "@/lib/mock-data";
 import { useAjustesDesayuno } from "@/lib/ajustes-desayuno-context";
-import type { HotelReal } from "@/lib/hoteles-api";
+import { hrefHotelDesayunos, type HotelReal } from "@/lib/hoteles-api";
 
 // Facturación potencial por hotel, no sobre agregados de la cadena: usa la
 // penetración directa y el precio contable de cada hotel (misma base que
@@ -15,7 +15,7 @@ function potencialHotel(h: HotelReal, objetivoOportunidad: number) {
   return { potenciales, valor };
 }
 
-export function OpportunityBlockReal({ hoteles }: { hoteles: HotelReal[] }) {
+export function OpportunityBlockReal({ hoteles, desde, hasta }: { hoteles: HotelReal[]; desde: string; hasta: string }) {
   const { ajustes } = useAjustesDesayuno();
   const { facturacionPotencialTotal, potencialesTotal, penetracionMedia, produccionTotal, topHoteles } = useMemo(() => {
     const alojados = hoteles.reduce((a, h) => a + h.alojados, 0);
@@ -78,7 +78,7 @@ export function OpportunityBlockReal({ hoteles }: { hoteles: HotelReal[] }) {
             {topHoteles.map(({ h, potenciales, valor }, i) => (
               <li key={h.id}>
                 <Link
-                  to={`/desayunos/${h.id}`}
+                  to={hrefHotelDesayunos(h.id, desde, hasta)}
                   className="group flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-accent/40 transition-colors"
                 >
                   <div className="w-5 text-center text-[11px] font-semibold text-muted-foreground num">{i + 1}</div>

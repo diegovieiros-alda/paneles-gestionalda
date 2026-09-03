@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { fmtEuro, fmtNum, fmtPct } from "@/lib/mock-data";
 import { exportarCsv } from "@/lib/export-csv";
 import { Button } from "@/components/ui/button";
-import type { HotelReal } from "@/lib/hoteles-api";
+import { hrefHotelDesayunos, type HotelReal } from "@/lib/hoteles-api";
 
 type Key = "name" | "desayunosFacturados" | "desayunosSinFacturar" | "produccionFacturada" | "produccionSinFacturar" | "porcentajeFacturado";
 
@@ -34,7 +34,7 @@ function exportar(hoteles: HotelReal[]) {
   );
 }
 
-export function FacturacionTable({ hoteles }: { hoteles: HotelReal[] }) {
+export function FacturacionTable({ hoteles, desde, hasta }: { hoteles: HotelReal[]; desde: string; hasta: string }) {
   const [sort, setSort] = useState<{ key: Key; dir: "asc" | "desc" }>({ key: "produccionFacturada", dir: "desc" });
   const [q, setQ] = useState("");
 
@@ -110,14 +110,14 @@ export function FacturacionTable({ hoteles }: { hoteles: HotelReal[] }) {
                     )}
                   >
                     {c.sticky ? (
-                      <Link to={`/desayunos/${h.id}`} className="hover:text-primary">
+                      <Link to={hrefHotelDesayunos(h.id, desde, hasta)} className="hover:text-primary">
                         {c.render(h)}
                       </Link>
                     ) : c.render(h)}
                   </td>
                 ))}
                 <td className="pr-3">
-                  <Link to={`/desayunos/${h.id}`} className="text-muted-foreground hover:text-primary inline-flex">
+                  <Link to={hrefHotelDesayunos(h.id, desde, hasta)} className="text-muted-foreground hover:text-primary inline-flex">
                     <ChevronRight className="h-4 w-4" />
                   </Link>
                 </td>

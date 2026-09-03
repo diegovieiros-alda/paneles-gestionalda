@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Trophy } from "lucide-react";
 import { fmtEuro, fmtPct } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
-import type { HotelReal } from "@/lib/hoteles-api";
+import { hrefHotelDesayunos, type HotelReal } from "@/lib/hoteles-api";
 
 const modes = [
   { key: "produccion", label: "Producción", fmt: fmtEuro },
@@ -11,7 +11,7 @@ const modes = [
   { key: "precioMedio", label: "Precio medio", fmt: (n: number) => `${n.toFixed(2)}€` },
 ] as const;
 
-export function RankingListReal({ hoteles }: { hoteles: HotelReal[] }) {
+export function RankingListReal({ hoteles, desde, hasta }: { hoteles: HotelReal[]; desde: string; hasta: string }) {
   const [mode, setMode] = useState<(typeof modes)[number]["key"]>("produccion");
   const active = modes.find((m) => m.key === mode)!;
 
@@ -54,7 +54,7 @@ export function RankingListReal({ hoteles }: { hoteles: HotelReal[] }) {
           const w = max > 0 ? (val / max) * 100 : 0;
           return (
             <li key={r.id}>
-              <Link to={`/desayunos/${r.id}`} className="group flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-accent/40 transition-colors">
+              <Link to={hrefHotelDesayunos(r.id, desde, hasta)} className="group flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-accent/40 transition-colors">
                 <div className="w-5 text-center text-[11px] font-semibold text-muted-foreground num">{i + 1}</div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-3">

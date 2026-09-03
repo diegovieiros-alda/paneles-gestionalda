@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
 } from "recharts";
@@ -32,6 +32,23 @@ import { type KpiTone } from "@/components/dashboard/kpi-card";
 
 function mesCorto(iso: string) {
   return new Date(iso).toLocaleDateString("es-ES", { month: "short" });
+}
+
+// La ficha de hotel no vive dentro de DesayunosFiltrosProvider (a
+// propósito: si compartiera ese contexto, montarla dispararía también el
+// fetch pesado de la cadena completa solo para heredar el rango de
+// fechas). En su lugar, las tablas/listas que enlazan aquí (ver
+// fnb-financiero-table.tsx y hermanas) pasan desde/hasta por query string
+// — bug real reportado 2026-09-03: "al seleccionar un hotel se resetean
+// los filtros", porque antes esta página siempre arrancaba en "Día" sin
+// mirar de dónde venía el usuario.
+const _FECHA_ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function rangoDesdeUrl(params: URLSearchParams): { desde: string; hasta: string } | undefined {
+  const desde = params.get("desde");
+  const hasta = params.get("hasta");
+  if (!desde || !hasta || !_FECHA_ISO_RE.test(desde) || !_FECHA_ISO_RE.test(hasta) || desde > hasta) return undefined;
+  return { desde, hasta };
 }
 
 type MesFila = MesHotel & FnbFields & FacturacionFields;
@@ -104,7 +121,9 @@ export default function HotelDesayunosPage() {
   const { hotelId } = useParams<{ hotelId: string }>();
   const [hotel, setHotel] = useState<HotelDirectorio | null>(null);
   const [hotelError, setHotelError] = useState<string | null>(null);
-  const { preset, custom, desde, hasta, onPreset, onCustom } = useRangePreset("dia");
+  const [searchParams] = useSearchParams();
+  const rangoUrl = rangoDesdeUrl(searchParams);
+  const { preset, custom, desde, hasta, onPreset, onCustom } = useRangePreset(rangoUrl ? "custom" : "dia", rangoUrl);
   const [data, setData] = useState<HotelDesayunos | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);

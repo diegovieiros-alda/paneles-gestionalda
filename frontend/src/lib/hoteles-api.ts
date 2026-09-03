@@ -1,3 +1,13 @@
+// Enlace a la ficha de un hotel llevando el rango de fechas actual — la
+// ficha vive fuera de DesayunosFiltrosProvider a propósito (no dispara el
+// fetch pesado de la cadena completa solo por heredar el filtro), así que
+// sin esto siempre arrancaba en "Día" sin importar qué periodo se estaba
+// viendo en la tabla de origen (bug real reportado 2026-09-03: "al
+// seleccionar un hotel se resetean los filtros"). Ver hotel-desayunos.tsx.
+export function hrefHotelDesayunos(id: number, desde: string, hasta: string): string {
+  return `/desayunos/${id}?desde=${desde}&hasta=${hasta}`;
+}
+
 export type HotelDirectorio = {
   id: number;
   name: string;
