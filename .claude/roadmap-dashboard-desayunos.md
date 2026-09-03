@@ -42,7 +42,7 @@ Leyenda:
 | Hotel (código + nombre) | ✅ *(añadido 2026-09-03)* | |
 | Zona | ✅ | Desde el rediseño de tablas (2026-09-03), va como segunda línea bajo el nombre del hotel, no como columna propia — se quitaron columnas para eliminar el scroll horizontal. |
 | Submarca | ✅ *(añadido 2026-09-03)* | Misma segunda línea que Zona, junto con "Sociedad" (no pedida por el spec, se mantiene por aportar información). |
-| Alojados / Desayunos / Penetración / Precio medio, cada uno en 3 columnas (Actual, Presupuesto+%var, LY+%var) | 🟡 | Solo existe la columna "Actual". Ni presupuesto ni LY por hotel para estas 4 métricas hoy (el presupuesto en unidades del Excel existe desde 2026-09-03 pero solo en la serie mensual de la ficha de un hotel, no en esta tabla). |
+| Alojados / Desayunos / Penetración / Precio medio, cada uno en 3 columnas (Actual, Presupuesto+%var, LY+%var) | 🟡 | Actual + **LY ✅ (añadido 2026-09-03)**: línea compacta "LY X +Y%" bajo el valor, no una columna propia (habría vuelto a meter scroll horizontal). Presupuesto por hotel para estas 4 métricas sigue sin existir en esta tabla (el presupuesto en unidades del Excel solo está en la serie mensual de la ficha de un hotel). |
 
 ---
 
@@ -83,14 +83,15 @@ No hay una tabla que se llame así — la más parecida es `FnbFinancieroTable` 
 | Campo | Estado | Detalle |
 |---|---|---|
 | Gráfico de medidor circular 360° | ✅ *(añadido 2026-09-03)* | `GaugeKpiCard` (recharts `RadialBarChart`, sin dependencia nueva). Solo en los KPIs con un objetivo real que comparar — ver detalle por KPI abajo. |
-| Facturación/Ingresos (vs presupuesto, vs LY) | 🟡 | vs presupuesto: ✅ gauge (Odoo/Excel, absorbe la antigua tarjeta "Presupuesto"). vs LY no existe. |
-| Gastos (vs presupuesto, vs LY) | 🟡 | vs presupuesto: ✅ gauge, semáforo invertido a propósito (gastar de más es malo). vs LY no existe. Antes no tenía ninguna comparación. |
-| Alojados (vs presupuesto, vs LY) | 🟡 | vs previsto del Excel: ✅ gauge (2026-09-03). vs LY no existe. |
-| Ud. desayunos (vs presupuesto, vs LY) | 🟡 | Igual que Alojados: ✅ gauge vs previsto del Excel. vs LY no existe. |
-| Penetración (vs objetivo, vs LY) | 🟡 | vs objetivo editable: ✅ gauge (mismo semáforo de siempre). No es presupuesto real, es un ajuste del dashboard. vs LY no existe. |
-| Precio medio (vs LY, vs presupuesto) | 🟡 | Solo Actual, sin gauge — necesitaría una fórmula de "precio medio presupuestado" que no está definida en `kpis-definiciones.md` (mismo bloqueo que el histórico mensual, punto 4.4). Hay dos "precio medio" en la ficha: PMS (incluye colaborador) y contable (no lo incluye), a propósito. |
-| Coste medio (vs LY, vs presupuesto) | 🟡 | Solo Actual, sin gauge — mismo motivo que Precio medio. |
-| Margen bruto (vs LY, vs presupuesto) | 🟡 | Solo Actual, sin gauge — mismo motivo. |
+| Facturación/Ingresos (vs presupuesto, vs LY) | ✅ *(LY añadido 2026-09-03)* | vs presupuesto: gauge (Odoo/Excel, absorbe la antigua tarjeta "Presupuesto"). vs LY: línea `LyComparison` en el mismo footer del gauge. |
+| Gastos (vs presupuesto, vs LY) | ✅ *(LY añadido 2026-09-03)* | vs presupuesto: gauge, semáforo invertido a propósito (gastar de más es malo). vs LY: `LyComparison` con `positivoEsBueno=false` (gastar menos que el año pasado es lo bueno). |
+| Alojados (vs presupuesto, vs LY) | ✅ *(LY añadido 2026-09-03)* | vs previsto del Excel: gauge (2026-09-03). vs LY: `LyComparison` como footer del gauge. |
+| Ud. desayunos (vs presupuesto, vs LY) | ✅ *(LY añadido 2026-09-03)* | Igual que Alojados: gauge vs previsto del Excel + `LyComparison` como footer. |
+| Penetración (vs objetivo, vs LY) | ✅ *(LY añadido 2026-09-03)* | vs objetivo editable: gauge (mismo semáforo de siempre; no es presupuesto real, es un ajuste del dashboard). vs LY: `LyComparison` como footer del gauge. |
+| Precio medio (vs LY, vs presupuesto) | 🟡 *(LY añadido 2026-09-03)* | Actual + LY (delta en el propio `KpiCard`). Sin gauge de presupuesto — necesitaría una fórmula de "precio medio presupuestado" que no está definida en `kpis-definiciones.md` (mismo bloqueo que el histórico mensual, punto 4.4). Hay dos "precio medio" en la ficha: PMS (incluye colaborador) y contable (no lo incluye), ambos con LY. |
+| Coste medio (vs LY, vs presupuesto) | 🟡 *(LY añadido 2026-09-03)* | Actual + LY (`positivoEsBueno=false`: bajar respecto al año pasado es lo bueno). Sin gauge de presupuesto — mismo motivo que Precio medio. |
+| Margen bruto (vs LY, vs presupuesto) | 🟡 *(LY añadido 2026-09-03)* | Actual + LY. Sin gauge de presupuesto — mismo motivo. |
+| Resultado F&B | ✅ *(LY añadido 2026-09-03)* | No estaba en el spec como fila propia, pero ya tenía Actual; ahora también con LY (delta en el `KpiCard`). |
 
 ### 4.3 Gráficos
 
@@ -104,7 +105,7 @@ No hay una tabla que se llame así — la más parecida es `FnbFinancieroTable` 
 
 | Campo | Estado | Detalle |
 |---|---|---|
-| Columnas Mes/Actual/LY/Variación/Presupuesto/Variación presupuesto | 🟡 | Hoy son 3 tablas separadas (Producción, Facturados, Financiero F&B) con columnas fijas por tema, no una tabla con selector de métrica. Ninguna tiene LY. Solo la de Financiero F&B tiene Presupuesto (como % de cumplimiento, no como variación con signo), y solo para Ingresos. |
+| Columnas Mes/Actual/LY/Variación/Presupuesto/Variación presupuesto | 🟡 | Hoy son 3 tablas separadas (Producción, Facturados, Financiero F&B) con columnas fijas por tema, no una tabla con selector de métrica ni desglose mes a mes — el LY que existe (desde 2026-09-03) es para el periodo agregado seleccionado (Día/Mes/Trimestre/Año fiscal/personalizado), no una columna "LY" por cada fila de un histórico mensual. Solo la tabla Financiero F&B tiene Presupuesto (como % de cumplimiento, no como variación con signo), y solo para Ingresos. |
 | Selector de métrica (Facturación/Penetración/Precio medio/Margen bruto/Coste medio) | ⬜ | No existe. **Pendiente de decisión antes de construirlo**: el spec pide comparar cada una de esas 5 métricas contra su propio presupuesto, pero hoy solo hay presupuesto en € para Ingresos/Gastos — "Penetración presupuestada", "Precio medio presupuestado" y "Coste medio presupuestado" no están definidos en `kpis-definiciones.md`. Se pueden derivar (ej. precio medio presupuestado = ingresos presupuestados / desayunos previstos, cuando hay dato de Excel) pero es una fórmula nueva que alguien tiene que confirmar, no algo que se pueda inventar dentro de una tarea de "UI". |
 
 ### 4.5 Desglose por producto vendido
@@ -121,14 +122,13 @@ Si de verdad hace falta un análisis por persona, es una petición distinta que 
 
 ## 5. Resumen de prioridad sugerida
 
-1. **Hecho (2026-09-03)**: código+zona+submarca en tablas y cabecera, tipo de desayuno mixto, KPI Coste medio en la ficha, gráfico Alojados vs desayunos con presupuesto en unidades, rediseño de las 3 tablas (sin scroll horizontal), desglose por producto vendido, selector real de uno o varios hoteles, gauges circulares 360° (Alojados/Desayunos/Penetración/Ingresos/Gastos, donde ya hay un objetivo real).
+1. **Hecho (2026-09-03)**: código+zona+submarca en tablas y cabecera, tipo de desayuno mixto, KPI Coste medio en la ficha, gráfico Alojados vs desayunos con presupuesto en unidades, rediseño de las 3 tablas (sin scroll horizontal), desglose por producto vendido, selector real de uno o varios hoteles, gauges circulares 360° (Alojados/Desayunos/Penetración/Ingresos/Gastos, donde ya hay un objetivo real), **LY (comparativa año anterior)** en la tabla Producción, la tabla Financiero F&B y en todos los KPIs de la ficha de hotel (alojados, desayunos, penetración, precio medio ×2, producción, ingresos, gastos, margen bruto, coste medio, resultado F&B) — verificado con tests y con medición real de rendimiento en producción (el cron horario de precalentado ya absorbe el coste marginal para las vistas más comunes).
 2. **Pendiente de decidir contigo, no de programar directamente**:
    - Fórmulas de "presupuesto" para Precio medio/Coste medio/Margen bruto (necesarias para el histórico mensual con selector y para dar gauge a esos 3 KPIs, que hoy se quedan sin él a propósito).
    - Qué fuente (PMS vs. contable) usa cada columna de la tabla "Facturación" si se construye tal cual el spec.
    - Si "Tipo Hotel"/"Segmento Hotel"/"Etiqueta"/"Estado del hotel" merecen una tabla propia en este proyecto (mismo patrón que `PresupuestoDesayunoMensual`) o se dejan pendientes hasta que existan en Odoo.
 3. **Trabajo grande, sin bloqueos de decisión, a programar cuando se priorice**:
-   - LY (comparativa año anterior) — la única pieza grande que falta, no existe en ningún sitio de la app. Requiere cuidado de rendimiento (duplica consultas contra una base sin índices de fecha ni `statement_timeout`).
-   - Consolidar el histórico mensual en una tabla con selector de métrica (una vez resueltas las fórmulas de presupuesto del punto 2).
+   - Consolidar el histórico mensual en una tabla con selector de métrica y con LY/presupuesto por mes (una vez resueltas las fórmulas de presupuesto del punto 2).
 4. **No se va a hacer**: "Vendedores" con nombre de usuario (conflicto de privacidad, ver §4.6).
 
 ---
