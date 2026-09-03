@@ -6,17 +6,25 @@ import { Area, AreaChart, ResponsiveContainer } from "recharts";
 export type KpiTone = "positive" | "neutral" | "warning" | "negative";
 
 export function KpiCard({
-  label, value, delta, deltaLabel, tone = "neutral", trend, footer,
+  label, value, delta, deltaLabel, positivoEsBueno = true, tone = "neutral", trend, footer,
 }: {
   label: string;
   value: ReactNode;
   delta?: number;
   deltaLabel?: string;
+  /** Para métricas donde bajar es lo bueno (ej. un coste) — invierte qué
+   * signo se pinta en verde. Ver el mismo patrón en SignedPct/SignedEuro. */
+  positivoEsBueno?: boolean;
   tone?: KpiTone;
   trend?: number[];
   footer?: ReactNode;
 }) {
-  const positive = (delta ?? 0) >= 0;
+  // "sube" gobierna la flecha y el signo +/- (lo que pasó de verdad);
+  // "esFavorable" gobierna solo el color — para una métrica donde bajar es
+  // lo bueno (costeMedioGasto, gastos), un delta positivo sigue mostrando
+  // flecha arriba y "+", pero en rojo, no en verde.
+  const sube = (delta ?? 0) >= 0;
+  const esFavorable = positivoEsBueno ? sube : !sube;
   const toneRing = {
     positive: "before:bg-success",
     neutral: "before:bg-primary/60",
@@ -38,10 +46,10 @@ export function KpiCard({
           {typeof delta === "number" && (
             <div className={cn(
               "mt-1 inline-flex items-center gap-1 text-xs font-medium num",
-              positive ? "text-success" : "text-danger"
+              esFavorable ? "text-success" : "text-danger"
             )}>
-              {positive ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
-              {positive ? "+" : ""}{delta.toFixed(1)}%
+              {sube ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />}
+              {sube ? "+" : ""}{delta.toFixed(1)}%
               {deltaLabel && <span className="text-muted-foreground font-normal">· {deltaLabel}</span>}
             </div>
           )}

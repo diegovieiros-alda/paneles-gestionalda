@@ -152,7 +152,27 @@ export type FacturacionFields = {
   porcentajeFacturado: number;
 };
 
-export type HotelReal = HotelDirectorio & FnbFields & FacturacionFields & {
+// Comparativa con el mismo periodo del año anterior (LY) — mismas fetch_*
+// que "actual" con las fechas desplazadas exactamente un año
+// (backend/core/hoteles/service.py::_hace_un_ano), sin presupuesto ni
+// calidad de checkin (fuera del alcance de esta comparativa). `*VarLY` es
+// (actual-LY)/LY, null si LY es 0 (sin línea base con la que comparar,
+// "+inf%" sería tan engañoso como "0%").
+export type LyFields = {
+  alojadosLY: number; alojadosVarLY: number | null;
+  desayunosLY: number; desayunosVarLY: number | null;
+  penetracionLY: number; penetracionVarLY: number | null;
+  precioMedioLY: number; precioMedioVarLY: number | null;
+  produccionLY: number; produccionVarLY: number | null;
+  ingresosLY: number; ingresosVarLY: number | null;
+  gastosLY: number; gastosVarLY: number | null;
+  margenBrutoLY: number; margenBrutoVarLY: number | null;
+  costeMedioGastoLY: number; costeMedioGastoVarLY: number | null;
+  precioMedioVentaLY: number; precioMedioVentaVarLY: number | null;
+  resultadoFBLY: number; resultadoFBVarLY: number | null;
+};
+
+export type HotelReal = HotelDirectorio & FnbFields & FacturacionFields & LyFields & {
   alojados: number;
   desayunos: number;
   penetracion: number;
@@ -236,7 +256,10 @@ export type DesgloseProducto = {
 };
 
 export type HotelDesayunos = {
-  actual: MesHotel & FnbFields & FacturacionFields;
+  // LyFields solo en "actual" — la serie mensual de 12 meses no lleva
+  // comparativa LY (necesitaría duplicar 12 meses de consultas más, fuera
+  // de alcance de esta primera versión).
+  actual: MesHotel & FnbFields & FacturacionFields & LyFields;
   serieMensual: (MesHotel & FnbFields & FacturacionFields)[];
   turnos?: TurnoDesayuno[];
   origenDatos?: "odoo" | "cache";

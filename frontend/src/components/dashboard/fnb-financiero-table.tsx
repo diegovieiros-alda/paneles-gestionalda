@@ -11,6 +11,7 @@ import { SignedEuro, SignedPct } from "@/components/dashboard/signed-value";
 import { Button } from "@/components/ui/button";
 import { useAjustesDesayuno } from "@/lib/ajustes-desayuno-context";
 import { hrefHotelDesayunos, type HotelReal } from "@/lib/hoteles-api";
+import { LyComparison } from "@/components/dashboard/ly-comparison";
 
 type Key = "name" | "ingresos" | "presupuestoIngresos" | "gastos" | "precioMedioVenta" | "margenBruto" | "potencial";
 
@@ -36,7 +37,16 @@ function buildCols(objetivoOportunidad: number): Array<{ key: Key; label: string
         </div>
       ),
     },
-    { key: "ingresos", label: "Ingresos", render: (h) => fmtEuro(h.ingresos) },
+    {
+      key: "ingresos",
+      label: "Ingresos",
+      render: (h) => (
+        <div className="flex flex-col items-end gap-0.5 leading-tight">
+          <span>{fmtEuro(h.ingresos)}</span>
+          <LyComparison valorLY={h.ingresosLY} variacion={h.ingresosVarLY} formatear={fmtEuro} />
+        </div>
+      ),
+    },
     {
       key: "presupuestoIngresos",
       label: "Presupuesto",
@@ -76,7 +86,18 @@ function buildCols(objetivoOportunidad: number): Array<{ key: Key; label: string
           <span className="text-muted-foreground/50">Sin presupuesto</span>
         ),
     },
-    { key: "gastos", label: "Gastos", render: (h) => fmtEuro(h.gastos) },
+    {
+      key: "gastos",
+      label: "Gastos",
+      render: (h) => (
+        <div className="flex flex-col items-end gap-0.5 leading-tight">
+          <span>{fmtEuro(h.gastos)}</span>
+          {/* Mismo criterio que tonoGastos en la ficha de hotel: gastar menos
+              es lo favorable, no más — al revés que Ingresos/Alojados. */}
+          <LyComparison valorLY={h.gastosLY} variacion={h.gastosVarLY} formatear={fmtEuro} positivoEsBueno={false} />
+        </div>
+      ),
+    },
     {
       key: "precioMedioVenta",
       label: "Precio / coste",
@@ -84,6 +105,7 @@ function buildCols(objetivoOportunidad: number): Array<{ key: Key; label: string
         <div className="flex flex-col gap-0.5 leading-tight items-end">
           <span className="text-foreground/90">{h.precioMedioVenta.toFixed(2)}€</span>
           <span className="text-xs text-muted-foreground">{h.costeMedioGasto.toFixed(2)}€ coste</span>
+          <LyComparison valorLY={h.costeMedioGastoLY} variacion={h.costeMedioGastoVarLY} formatear={(n) => `${n.toFixed(2)}€ coste LY`} positivoEsBueno={false} />
         </div>
       ),
     },
@@ -94,6 +116,7 @@ function buildCols(objetivoOportunidad: number): Array<{ key: Key; label: string
         <div className="flex flex-col gap-0.5 leading-tight items-end">
           <SignedPct value={h.margenBruto} />
           <span className="text-xs text-muted-foreground"><SignedEuro value={h.resultadoFB} /></span>
+          <LyComparison valorLY={h.margenBrutoLY} variacion={h.margenBrutoVarLY} formatear={(n) => fmtPct(n, 0)} />
         </div>
       ),
     },
@@ -104,22 +127,31 @@ function buildCols(objetivoOportunidad: number): Array<{ key: Key; label: string
 function exportar(hoteles: HotelReal[], objetivoOportunidad: number) {
   exportarCsv(
     `fnb-desayunos-${new Date().toISOString().slice(0, 10)}`,
-    ["Hotel", "Código", "Zona", "Submarca", "Ingresos", "Presupuesto ingresos", "Origen presupuesto", "Presupuesto Odoo", "Presupuesto Excel", "Cumplimiento", "Gastos", "Margen bruto %", "Precio medio venta", "Coste medio", "Resultado F&B", "Facturación potencial"],
+    [
+      "Hotel", "Código", "Zona", "Submarca", "Ingresos", "Ingresos LY",
+      "Presupuesto ingresos", "Origen presupuesto", "Presupuesto Odoo", "Presupuesto Excel", "Cumplimiento",
+      "Gastos", "Gastos LY", "Margen bruto %", "Margen bruto LY %",
+      "Precio medio venta", "Coste medio", "Coste medio LY", "Resultado F&B", "Facturación potencial",
+    ],
     hoteles.map((h) => [
       h.name,
       h.codigo,
       h.zona,
       h.submarca,
       h.ingresos.toFixed(2),
+      h.ingresosLY.toFixed(2),
       h.presupuestoIngresos > 0 ? h.presupuestoIngresos.toFixed(2) : "",
       h.presupuestoOrigen ? ORIGEN_PRESUPUESTO_LABEL[h.presupuestoOrigen] : "",
       h.presupuestoIngresosOdoo !== null ? h.presupuestoIngresosOdoo.toFixed(2) : "",
       h.presupuestoIngresosExcel !== null ? h.presupuestoIngresosExcel.toFixed(2) : "",
       h.cumplimientoIngresos !== null ? (h.cumplimientoIngresos * 100).toFixed(1) : "",
       h.gastos.toFixed(2),
+      h.gastosLY.toFixed(2),
       (h.margenBruto * 100).toFixed(1),
+      (h.margenBrutoLY * 100).toFixed(1),
       h.precioMedioVenta.toFixed(2),
       h.costeMedioGasto.toFixed(2),
+      h.costeMedioGastoLY.toFixed(2),
       h.resultadoFB.toFixed(2),
       potencial(h, objetivoOportunidad).toFixed(2),
     ])
