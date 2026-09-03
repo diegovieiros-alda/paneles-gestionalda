@@ -235,6 +235,22 @@ export async function fetchTurnos(
   return fetchJsonCacheado(`/api/desayunos/turnos/?${params}`);
 }
 
+export type SerieMensualReport = { serieMensual: SerieMensual[]; origenDatos?: "odoo" | "cache" };
+
+// Igual que fetchTurnos: separada de fetchDesayunos (2026-09-03) para que
+// Tendencias pueda pedir la serie filtrada por Zona/Submarca/Hotel sin
+// arrastrar el recálculo de la tabla de hoteles completa. En cadena
+// completa (hotelIds omitido) coincide con el serieMensual ya incluido en
+// fetchDesayunos.
+export async function fetchSerieMensual(
+  desde: string, hasta: string, tipos?: string[], hotelIds?: number[]
+): Promise<SerieMensualReport> {
+  const params = new URLSearchParams({ desde, hasta });
+  if (tipos && tipos.length) params.set("tipo", tipos.join(","));
+  if (hotelIds && hotelIds.length) params.set("hoteles", hotelIds.join(","));
+  return fetchJsonCacheado(`/api/desayunos/serie-mensual/?${params}`);
+}
+
 export type MesHotel = {
   mes: string;
   alojados: number;
