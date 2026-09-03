@@ -197,6 +197,7 @@ class GetHotelDesayunosTests(SimpleTestCase):
         defaults = dict(
             fetch_alojados={1: 100},
             fetch_desayunos={1: {**_DESAYUNO_VACIO, "cantidad": 40, "cantidad_total": 45, "produccion": 450.0}},
+            fetch_desayunos_por_tipo={},
             fetch_fnb_desayuno={},
             fetch_presupuesto_desayuno={},
             fetch_alojados_mensual_hotel={},
@@ -226,6 +227,23 @@ class GetHotelDesayunosTests(SimpleTestCase):
         mocks = self._mock_repository()
         service.get_hotel_desayunos(1, datetime.date(2026, 1, 1), datetime.date(2026, 1, 31))
         mocks["fetch_desayunos"].assert_called_once_with(datetime.date(2026, 1, 1), datetime.date(2026, 1, 31), None)
+
+    def test_tipos_desayuno_lista_solo_los_que_tienen_unidades(self):
+        # "Tipo desayuno (en caso de mezclar varios mostrar)" en la cabecera
+        # de la ficha — lista los tipos que el hotel vende de verdad en el
+        # periodo, no el filtro de Producto que esté activo.
+        self._mock_repository(
+            fetch_desayunos_por_tipo={
+                1: {
+                    "buffet": {**_DESAYUNO_VACIO, "cantidad_total": 10},
+                    "express": {**_DESAYUNO_VACIO, "cantidad_total": 0},
+                    "colaborador": {**_DESAYUNO_VACIO, "cantidad_total": 3},
+                    "otros": {**_DESAYUNO_VACIO, "cantidad_total": 0},
+                }
+            }
+        )
+        resultado = service.get_hotel_desayunos(1, datetime.date(2026, 1, 1), datetime.date(2026, 1, 31))
+        self.assertEqual(resultado["tiposDesayuno"], ["buffet", "colaborador"])
 
 
 class FetchDesayunosPorTipoTests(SimpleTestCase):
@@ -355,6 +373,30 @@ class PresupuestoDesayunoOdooVsExcelTests(SimpleTestCase):
         self.assertEqual(resultado[1]["presupuestoOrigen"], "odoo")
         self.assertEqual(resultado[2]["presupuestoOrigen"], "excel")
 
+    def test_unidades_previstas_solo_vienen_de_excel_ganen_o_no_en_euros(self):
+        # Para el gráfico "Alojados vs ud desayunos" (unidades, no €): las
+        # unidades presupuestadas solo existen en la hoja de Finanzas, así
+        # que deben verse aunque Odoo "gane" la cifra en € para ese hotel/mes.
+        with mock.patch.object(repository, "fetch_presupuesto_desayuno_odoo",
+                                return_value={1: {"presupuestoIngresos": 100.0, "presupuestoGastos": 40.0}}), \
+             mock.patch.object(repository, "fetch_presupuesto_desayuno_excel",
+                                return_value={1: {
+                                    "presupuestoIngresos": 999.0, "presupuestoGastos": 999.0,
+                                    "alojadosPrevistos": 700.0, "desayunosPrevistos": 315.7,
+                                }}):
+            resultado = repository.fetch_presupuesto_desayuno(datetime.date(2026, 7, 1), datetime.date(2026, 7, 31))
+        self.assertEqual(resultado[1]["presupuestoOrigen"], "odoo")  # Odoo gana en €
+        self.assertEqual(resultado[1]["alojadosPrevistos"], 700.0)  # pero las unidades siguen viéndose
+        self.assertEqual(resultado[1]["desayunosPrevistos"], 315.7)
+
+    def test_sin_datos_de_excel_las_unidades_previstas_son_none(self):
+        with mock.patch.object(repository, "fetch_presupuesto_desayuno_odoo",
+                                return_value={1: {"presupuestoIngresos": 100.0, "presupuestoGastos": 40.0}}), \
+             mock.patch.object(repository, "fetch_presupuesto_desayuno_excel", return_value={}):
+            resultado = repository.fetch_presupuesto_desayuno(datetime.date(2026, 7, 1), datetime.date(2026, 7, 31))
+        self.assertIsNone(resultado[1]["alojadosPrevistos"])
+        self.assertIsNone(resultado[1]["desayunosPrevistos"])
+
 
 class PresupuestoDesayunoExcelFormulaTests(SimpleTestCase):
     """fetch_presupuesto_desayuno_excel calcula ingresos/gastos a partir
@@ -389,3 +431,24 @@ class PresupuestoDesayunoExcelFormulaTests(SimpleTestCase):
         unidades = 740.0 * 0.4508
         self.assertAlmostEqual(resultado[1]["presupuestoIngresos"], unidades * 6.27)
         self.assertAlmostEqual(resultado[1]["presupuestoGastos"], unidades * 3.45)
+
+    def test_serie_mensual_hotel_expone_unidades_previstas_no_solo_euros(self):
+        # Para el gráfico "Alojados vs ud desayunos" de la ficha de hotel
+        # (2026-09-03) — antes se calculaban las unidades y se descartaban.
+        with mock.patch.object(repository, "fetch_hoteles", return_value=[{"id": 1, "property_code": "999"}]), \
+             mock.patch("core.models.PresupuestoDesayunoMensual.objects") as objects:
+            objects.filter.return_value.values.return_value = [
+                {
+                    "mes": datetime.date(2026, 10, 1),
+                    "alojados_previstos": 740.0,
+                    "penetracion_prevista": 0.4508,
+                    "precio_interno": 6.27,
+                    "coste_interno": 3.45,
+                }
+            ]
+            resultado = repository.fetch_presupuesto_serie_mensual_hotel_excel(
+                1, datetime.date(2026, 10, 1), datetime.date(2026, 10, 31)
+            )
+        mes = resultado["2026-10-01"]
+        self.assertEqual(mes["alojadosPrevistos"], 740.0)
+        self.assertAlmostEqual(mes["desayunosPrevistos"], 740.0 * 0.4508)

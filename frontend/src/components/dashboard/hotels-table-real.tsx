@@ -8,7 +8,7 @@ import { exportarCsv } from "@/lib/export-csv";
 import { Button } from "@/components/ui/button";
 import { hrefHotelDesayunos, type HotelReal } from "@/lib/hoteles-api";
 
-type Key = "name" | "zona" | "sociedad" | "alojados" | "desayunos" | "penetracion" | "produccion" | "precioMedio" | "oportunidad";
+type Key = "name" | "zona" | "sociedad" | "submarca" | "alojados" | "desayunos" | "penetracion" | "produccion" | "precioMedio" | "oportunidad";
 
 // Misma base que la columna "Penetración" (directa, sin colaborador — ver
 // backend/core/hoteles/service.py): calcular el hueco sobre "desayunos"
@@ -21,9 +21,10 @@ function oportunidad(h: HotelReal, objetivoOportunidad: number) {
 
 function buildCols(objetivoOportunidad: number): Array<{ key: Key; label: string; align?: "center"; render: (h: HotelReal) => string; sticky?: boolean }> {
   return [
-    { key: "name", label: "Hotel", render: (h) => h.name, sticky: true },
+    { key: "name", label: "Hotel", render: (h) => (h.codigo ? `${h.codigo} - ${h.name}` : h.name), sticky: true },
     { key: "zona", label: "Zona", render: (h) => h.zona },
     { key: "sociedad", label: "Sociedad", render: (h) => h.sociedad },
+    { key: "submarca", label: "Submarca", render: (h) => h.submarca },
     { key: "alojados", label: "Alojados", align: "center", render: (h) => fmtNum(h.alojados) },
     { key: "desayunos", label: "Desayunos", align: "center", render: (h) => fmtNum(h.desayunos) },
     { key: "penetracion", label: "Penetración", align: "center", render: (h) => fmtPct(h.penetracion) },
@@ -36,9 +37,9 @@ function buildCols(objetivoOportunidad: number): Array<{ key: Key; label: string
 function exportar(hoteles: HotelReal[], objetivoOportunidad: number) {
   exportarCsv(
     `desayunos-hoteles-${new Date().toISOString().slice(0, 10)}`,
-    ["Hotel", "Zona", "Sociedad", "Alojados", "Desayunos", "Penetración %", "Producción", "Precio medio", "Oportunidad"],
+    ["Hotel", "Código", "Zona", "Sociedad", "Submarca", "Alojados", "Desayunos", "Penetración %", "Producción", "Precio medio", "Oportunidad"],
     hoteles.map((h) => [
-      h.name, h.zona, h.sociedad, h.alojados, h.desayunos,
+      h.name, h.codigo, h.zona, h.sociedad, h.submarca, h.alojados, h.desayunos,
       (h.penetracion * 100).toFixed(1), h.produccion.toFixed(2), h.precioMedio.toFixed(2), oportunidad(h, objetivoOportunidad).toFixed(2),
     ])
   );

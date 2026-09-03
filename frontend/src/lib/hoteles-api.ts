@@ -116,6 +116,12 @@ export type FnbFields = {
   presupuestoGastosOdoo: number | null;
   presupuestoIngresosExcel: number | null;
   presupuestoGastosExcel: number | null;
+  // Presupuesto en UNIDADES (no €) — solo disponible en la serie mensual de
+  // la ficha de hotel, y solo cuando el Excel tiene datos ese mes (null en
+  // el resto: Odoo no presupuesta en unidades, solo en €). Para el gráfico
+  // "Alojados vs ud desayunos" — ver repository._combinar_presupuesto.
+  alojadosPrevistos: number | null;
+  desayunosPrevistos: number | null;
 };
 
 // Comparación declarado (reserva) vs. check-in confirmado, SOLO fechas
@@ -223,6 +229,10 @@ export type HotelDesayunos = {
   serieMensual: (MesHotel & FnbFields & FacturacionFields)[];
   turnos?: TurnoDesayuno[];
   origenDatos?: "odoo" | "cache";
+  // Tipos de desayuno que el hotel vende de verdad en el periodo (no el
+  // filtro de Producto activo) — para el chip "mezcla varios tipos" de la
+  // cabecera. Ver backend/core/hoteles/service.py::get_hotel_desayunos.
+  tiposDesayuno: string[];
 };
 
 export async function fetchHotelDesayunos(
