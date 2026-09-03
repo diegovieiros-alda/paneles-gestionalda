@@ -28,7 +28,7 @@ Leyenda:
 | Tipo Hotel (Urbano/Mix/Vacacional) | 🔒 | Declarado explícitamente en el código: "no existen en el PMS ni está previsto añadirlos". |
 | Segmento Hotel (Grupos/individual/empresa) | 🔒 | Mismo motivo. Ojo: podría ser un atributo de la *reserva*, no del *hotel* — aclarar con quien pidió el spec antes de tratarlo como "bloqueado". |
 | Tipo Desayuno (Producto) | 🟡 | Existen 4 valores (buffet/express/colaborador/**otros**), el spec solo menciona 3. "Otros" es una decisión ya tomada (agrupa lo que no encaja en los otros 3) — no repartirlo sin confirmar. |
-| Selector de hotel (uno o varios + buscador) | 🟡 | Buscador por nombre/código: sí. Selector real de uno o varios hoteles (checkboxes/multi-select): no existe, solo el buscador de texto. El backend ya soporta una lista de IDs de hotel (usado hoy solo por Turnos) — la mitad del contrato ya está. |
+| Selector de hotel (uno o varios + buscador) | ✅ *(añadido 2026-09-03)* | Buscador por nombre/código + desplegable con checkboxes para fijar una selección concreta de uno o varios hoteles (`HotelMultiSelect`), combinable con Zona/Submarca. Solo en Detalle completo. |
 | Filtros aplican a todas las vistas | 🟡 | Comparten estado entre Detalle/Oportunidades/Alertas. Tendencias solo hereda la fecha (su serie es un agregado de cadena, no filtrable por hotel). La ficha de hotel vive fuera de ese estado compartido a propósito (evita disparar el fetch pesado de toda la cadena) — hereda fecha y tipo por URL desde 2026-09-03. |
 
 ---
@@ -120,7 +120,7 @@ Si de verdad hace falta un análisis por persona, es una petición distinta que 
 
 ## 5. Resumen de prioridad sugerida
 
-1. **Hecho (2026-09-03)**: código+zona+submarca en tablas y cabecera, tipo de desayuno mixto, KPI Coste medio en la ficha, gráfico Alojados vs desayunos con presupuesto en unidades, rediseño de las 3 tablas (sin scroll horizontal), desglose por producto vendido.
+1. **Hecho (2026-09-03)**: código+zona+submarca en tablas y cabecera, tipo de desayuno mixto, KPI Coste medio en la ficha, gráfico Alojados vs desayunos con presupuesto en unidades, rediseño de las 3 tablas (sin scroll horizontal), desglose por producto vendido, selector real de uno o varios hoteles.
 2. **Pendiente de decidir contigo, no de programar directamente**:
    - Fórmulas de "presupuesto" para Penetración/Precio medio/Coste medio (necesarias para el histórico mensual con selector y para completar los gauges).
    - Qué fuente (PMS vs. contable) usa cada columna de la tabla "Facturación" si se construye tal cual el spec.
@@ -128,7 +128,6 @@ Si de verdad hace falta un análisis por persona, es una petición distinta que 
 3. **Trabajo grande, sin bloqueos de decisión, a programar cuando se priorice**:
    - LY (comparativa año anterior) — la pieza más grande que falta, no existe en ningún sitio de la app. Requiere cuidado de rendimiento (duplica consultas contra una base sin índices de fecha ni `statement_timeout`).
    - Gauges circulares 360° (visual, `recharts` ya lo soporta).
-   - Selector multi-hotel real (hoy solo hay buscador de texto).
    - Consolidar el histórico mensual en una tabla con selector de métrica (una vez resueltas las fórmulas de presupuesto del punto 2).
 4. **No se va a hacer**: "Vendedores" con nombre de usuario (conflicto de privacidad, ver §4.6).
 
