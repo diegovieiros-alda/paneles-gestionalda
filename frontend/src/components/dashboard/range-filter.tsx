@@ -46,12 +46,22 @@ export function RangeFilter({
       </button>
       {preset === "custom" && (
         <div className="flex items-center gap-1.5 text-xs">
+          {/* Sin max/min cruzados entre los dos campos: con ellos, el
+              selector nativo bloqueaba directamente elegir una fecha futura
+              en "Desde" mientras "Hasta" siguiera en el pasado (p.ej. no
+              se podía escribir oct-2026 en Desde si Hasta seguía en
+              sept-2026) — bug real reportado 2026-09-02: "no puedo
+              seleccionar la fecha en el selector". Ahora cualquier fecha es
+              seleccionable en cualquier orden; si queda desde > hasta, se
+              ajusta el otro extremo en vez de impedir la selección. */}
           <input
             type="date"
             aria-label="Fecha desde"
             value={custom.desde}
-            max={custom.hasta}
-            onChange={(e) => onCustom({ ...custom, desde: e.target.value })}
+            onChange={(e) => {
+              const desde = e.target.value;
+              onCustom({ desde, hasta: desde > custom.hasta ? desde : custom.hasta });
+            }}
             className="h-8 rounded-md border border-border bg-surface px-2 text-foreground"
           />
           <span className="text-muted-foreground">→</span>
@@ -59,8 +69,10 @@ export function RangeFilter({
             type="date"
             aria-label="Fecha hasta"
             value={custom.hasta}
-            min={custom.desde}
-            onChange={(e) => onCustom({ ...custom, hasta: e.target.value })}
+            onChange={(e) => {
+              const hasta = e.target.value;
+              onCustom({ desde: hasta < custom.desde ? hasta : custom.desde, hasta });
+            }}
             className="h-8 rounded-md border border-border bg-surface px-2 text-foreground"
           />
         </div>
