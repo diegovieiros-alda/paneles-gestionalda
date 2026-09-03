@@ -1,9 +1,10 @@
 import { type ReactNode } from "react";
 import { Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { TIPOS_DESAYUNO } from "@/lib/hoteles-api";
+import { TIPOS_DESAYUNO, type HotelReal } from "@/lib/hoteles-api";
 import { RangeFilter } from "@/components/dashboard/range-filter";
 import { RANGE_PRESETS_DESAYUNOS, type RangePreset } from "@/lib/date-range";
+import { HotelMultiSelect } from "@/components/dashboard/hotel-multi-select";
 
 const PILL =
   "h-8 px-3 rounded-full text-xs font-medium border transition-colors bg-surface border-border text-muted-foreground hover:text-foreground";
@@ -26,6 +27,9 @@ type FilterProps = {
   submarcas: string[];
   tipos: string[];
   onTipos: (v: string[]) => void;
+  hotelIds: number[];
+  onHotelIds: (v: number[]) => void;
+  hotelesDisponibles: HotelReal[];
 };
 
 function Fila({ label, children }: { label: string; children: ReactNode }) {
@@ -47,9 +51,12 @@ function Fila({ label, children }: { label: string; children: ReactNode }) {
 export function DesayunosFiltrosPanel({
   rangeProps, filterProps, mostrarHotel = true,
 }: { rangeProps: RangeProps; filterProps: FilterProps; mostrarHotel?: boolean }) {
-  const { q, onQ, zona, onZona, zonas, submarca, onSubmarca, submarcas, tipos, onTipos } = filterProps;
+  const {
+    q, onQ, zona, onZona, zonas, submarca, onSubmarca, submarcas, tipos, onTipos,
+    hotelIds, onHotelIds, hotelesDisponibles,
+  } = filterProps;
   const todosTipos = TIPOS_DESAYUNO.map((t) => t.value);
-  const hayFiltrosActivos = !!q || !!zona || !!submarca || tipos.length < todosTipos.length;
+  const hayFiltrosActivos = !!q || !!zona || !!submarca || hotelIds.length > 0 || tipos.length < todosTipos.length;
 
   function toggleTipo(value: string) {
     onTipos(tipos.includes(value) ? tipos.filter((t) => t !== value) : [...tipos, value]);
@@ -102,6 +109,12 @@ export function DesayunosFiltrosPanel({
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
+
+          <HotelMultiSelect
+            hoteles={hotelesDisponibles.map((h) => ({ id: h.id, name: h.name, codigo: h.codigo }))}
+            selected={hotelIds}
+            onChange={onHotelIds}
+          />
         </Fila>
       )}
 
@@ -125,6 +138,7 @@ export function DesayunosFiltrosPanel({
               onQ("");
               onZona("");
               onSubmarca("");
+              onHotelIds([]);
               onTipos(todosTipos);
             }}
             className="ml-auto h-8 px-3 rounded-full text-xs inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"
