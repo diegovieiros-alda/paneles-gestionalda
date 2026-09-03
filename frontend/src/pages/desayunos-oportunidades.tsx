@@ -1,6 +1,6 @@
 import { DashboardShell } from "@/components/dashboard/shell";
 import { DesayunosFiltrosPanel } from "@/components/dashboard/desayunos-filtros-panel";
-import { DataLoading } from "@/components/dashboard/loading-screen";
+import { DataLoading, LoadingOverlay } from "@/components/dashboard/loading-screen";
 import { ObjetivoPenetracionCard } from "@/components/dashboard/objetivo-penetracion-card";
 import { RankingListReal } from "@/components/dashboard/ranking-list-real";
 import { OpportunityBlockReal } from "@/components/dashboard/opportunity-block-real";
@@ -16,15 +16,15 @@ export default function DesayunosOportunidadesPage() {
       subtitle="Desayunos · facturación potencial no capturada"
       origenDatos={origenDatos}
       periodo={fmtRangoFechas(desde, hasta)}
-      cargando={loading && !!hoteles}
     >
       <DesayunosFiltrosPanel rangeProps={rangeProps} filterProps={filterProps} mostrarHotel={false} />
 
-      <div className="p-6 max-w-[1600px] mx-auto space-y-6">
+      <div className="p-6 max-w-[1600px] mx-auto space-y-6 relative">
         {error && (
           <div className="rounded-xl border border-danger/30 bg-danger/5 p-4 text-sm text-danger">{error}</div>
         )}
         {loading && !hoteles && <DataLoading />}
+        {loading && hoteles && <LoadingOverlay />}
 
         {hoteles && (
           <>

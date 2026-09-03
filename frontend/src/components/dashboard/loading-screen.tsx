@@ -33,3 +33,20 @@ export function DataLoading({ label = "Cargando datos…" }: { label?: string })
     </div>
   );
 }
+
+// Refetch con datos ya en pantalla (cambio de filtro/fecha): antes un
+// punto de 14px casi invisible en la topbar ("mini spinner") — reportado
+// como poco fiable/inconsistente ("necesito que sea el mismo spinner en
+// todos los casos"). Mismo BrandLoader que DataLoading, como overlay sobre
+// el contenido ya cargado (que se queda montado debajo, sin perder scroll
+// ni parpadear) en vez de sustituirlo — a diferencia de DataLoading, que
+// ocupa el hueco cuando todavía no hay nada que enseñar. El contenedor
+// padre necesita `relative`.
+export function LoadingOverlay({ label = "Actualizando…" }: { label?: string }) {
+  return (
+    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-background/70 backdrop-blur-[1px] rounded-xl">
+      <BrandLoader small />
+      <p className="text-xs text-muted-foreground">{label}</p>
+    </div>
+  );
+}

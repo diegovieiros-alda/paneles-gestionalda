@@ -15,7 +15,7 @@ import { IngresosGastosChart } from "@/components/dashboard/ingresos-gastos-char
 import { PrecioCosteChart } from "@/components/dashboard/precio-coste-chart";
 import { TurnosPanel } from "@/components/dashboard/turnos-panel";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DataLoading } from "@/components/dashboard/loading-screen";
+import { DataLoading, LoadingOverlay } from "@/components/dashboard/loading-screen";
 import { Button } from "@/components/ui/button";
 import { fetchHotelInfo, fetchHotelDesayunos, type HotelDirectorio, type HotelDesayunos, type MesHotel, type FnbFields, type FacturacionFields } from "@/lib/hoteles-api";
 import { exportarCsv } from "@/lib/export-csv";
@@ -141,9 +141,8 @@ export default function HotelDesayunosPage() {
       subtitle={hotel ? `${hotel.zona} · ${hotel.sociedad}` : undefined}
       origenDatos={hotel?.origenDatos}
       periodo={fmtRangoFechas(desde, hasta)}
-      cargando={loading && !!data}
     >
-      <div className="p-6 space-y-6 max-w-[1500px] mx-auto">
+      <div className="p-6 space-y-6 max-w-[1500px] mx-auto relative">
         {!hotel && !hotelError && (
           <>
             <Skeleton className="h-4 w-32" />
@@ -159,6 +158,7 @@ export default function HotelDesayunosPage() {
 
         {error && <p className="text-sm text-danger">{error}</p>}
         {!data && !error && <DataLoading />}
+        {loading && data && <LoadingOverlay />}
 
         {data && (
           <>
