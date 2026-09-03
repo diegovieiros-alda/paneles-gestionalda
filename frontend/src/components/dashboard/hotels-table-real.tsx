@@ -6,7 +6,7 @@ import { facturacionPotencial, fmtEuro, fmtNum, fmtPct } from "@/lib/mock-data";
 import { useAjustesDesayuno } from "@/lib/ajustes-desayuno-context";
 import { exportarCsv } from "@/lib/export-csv";
 import { Button } from "@/components/ui/button";
-import type { HotelReal } from "@/lib/hoteles-api";
+import { hrefHotelDesayunos, type HotelReal } from "@/lib/hoteles-api";
 
 type Key = "name" | "zona" | "sociedad" | "alojados" | "desayunos" | "penetracion" | "produccion" | "precioMedio" | "oportunidad";
 
@@ -44,7 +44,7 @@ function exportar(hoteles: HotelReal[], objetivoOportunidad: number) {
   );
 }
 
-export function HotelsTableReal({ hoteles }: { hoteles: HotelReal[] }) {
+export function HotelsTableReal({ hoteles, desde, hasta }: { hoteles: HotelReal[]; desde: string; hasta: string }) {
   const { ajustes } = useAjustesDesayuno();
   const cols = useMemo(() => buildCols(ajustes.objetivoOportunidad), [ajustes.objetivoOportunidad]);
   const [sort, setSort] = useState<{ key: Key; dir: "asc" | "desc" }>({ key: "produccion", dir: "desc" });
@@ -129,14 +129,14 @@ export function HotelsTableReal({ hoteles }: { hoteles: HotelReal[] }) {
                     )}
                   >
                     {c.sticky ? (
-                      <Link to={`/desayunos/${h.id}`} className="hover:text-primary">
+                      <Link to={hrefHotelDesayunos(h.id, desde, hasta)} className="hover:text-primary">
                         {c.render(h)}
                       </Link>
                     ) : c.render(h)}
                   </td>
                 ))}
                 <td className="pr-3">
-                  <Link to={`/desayunos/${h.id}`} className="text-muted-foreground hover:text-primary inline-flex">
+                  <Link to={hrefHotelDesayunos(h.id, desde, hasta)} className="text-muted-foreground hover:text-primary inline-flex">
                     <ChevronRight className="h-4 w-4" />
                   </Link>
                 </td>
