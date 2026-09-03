@@ -253,6 +253,31 @@ _SERIE_MENSUAL_SQL = (
 """
 )
 
+# Variante con filtro de Producto y/o Hotel, para Tendencias (2026-09-03) —
+# mismo patrón que _TURNOS_DESAYUNO_FILTRADO_SQL: una segunda consulta con
+# los JOIN/WHERE de más, en vez de meterlos siempre con un IS NULL OR,
+# para no arriesgar el plan de ejecución del camino sin filtrar (cadena
+# completa, precalentado por el cron cada hora).
+_SERIE_MENSUAL_FILTRADO_SQL = (
+    _CTES_DESAYUNO_CON_TIPO
+    + """
+    SELECT
+        date_trunc('month', fsl.date_order)::date,
+        SUM(fsl.product_uom_qty) AS cantidad_total,
+        SUM(COALESCE(f.monto_facturado, fsl.price_subtotal)) AS produccion_total
+    FROM folio_sale_line fsl
+    JOIN productos_desayuno pd ON pd.product_id = fsl.product_id
+    JOIN producto_tipo pty ON pty.product_id = fsl.product_id
+    LEFT JOIN facturado f ON f.sale_line_id = fsl.id
+    WHERE fsl.date_order BETWEEN %(desde)s AND %(hasta)s
+      AND fsl.state NOT IN ('draft', 'cancel')
+      AND pty.tipo_desayuno = ANY(%(tipos)s)
+      AND (%(hotel_ids)s::int[] IS NULL OR fsl.pms_property_id = ANY(%(hotel_ids)s))
+    GROUP BY 1
+    ORDER BY 1
+"""
+)
+
 _DESAYUNOS_MENSUAL_HOTEL_SQL = (
     _CTES_DESAYUNO
     + """
@@ -446,12 +471,26 @@ def fetch_desayunos(
 
 
 @cache_result
-def fetch_serie_mensual(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> list[dict]:
+def fetch_serie_mensual(
+    fecha_inicio: datetime.date,
+    fecha_fin: datetime.date,
+    tipos_desayuno: tuple[str, ...] | None = None,
+    hotel_ids: tuple[int, ...] | None = None,
+) -> list[dict]:
+    """Sin filtro (tipos_desayuno=None y hotel_ids=None) usa la consulta de
+    siempre, sin tocar — es la que precalienta el cron cada hora para la
+    cadena completa. Con cualquiera de los dos usa la variante filtrada
+    (mismo patrón que fetch_turnos_desayuno)."""
+    filtrado = (tipos_desayuno is not None and set(tipos_desayuno) != set(_TODOS_TIPOS_DESAYUNO)) or hotel_ids is not None
+    params = {"regimenes": list(_REGIMENES_DESAYUNO), "desde": fecha_inicio, "hasta": fecha_fin}
+    if filtrado:
+        sql = _SERIE_MENSUAL_FILTRADO_SQL
+        params["tipos"] = list(tipos_desayuno) if tipos_desayuno is not None else list(_TODOS_TIPOS_DESAYUNO)
+        params["hotel_ids"] = list(hotel_ids) if hotel_ids is not None else None
+    else:
+        sql = _SERIE_MENSUAL_SQL
     with connections["odoo"].cursor() as cur:
-        cur.execute(
-            _SERIE_MENSUAL_SQL,
-            {"regimenes": list(_REGIMENES_DESAYUNO), "desde": fecha_inicio, "hasta": fecha_fin},
-        )
+        cur.execute(sql, params)
         rows = cur.fetchall()
     return [{"mes": r[0].isoformat(), "desayunos": float(r[1] or 0), "produccion": float(r[2] or 0)} for r in rows]
 
@@ -581,6 +620,31 @@ _FNB_MENSUAL_SQL = """
     ORDER BY 1
 """
 
+# Variante con filtro de Hotel para Tendencias — mismo fallback por cuenta
+# analítica que _FNB_SQL (ver el aviso largo más arriba: aml.pms_property_id
+# viene NULL en asientos de "Operaciones Varias", se resuelve por
+# aml.hotel_analytic_account_id). Sin filtro de Producto: ninguna consulta
+# contable de esta app lo admite (las cuentas no se desglosan por tipo de
+# desayuno), igual que en la ficha de un hotel.
+_FNB_MENSUAL_FILTRADO_SQL = """
+    SELECT
+        date_trunc('month', aml.date)::date,
+        SUM(aml.credit - aml.debit) FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS ingresos,
+        SUM(CASE am.move_type WHEN 'out_invoice' THEN aml.quantity WHEN 'out_refund' THEN -aml.quantity ELSE 0 END)
+          FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS unidades,
+        SUM(aml.debit - aml.credit) FILTER (WHERE aa.code = ANY(%(cuentas_gasto)s)) AS gastos
+    FROM account_move_line aml
+    JOIN account_account aa ON aa.id = aml.account_id
+    JOIN account_move am ON am.id = aml.move_id
+    LEFT JOIN pms_property pp ON pp.analytic_account_id = aml.hotel_analytic_account_id AND aml.pms_property_id IS NULL
+    WHERE am.state = 'posted'
+      AND aml.date BETWEEN %(desde)s AND %(hasta)s
+      AND (aa.code = %(cuenta_ingreso)s OR aa.code = ANY(%(cuentas_gasto)s))
+      AND COALESCE(aml.pms_property_id, pp.id) = ANY(%(hotel_ids)s)
+    GROUP BY 1
+    ORDER BY 1
+"""
+
 # Presupuesto de desayuno: combina DOS fuentes (decisión 2026-09-02,
 # corregida sobre la marcha — primero se planteó sustituir Odoo por la hoja
 # de Finanzas, pero "hay que traer también el dato de Odoo, creo que sería
@@ -634,6 +698,28 @@ _PRESUPUESTO_MENSUAL_SQL = """
     WHERE b.state = 'confirmed'
       AND date_trunc('month', bl.date) BETWEEN date_trunc('month', %(desde)s) AND date_trunc('month', %(hasta)s)
       AND (aa.code = %(cuenta_ingreso)s OR aa.code = ANY(%(cuentas_gasto)s))
+    GROUP BY 1
+    ORDER BY 1
+"""
+
+# Variante con filtro de Hotel para Tendencias — mismo JOIN que
+# _PRESUPUESTO_MENSUAL_HOTEL_SQL (analítica de la línea de presupuesto ->
+# pms_property), pero para una lista de hoteles en vez de uno solo.
+_PRESUPUESTO_MENSUAL_FILTRADO_SQL = """
+    SELECT
+        date_trunc('month', bl.date)::date,
+        SUM(bl.credit) FILTER (WHERE aa.code = %(cuenta_ingreso)s)
+          - SUM(bl.debit) FILTER (WHERE aa.code = %(cuenta_ingreso)s) AS presupuesto_ingresos,
+        SUM(bl.debit) FILTER (WHERE aa.code = ANY(%(cuentas_gasto)s))
+          - SUM(bl.credit) FILTER (WHERE aa.code = ANY(%(cuentas_gasto)s)) AS presupuesto_gastos
+    FROM account_move_budget_line bl
+    JOIN account_account aa ON aa.id = bl.account_id
+    JOIN account_move_budget b ON b.id = bl.budget_id
+    JOIN pms_property p ON p.analytic_account_id = bl.hotel_analytic_account_id
+    WHERE b.state = 'confirmed'
+      AND date_trunc('month', bl.date) BETWEEN date_trunc('month', %(desde)s) AND date_trunc('month', %(hasta)s)
+      AND (aa.code = %(cuenta_ingreso)s OR aa.code = ANY(%(cuentas_gasto)s))
+      AND p.id = ANY(%(hotel_ids)s)
     GROUP BY 1
     ORDER BY 1
 """
@@ -942,19 +1028,25 @@ def fetch_presupuesto_desayuno(fecha_inicio: datetime.date, fecha_fin: datetime.
 
 
 @cache_result
-def fetch_presupuesto_serie_mensual_odoo(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[str, dict]:
+def fetch_presupuesto_serie_mensual_odoo(
+    fecha_inicio: datetime.date, fecha_fin: datetime.date, hotel_ids: tuple[int, ...] | None = None
+) -> dict[str, dict]:
     """Igual que fetch_presupuesto_desayuno_odoo pero agregado por mes
-    (cadena completa), para comparar contra lo real en el gráfico de evolución."""
+    (cadena completa, o restringido a hotel_ids para Tendencias), para
+    comparar contra lo real en el gráfico de evolución."""
+    params = {
+        "cuenta_ingreso": _CUENTA_INGRESO_DESAYUNO,
+        "cuentas_gasto": list(_CUENTAS_GASTO_DESAYUNO),
+        "desde": fecha_inicio,
+        "hasta": fecha_fin,
+    }
+    if hotel_ids is not None:
+        sql = _PRESUPUESTO_MENSUAL_FILTRADO_SQL
+        params["hotel_ids"] = list(hotel_ids)
+    else:
+        sql = _PRESUPUESTO_MENSUAL_SQL
     with connections["odoo"].cursor() as cur:
-        cur.execute(
-            _PRESUPUESTO_MENSUAL_SQL,
-            {
-                "cuenta_ingreso": _CUENTA_INGRESO_DESAYUNO,
-                "cuentas_gasto": list(_CUENTAS_GASTO_DESAYUNO),
-                "desde": fecha_inicio,
-                "hasta": fecha_fin,
-            },
-        )
+        cur.execute(sql, params)
         rows = cur.fetchall()
     return {
         r[0].isoformat(): {"presupuestoIngresos": float(r[1] or 0), "presupuestoGastos": float(r[2] or 0)}
@@ -963,16 +1055,22 @@ def fetch_presupuesto_serie_mensual_odoo(fecha_inicio: datetime.date, fecha_fin:
 
 
 @cache_result
-def fetch_presupuesto_serie_mensual_excel(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[str, dict]:
+def fetch_presupuesto_serie_mensual_excel(
+    fecha_inicio: datetime.date, fecha_fin: datetime.date, hotel_ids: tuple[int, ...] | None = None
+) -> dict[str, dict]:
     """Igual que fetch_presupuesto_desayuno_excel pero agregado por mes
-    (cadena completa, todos los hoteles sumados por mes)."""
+    (cadena completa, o restringido a hotel_ids para Tendencias)."""
     from ..models import PresupuestoDesayunoMensual
 
     filas = PresupuestoDesayunoMensual.objects.filter(
         mes__gte=fecha_inicio.replace(day=1), mes__lte=fecha_fin
-    ).values("mes", "alojados_previstos", "penetracion_prevista", "precio_interno", "coste_interno")
+    ).values("mes", "property_code", "alojados_previstos", "penetracion_prevista", "precio_interno", "coste_interno")
+    ids_permitidos = set(hotel_ids) if hotel_ids is not None else None
+    codigo_a_id = {h["property_code"]: h["id"] for h in fetch_hoteles() if h["property_code"]} if ids_permitidos is not None else None
     resultado: dict[str, dict] = {}
     for fila in filas:
+        if ids_permitidos is not None and codigo_a_id.get(fila["property_code"]) not in ids_permitidos:
+            continue
         unidades = fila["alojados_previstos"] * fila["penetracion_prevista"]
         acc = resultado.setdefault(fila["mes"].isoformat(), {"presupuestoIngresos": 0.0, "presupuestoGastos": 0.0})
         acc["presupuestoIngresos"] += unidades * fila["precio_interno"]
@@ -980,28 +1078,36 @@ def fetch_presupuesto_serie_mensual_excel(fecha_inicio: datetime.date, fecha_fin
     return resultado
 
 
-def fetch_presupuesto_serie_mensual(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[str, dict]:
+def fetch_presupuesto_serie_mensual(
+    fecha_inicio: datetime.date, fecha_fin: datetime.date, hotel_ids: tuple[int, ...] | None = None
+) -> dict[str, dict]:
     """Igual que fetch_presupuesto_desayuno pero agregado por mes (cadena
-    completa) — ver _combinar_presupuesto."""
-    odoo = fetch_presupuesto_serie_mensual_odoo(fecha_inicio, fecha_fin)
-    excel = fetch_presupuesto_serie_mensual_excel(fecha_inicio, fecha_fin)
+    completa, o restringido a hotel_ids) — ver _combinar_presupuesto."""
+    odoo = fetch_presupuesto_serie_mensual_odoo(fecha_inicio, fecha_fin, hotel_ids)
+    excel = fetch_presupuesto_serie_mensual_excel(fecha_inicio, fecha_fin, hotel_ids)
     return _combinar_presupuesto(odoo, excel)
 
 
 @cache_result
-def fetch_fnb_serie_mensual(fecha_inicio: datetime.date, fecha_fin: datetime.date) -> dict[str, dict]:
-    """Igual que fetch_fnb_desayuno pero agregado por mes (cadena completa),
-    para el gráfico de evolución de ingresos/gastos/margen."""
+def fetch_fnb_serie_mensual(
+    fecha_inicio: datetime.date, fecha_fin: datetime.date, hotel_ids: tuple[int, ...] | None = None
+) -> dict[str, dict]:
+    """Igual que fetch_fnb_desayuno pero agregado por mes (cadena completa,
+    o restringido a hotel_ids para Tendencias), para el gráfico de
+    evolución de ingresos/gastos/margen."""
+    params = {
+        "cuenta_ingreso": _CUENTA_INGRESO_DESAYUNO,
+        "cuentas_gasto": list(_CUENTAS_GASTO_DESAYUNO),
+        "desde": fecha_inicio,
+        "hasta": fecha_fin,
+    }
+    if hotel_ids is not None:
+        sql = _FNB_MENSUAL_FILTRADO_SQL
+        params["hotel_ids"] = list(hotel_ids)
+    else:
+        sql = _FNB_MENSUAL_SQL
     with connections["odoo"].cursor() as cur:
-        cur.execute(
-            _FNB_MENSUAL_SQL,
-            {
-                "cuenta_ingreso": _CUENTA_INGRESO_DESAYUNO,
-                "cuentas_gasto": list(_CUENTAS_GASTO_DESAYUNO),
-                "desde": fecha_inicio,
-                "hasta": fecha_fin,
-            },
-        )
+        cur.execute(sql, params)
         rows = cur.fetchall()
     return {
         r[0].isoformat(): {"ingresos": float(r[1] or 0), "unidades": float(r[2] or 0), "gastos": float(r[3] or 0)}

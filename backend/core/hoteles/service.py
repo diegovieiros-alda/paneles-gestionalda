@@ -280,16 +280,41 @@ def _hace_n_meses(fecha: datetime.date, n: int) -> datetime.date:
     return fecha.replace(year=anio, month=mes, day=1)
 
 
+def get_serie_mensual(
+    fecha_inicio: datetime.date,
+    fecha_fin: datetime.date,
+    tipos_desayuno: tuple[str, ...] | None = None,
+    hotel_ids: tuple[int, ...] | None = None,
+) -> list[dict]:
+    """Serie mensual de los últimos 12 meses hasta fecha_fin, con los mismos
+    filtros de Producto y Hotel que el resto de Desayunos — junta PMS
+    (desayunos/producción) y contable (ingresos/gastos/margen) por mes, dos
+    fuentes distintas (ver _fnb_json). Extraída de get_resumen (2026-09-03,
+    petición: extender a Tendencias los filtros de Zona/Submarca/Hotel/
+    Producto que ya tenían Detalle/Oportunidades/Alertas) para que
+    Tendencias pueda pedirla filtrada sin arrastrar también el recálculo de
+    la tabla de hoteles — mismo motivo que llevó a separar Turnos de este
+    resumen el 2026-09-02."""
+    inicio_serie = _hace_n_meses(fecha_fin, 11)
+    serie = repository.fetch_serie_mensual(inicio_serie, fecha_fin, tipos_desayuno, hotel_ids)
+    fnb_por_mes = repository.fetch_fnb_serie_mensual(inicio_serie, fecha_fin, hotel_ids)
+    presupuesto_por_mes = repository.fetch_presupuesto_serie_mensual(inicio_serie, fecha_fin, hotel_ids)
+    for punto in serie:
+        f = fnb_por_mes.get(punto["mes"], _FNB_VACIO)
+        p = presupuesto_por_mes.get(punto["mes"], _PRESUPUESTO_VACIO)
+        punto.update(_fnb_json(f, p))
+    return serie
+
+
 def get_resumen(
     fecha_inicio: datetime.date,
     fecha_fin: datetime.date,
     tipos_desayuno: tuple[str, ...] | None = None,
 ) -> dict:
     """Resumen para la portada: hoteles del periodo (para alertas/ranking/
-    oportunidad) + serie mensual de los últimos 12 meses (para los gráficos
-    de evolución), en una sola llamada. La serie mensual junta PMS
-    (desayunos/producción) y contable (ingresos/gastos/margen) por mes — dos
-    fuentes distintas, ver _fnb_json.
+    oportunidad) + serie mensual de los últimos 12 meses sin filtro de
+    Hotel (para los gráficos de evolución cuando no hay ninguno activo), en
+    una sola llamada.
 
     Turnos ya NO viaja embebido aquí (2026-09-02): antes, cambiar solo el
     filtro de Producto obligaba a recalcular Turnos dentro de esta misma
@@ -298,17 +323,11 @@ def get_resumen(
     aunque a nadie le hiciera falta todavía. El frontend pide Turnos
     siempre por separado (views.desayunos_turnos/fetchTurnos, con o sin
     filtro de Hotel/Zona/Submarca) — así la tabla de hoteles puede
-    mostrarse en cuanto esté lista sin esperar a Turnos."""
+    mostrarse en cuanto esté lista sin esperar a Turnos. La serie mensual
+    filtrada por Hotel (Tendencias) sigue el mismo patrón, ver
+    get_serie_mensual/views.desayunos_serie_mensual."""
     datos = get_hoteles(fecha_inicio, fecha_fin, tipos_desayuno)
-    inicio_serie = _hace_n_meses(fecha_fin, 11)
-    serie = repository.fetch_serie_mensual(inicio_serie, fecha_fin)
-    fnb_por_mes = repository.fetch_fnb_serie_mensual(inicio_serie, fecha_fin)
-    presupuesto_por_mes = repository.fetch_presupuesto_serie_mensual(inicio_serie, fecha_fin)
-    for punto in serie:
-        f = fnb_por_mes.get(punto["mes"], _FNB_VACIO)
-        p = presupuesto_por_mes.get(punto["mes"], _PRESUPUESTO_VACIO)
-        punto.update(_fnb_json(f, p))
-    datos["serieMensual"] = serie
+    datos["serieMensual"] = get_serie_mensual(fecha_inicio, fecha_fin, tipos_desayuno)
     return datos
 
 

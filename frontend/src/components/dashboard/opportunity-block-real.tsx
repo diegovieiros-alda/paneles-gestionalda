@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ChevronRight, Sparkles, Target, TrendingUp } from "lucide-react";
 import { facturacionPotencial, fmtEuro, fmtNum, fmtPct } from "@/lib/mock-data";
 import { useAjustesDesayuno } from "@/lib/ajustes-desayuno-context";
+import { TargetProgressBar } from "@/components/dashboard/target-progress-bar";
 import { hrefHotelDesayunos, type HotelReal } from "@/lib/hoteles-api";
 
 // Facturación potencial por hotel, no sobre agregados de la cadena: usa la
@@ -58,12 +59,7 @@ export function OpportunityBlockReal({
             <b className="num text-foreground">{fmtNum(potencialesTotal)}</b> alojados en desayunos.
           </p>
 
-          <div className="mt-4 h-2 rounded-full bg-border overflow-hidden max-w-md">
-            <div
-              className="h-full rounded-full bg-primary"
-              style={{ width: `${Math.min(100, (penetracionMedia / ajustes.objetivoOportunidad) * 100)}%` }}
-            />
-          </div>
+          <TargetProgressBar actual={penetracionMedia} objetivo={ajustes.objetivoOportunidad} className="mt-4 max-w-md" />
           <div className="mt-2 flex justify-between text-[11px] text-muted-foreground max-w-md">
             <span>Actual {fmtPct(penetracionMedia)}</span>
             <span>Objetivo {fmtPct(ajustes.objetivoOportunidad, 0)}</span>

@@ -17,7 +17,7 @@ export default function DesayunosOportunidadesPage() {
       origenDatos={origenDatos}
       periodo={fmtRangoFechas(desde, hasta)}
     >
-      <DesayunosFiltrosPanel rangeProps={rangeProps} filterProps={filterProps} mostrarHotel={false} />
+      <DesayunosFiltrosPanel rangeProps={rangeProps} filterProps={filterProps} />
 
       <div className="p-6 max-w-[1600px] mx-auto space-y-6 relative">
         {error && (

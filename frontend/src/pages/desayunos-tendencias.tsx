@@ -1,6 +1,6 @@
 import { DashboardShell } from "@/components/dashboard/shell";
-import { RangeFilter } from "@/components/dashboard/range-filter";
-import { RANGE_PRESETS_DESAYUNOS, fmtRangoFechas } from "@/lib/date-range";
+import { DesayunosFiltrosPanel } from "@/components/dashboard/desayunos-filtros-panel";
+import { fmtRangoFechas } from "@/lib/date-range";
 import { DataLoading, LoadingOverlay } from "@/components/dashboard/loading-screen";
 import { EvolutionChartReal } from "@/components/dashboard/evolution-chart-real";
 import { IngresosGastosChart } from "@/components/dashboard/ingresos-gastos-chart";
@@ -8,7 +8,7 @@ import { PrecioCosteChart } from "@/components/dashboard/precio-coste-chart";
 import { useDesayunosFiltros } from "@/lib/desayunos-filtros-context";
 
 export default function DesayunosTendenciasPage() {
-  const { serieMensual, origenDatos, loading, error, rangeProps, desde, hasta } = useDesayunosFiltros();
+  const { serieMensual, origenDatos, loading, error, rangeProps, filterProps, desde, hasta } = useDesayunosFiltros();
 
   return (
     <DashboardShell
@@ -17,7 +17,7 @@ export default function DesayunosTendenciasPage() {
       origenDatos={origenDatos}
       periodo={fmtRangoFechas(desde, hasta)}
     >
-      <RangeFilter {...rangeProps} presets={RANGE_PRESETS_DESAYUNOS} />
+      <DesayunosFiltrosPanel rangeProps={rangeProps} filterProps={filterProps} />
 
       <div className="p-6 max-w-[1600px] mx-auto space-y-6 relative">
         {error && (

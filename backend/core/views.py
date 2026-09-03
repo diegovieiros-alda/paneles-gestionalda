@@ -25,6 +25,7 @@ from .hoteles.service import (
     get_hotel_desayunos,
     get_hotel_info,
     get_resumen,
+    get_serie_mensual,
     get_turnos_desayuno,
     set_ajustes_desayunos,
 )
@@ -279,6 +280,32 @@ def desayunos_turnos(request):
     except Exception:
         logger.exception("Error al generar los turnos de desayuno")
         return JsonResponse({"error": "No se pudieron obtener los turnos de desayuno"}, status=502)
+
+
+@requiere_dashboard("desayunos")
+def desayunos_serie_mensual(request):
+    """Serie mensual (12 meses) de Desayunos, cadena completa o restringida
+    a una lista de hoteles — endpoint aparte de /api/desayunos/ (2026-09-03),
+    mismo motivo que desayunos_turnos: Zona/Submarca/Hotel es un filtro
+    client-side sobre la tabla de hoteles ya cargada, así que necesita su
+    propia llamada para no arrastrar el recálculo de esa tabla. Usado por
+    Tendencias, la única vista que consume esta serie."""
+    fecha_inicio, fecha_fin, error_response = _rango_mes_por_defecto(request, MAX_RANGO_DIAS_DESAYUNOS)
+    if error_response is not None:
+        return error_response
+    try:
+        tipos_desayuno = _parse_tipos_desayuno(request)
+        hotel_ids = _parse_hotel_ids(request)
+    except ValueError as e:
+        return JsonResponse({"error": str(e)}, status=400)
+
+    try:
+        with tracking() as t:
+            serie = get_serie_mensual(fecha_inicio, fecha_fin, tipos_desayuno, hotel_ids)
+        return JsonResponse({"serieMensual": serie, "origenDatos": origen_datos(t)})
+    except Exception:
+        logger.exception("Error al generar la serie mensual de desayuno")
+        return JsonResponse({"error": "No se pudo obtener la serie mensual de desayuno"}, status=502)
 
 
 @requiere_dashboard("desayunos")

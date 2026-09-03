@@ -556,3 +556,40 @@ class PresupuestoDesayunoExcelFormulaTests(SimpleTestCase):
         mes = resultado["2026-10-01"]
         self.assertEqual(mes["alojadosPrevistos"], 740.0)
         self.assertAlmostEqual(mes["desayunosPrevistos"], 740.0 * 0.4508)
+
+    def _filas_dos_hoteles(self):
+        return [
+            {
+                "mes": datetime.date(2026, 10, 1), "property_code": "999",
+                "alojados_previstos": 100.0, "penetracion_prevista": 0.5,
+                "precio_interno": 6.0, "coste_interno": 3.0,
+            },
+            {
+                "mes": datetime.date(2026, 10, 1), "property_code": "888",
+                "alojados_previstos": 200.0, "penetracion_prevista": 0.5,
+                "precio_interno": 6.0, "coste_interno": 3.0,
+            },
+        ]
+
+    def test_serie_mensual_excel_sin_filtro_suma_todos_los_hoteles(self):
+        # 2026-09-03: fetch_presupuesto_serie_mensual_excel gana un
+        # hotel_ids opcional (para Tendencias) — sin filtro debe seguir
+        # sumando la cadena completa, igual que antes de este cambio.
+        with mock.patch("core.models.PresupuestoDesayunoMensual.objects") as objects:
+            objects.filter.return_value.values.return_value = self._filas_dos_hoteles()
+            resultado = repository.fetch_presupuesto_serie_mensual_excel(
+                datetime.date(2026, 10, 1), datetime.date(2026, 10, 31)
+            )
+        # (100+200) alojados_previstos × 0.5 penetración × 6€ = 900€
+        self.assertAlmostEqual(resultado["2026-10-01"]["presupuestoIngresos"], 900.0)
+
+    def test_serie_mensual_excel_con_hotel_ids_solo_cuenta_ese_hotel(self):
+        with mock.patch.object(
+            repository, "fetch_hoteles", return_value=[{"id": 1, "property_code": "999"}, {"id": 2, "property_code": "888"}]
+        ), mock.patch("core.models.PresupuestoDesayunoMensual.objects") as objects:
+            objects.filter.return_value.values.return_value = self._filas_dos_hoteles()
+            resultado = repository.fetch_presupuesto_serie_mensual_excel(
+                datetime.date(2026, 10, 1), datetime.date(2026, 10, 31), (1,)
+            )
+        # Solo el hotel 1 (property_code "999"): 100 × 0.5 × 6€ = 300€
+        self.assertAlmostEqual(resultado["2026-10-01"]["presupuestoIngresos"], 300.0)

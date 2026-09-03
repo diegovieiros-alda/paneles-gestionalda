@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { fetchDesayunos, fetchTurnos, TIPOS_DESAYUNO, type HotelReal, type SerieMensual, type TurnoDesayuno } from "@/lib/hoteles-api";
+import { fetchDesayunos, fetchSerieMensual, fetchTurnos, TIPOS_DESAYUNO, type HotelReal, type SerieMensual, type TurnoDesayuno } from "@/lib/hoteles-api";
 import { rangeForPreset, type RangePreset } from "@/lib/date-range";
 
 const TODOS_TIPOS = TIPOS_DESAYUNO.map((t) => t.value) as string[];
@@ -25,18 +25,25 @@ function filtraHoteles(
   });
 }
 
-/** Carga de datos de Desayunos compartida por las páginas "Detalle completo",
- * "Oportunidades" y "Alertas" — cada una es su propia ruta, pero todas
- * necesitan el mismo fetch por rango de fechas y los mismos filtros de
- * hotel (zona, submarca, tipo de desayuno, búsqueda por nombre/código).
- * "Tendencias" usa serieMensual, que es un agregado global del backend y no
- * se puede filtrar por zona/submarca sin cambiar la consulta — fuera de
- * alcance aquí. */
+/** Carga de datos de Desayunos compartida por las 4 páginas de esta sección
+ * (Detalle completo, Oportunidades, Alertas, Tendencias) — cada una es su
+ * propia ruta, pero todas necesitan el mismo fetch por rango de fechas y
+ * los mismos filtros de hotel (zona, submarca, tipo de desayuno, búsqueda
+ * por nombre/código, selector de hotel). "hoteles"/"hotelesFiltrados" son
+ * el filtro client-side de siempre; "serieMensual" (para Tendencias) se
+ * filtra en el backend cuando hace falta, ver hotelIdsActivos más abajo y
+ * fetchSerieMensual en hoteles-api.ts. */
 export function useDesayunosData() {
   const [preset, setPreset] = useState<RangePreset>("dia");
   const [custom, setCustom] = useState(() => rangeForPreset("dia"));
   const [hoteles, setHoteles] = useState<HotelReal[] | null>(null);
-  const [serieMensual, setSerieMensual] = useState<SerieMensual[]>([]);
+  // Cadena completa (siempre disponible, viene con fetchDesayunos) vs.
+  // filtrada por Zona/Submarca/Hotel (solo cuando ese filtro está activo,
+  // ver hotelIdsActivos más abajo) — Tendencias es la única vista que
+  // consume "serieMensual", pero el filtro vive en este hook compartido.
+  const [serieMensualBase, setSerieMensualBase] = useState<SerieMensual[]>([]);
+  const [serieMensualFiltrada, setSerieMensualFiltrada] = useState<SerieMensual[]>([]);
+  const [serieMensualLoading, setSerieMensualLoading] = useState(false);
   const [turnos, setTurnos] = useState<TurnoDesayuno[]>([]);
   const [origenDatos, setOrigenDatos] = useState<"odoo" | "cache" | undefined>();
   const [loading, setLoading] = useState(false);
@@ -65,7 +72,7 @@ export function useDesayunosData() {
         // filtro ya abandonado) pisaría a la más reciente.
         if (!vivo) return;
         setHoteles(data.hoteles);
-        setSerieMensual(data.serieMensual);
+        setSerieMensualBase(data.serieMensual);
         setOrigenDatos(data.origenDatos);
       })
       .catch((e) => {
@@ -124,8 +131,8 @@ export function useDesayunosData() {
   }, [q]);
 
   // IDs de los hoteles resultantes del filtro de Hotel (zona/submarca/
-  // búsqueda/selección) — undefined si ninguno está activo (turnos de
-  // cadena completa, ver más abajo).
+  // búsqueda/selección) — undefined si ninguno está activo (Turnos y la
+  // serie mensual piden cadena completa en ese caso, ver más abajo).
   const hotelIdsActivos = useMemo(() => {
     if (!zona && !submarca && !qDebounced && hotelIds.length === 0) return undefined;
     return filtraHoteles(hoteles ?? [], zona, submarca, qDebounced, hotelIds).map((h) => h.id);
@@ -159,6 +166,36 @@ export function useDesayunosData() {
     };
   }, [desde, hasta, tipos, hotelIdsActivos]);
 
+  // Serie mensual filtrada por Hotel: mismo patrón que Turnos, arriba
+  // (endpoint aparte, 2026-09-03 — Tendencias pedía extender a esta vista
+  // los filtros de Zona/Submarca/Hotel que ya tenían Detalle/Oportunidades/
+  // Alertas). Sin filtro activo no hace falta pedir nada nuevo: se usa
+  // serieMensualBase, ya incluida en fetchDesayunos. Nota: como
+  // hotelIdsActivos es compartido por las 4 vistas, cambiar Zona/Submarca
+  // en Detalle también dispara esta petición aunque no se esté mirando
+  // Tendencias — mismo coste ya aceptado para Turnos.
+  useEffect(() => {
+    if (!hotelIdsActivos) return;
+    let vivo = true;
+    setSerieMensualLoading(true);
+    const tiposParam = tipos.length < TODOS_TIPOS.length ? tipos : undefined;
+    fetchSerieMensual(desde, hasta, tiposParam, hotelIdsActivos)
+      .then((data) => {
+        if (vivo) setSerieMensualFiltrada(data.serieMensual);
+      })
+      .catch(() => {
+        // Se queda con la serie filtrada anterior en vez de romper la página.
+      })
+      .finally(() => {
+        if (vivo) setSerieMensualLoading(false);
+      });
+    return () => {
+      vivo = false;
+    };
+  }, [desde, hasta, tipos, hotelIdsActivos]);
+
+  const serieMensual = hotelIdsActivos ? serieMensualFiltrada : serieMensualBase;
+
   return {
     hoteles,
     hotelesFiltrados,
@@ -166,7 +203,7 @@ export function useDesayunosData() {
     turnos,
     turnosFiltradosPorHotel: !!hotelIdsActivos,
     origenDatos,
-    loading: loading || turnosLoading,
+    loading: loading || turnosLoading || (!!hotelIdsActivos && serieMensualLoading),
     error,
     desde,
     hasta,

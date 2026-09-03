@@ -1,6 +1,7 @@
 import { Target } from "lucide-react";
 import { fmtPct } from "@/lib/mock-data";
 import { useAjustesDesayuno } from "@/lib/ajustes-desayuno-context";
+import { TargetProgressBar } from "@/components/dashboard/target-progress-bar";
 import type { HotelReal } from "@/lib/hoteles-api";
 
 export function ObjetivoPenetracionCard({ hoteles }: { hoteles: HotelReal[] }) {
@@ -33,9 +34,7 @@ export function ObjetivoPenetracionCard({ hoteles }: { hoteles: HotelReal[] }) {
         </div>
       </div>
       <div className="flex-1 min-w-[200px]">
-        <div className="h-2 rounded-full bg-border overflow-hidden">
-          <div className="h-full bg-primary" style={{ width: `${Math.min(100, (penetracion / ajustes.objetivoPenetracion) * 100)}%` }} />
-        </div>
+        <TargetProgressBar actual={penetracion} objetivo={ajustes.objetivoPenetracion} />
       </div>
     </section>
   );
