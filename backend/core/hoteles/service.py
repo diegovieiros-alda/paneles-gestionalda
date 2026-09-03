@@ -350,7 +350,24 @@ def get_hotel_desayunos(
 
     turnos = repository.fetch_turnos_desayuno_hotel(hotel_id, fecha_inicio, fecha_fin)
 
-    return {"actual": actual, "serieMensual": serie, "turnos": turnos, "tiposDesayuno": tipos_activos}
+    desglose_producto = repository.fetch_desayunos_por_producto_hotel(hotel_id, fecha_inicio, fecha_fin, tipos_desayuno)
+    desglose_producto_json = [
+        {
+            "producto": p["producto"],
+            "unidades": round(p["unidades"]),
+            "ventas": round(p["ventas"], 2),
+            "precioMedio": round(p["ventas"] / p["unidades"], 2) if p["unidades"] > 0 else 0.0,
+        }
+        for p in desglose_producto
+    ]
+
+    return {
+        "actual": actual,
+        "serieMensual": serie,
+        "turnos": turnos,
+        "tiposDesayuno": tipos_activos,
+        "desglosePorProducto": desglose_producto_json,
+    }
 
 
 # Ajustes editables de Desayunos (antes hardcodeados en el frontend,

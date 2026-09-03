@@ -14,6 +14,7 @@ import { SignedEuro, SignedPct } from "@/components/dashboard/signed-value";
 import { IngresosGastosChart } from "@/components/dashboard/ingresos-gastos-chart";
 import { PrecioCosteChart } from "@/components/dashboard/precio-coste-chart";
 import { AlojadosDesayunosChart } from "@/components/dashboard/alojados-desayunos-chart";
+import { DesglosePorProductoTable } from "@/components/dashboard/desglose-producto-table";
 import { TurnosPanel } from "@/components/dashboard/turnos-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataLoading, LoadingOverlay } from "@/components/dashboard/loading-screen";
@@ -355,6 +356,9 @@ export default function HotelDesayunosPage() {
                 { label: "Resultado F&B", value: (m) => <SignedEuro value={m.resultadoFB} />, csv: (m) => m.resultadoFB.toFixed(2) },
               ]}
             />
+
+            <SectionTitle title="Desglose por producto" />
+            <DesglosePorProductoTable desglose={data.desglosePorProducto} />
 
             <SectionTitle title="Turnos" />
             <TurnosPanel turnos={data.turnos ?? []} scope={hotel?.name ?? "este hotel"} />

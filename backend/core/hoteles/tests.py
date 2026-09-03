@@ -205,6 +205,7 @@ class GetHotelDesayunosTests(SimpleTestCase):
             fetch_fnb_serie_mensual_hotel={},
             fetch_presupuesto_serie_mensual_hotel={},
             fetch_turnos_desayuno_hotel=[],
+            fetch_desayunos_por_producto_hotel=[],
         )
         defaults.update(overrides)
         mocks = {}
@@ -244,6 +245,24 @@ class GetHotelDesayunosTests(SimpleTestCase):
         )
         resultado = service.get_hotel_desayunos(1, datetime.date(2026, 1, 1), datetime.date(2026, 1, 31))
         self.assertEqual(resultado["tiposDesayuno"], ["buffet", "colaborador"])
+
+    def test_desglose_por_producto_reenvia_tipos_y_calcula_precio_medio(self):
+        mocks = self._mock_repository(
+            fetch_desayunos_por_producto_hotel=[
+                {"producto": "Desayuno Buffet Adulto", "unidades": 100.0, "ventas": 627.0},
+                {"producto": "Desayuno Niño", "unidades": 0.0, "ventas": 0.0},
+            ]
+        )
+        resultado = service.get_hotel_desayunos(
+            1, datetime.date(2026, 1, 1), datetime.date(2026, 1, 31), tipos_desayuno=("buffet",)
+        )
+        mocks["fetch_desayunos_por_producto_hotel"].assert_called_once_with(
+            1, datetime.date(2026, 1, 1), datetime.date(2026, 1, 31), ("buffet",)
+        )
+        self.assertEqual(resultado["desglosePorProducto"], [
+            {"producto": "Desayuno Buffet Adulto", "unidades": 100, "ventas": 627.0, "precioMedio": 6.27},
+            {"producto": "Desayuno Niño", "unidades": 0, "ventas": 0.0, "precioMedio": 0.0},  # sin dividir por cero
+        ])
 
 
 class FetchDesayunosPorTipoTests(SimpleTestCase):
