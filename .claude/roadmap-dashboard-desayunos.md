@@ -108,7 +108,7 @@ No hay una tabla que se llame así — la más parecida es `FnbFinancieroTable` 
 
 ### 4.5 Desglose por producto vendido
 
-⬜ **Falta.** No existe en el código de producción. Hay una consulta SQL ya escrita en `kpis-definiciones.md`, pero usa una fuente de datos (`pms_service_line` + una lista fija de productos) distinta a la que usa el resto del dashboard (`folio_sale_line`) — implementarla tal cual pondría una tercera cifra de "producción" en pantalla que no cuadraría con las otras dos. **Decisión ya tomada con el usuario**: construir la consulta de cero sobre la fuente actual (`folio_sale_line` + catálogo de régimen), no reutilizar la documentada. Pendiente de implementar.
+✅ **Hecho (2026-09-03).** `repository.fetch_desayunos_por_producto_hotel`, construida de cero sobre `folio_sale_line` + catálogo de régimen (misma fuente que el resto del dashboard, no la consulta documentada en `kpis-definiciones.md` que usa `pms_service_line` + una lista fija de productos). Verificado contra un hotel de referencia (julio 2026): la suma del desglose coincide exactamente (diferencia 0.0) con Producción/Desayunos ya validados, con y sin filtro de Producto. Tabla en la ficha de hotel con toggle Unidades/Ventas € y precio medio.
 
 ### 4.6 "Vendedores turnos" (nombre de usuario + unidades)
 
@@ -120,7 +120,7 @@ Si de verdad hace falta un análisis por persona, es una petición distinta que 
 
 ## 5. Resumen de prioridad sugerida
 
-1. **Hecho (2026-09-03, "gaps rápidos")**: código+zona+submarca en tablas y cabecera, tipo de desayuno mixto, KPI Coste medio en la ficha, gráfico Alojados vs desayunos con presupuesto en unidades.
+1. **Hecho (2026-09-03)**: código+zona+submarca en tablas y cabecera, tipo de desayuno mixto, KPI Coste medio en la ficha, gráfico Alojados vs desayunos con presupuesto en unidades, rediseño de las 3 tablas (sin scroll horizontal), desglose por producto vendido.
 2. **Pendiente de decidir contigo, no de programar directamente**:
    - Fórmulas de "presupuesto" para Penetración/Precio medio/Coste medio (necesarias para el histórico mensual con selector y para completar los gauges).
    - Qué fuente (PMS vs. contable) usa cada columna de la tabla "Facturación" si se construye tal cual el spec.
@@ -129,7 +129,6 @@ Si de verdad hace falta un análisis por persona, es una petición distinta que 
    - LY (comparativa año anterior) — la pieza más grande que falta, no existe en ningún sitio de la app. Requiere cuidado de rendimiento (duplica consultas contra una base sin índices de fecha ni `statement_timeout`).
    - Gauges circulares 360° (visual, `recharts` ya lo soporta).
    - Selector multi-hotel real (hoy solo hay buscador de texto).
-   - Desglose por producto vendido (consulta nueva sobre la fuente actual, ya decidido cómo).
    - Consolidar el histórico mensual en una tabla con selector de métrica (una vez resueltas las fórmulas de presupuesto del punto 2).
 4. **No se va a hacer**: "Vendedores" con nombre de usuario (conflicto de privacidad, ver §4.6).
 
