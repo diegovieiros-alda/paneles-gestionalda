@@ -38,6 +38,8 @@ _PRESUPUESTO_VACIO = {
     "presupuestoGastosOdoo": None,
     "presupuestoIngresosExcel": None,
     "presupuestoGastosExcel": None,
+    "alojadosPrevistos": None,
+    "desayunosPrevistos": None,
 }
 
 
@@ -104,7 +106,12 @@ def _fnb_json(f: dict, presupuesto: dict = _PRESUPUESTO_VACIO, motivo_presupuest
     presupuestoIngresos/GastosOdoo/Excel: los dos valores por separado
     (None si esa fuente no tiene dato para el hotel/periodo), además del
     elegido — pedido explícito 2026-09-02: "vamos a poner los 2
-    presupuestos... para comparar"."""
+    presupuestos... para comparar".
+
+    alojadosPrevistos/desayunosPrevistos: presupuesto en UNIDADES (no €),
+    solo disponible en la serie mensual por hotel del Excel — None en el
+    resto de llamadas. Para el gráfico "Alojados vs ud desayunos" de la
+    ficha de hotel."""
     ingresos, gastos = f["ingresos"], f["gastos"]
     unidades = f["unidades"]
     presupuesto_ingresos = presupuesto["presupuestoIngresos"]
@@ -130,6 +137,8 @@ def _fnb_json(f: dict, presupuesto: dict = _PRESUPUESTO_VACIO, motivo_presupuest
         "presupuestoGastosOdoo": _o(presupuesto.get("presupuestoGastosOdoo")),
         "presupuestoIngresosExcel": _o(presupuesto.get("presupuestoIngresosExcel")),
         "presupuestoGastosExcel": _o(presupuesto.get("presupuestoGastosExcel")),
+        "alojadosPrevistos": presupuesto.get("alojadosPrevistos"),
+        "desayunosPrevistos": presupuesto.get("desayunosPrevistos"),
     }
 
 
@@ -286,6 +295,11 @@ def get_hotel_desayunos(
     get_resumen, no es una inconsistencia nueva de este fix."""
     alojados = repository.fetch_alojados(fecha_inicio, fecha_fin).get(hotel_id, 0)
     d = repository.fetch_desayunos(fecha_inicio, fecha_fin, tipos_desayuno).get(hotel_id, _DESAYUNO_VACIO)
+    # Qué tipos de desayuno vende de verdad este hotel en el periodo (no cuál
+    # filtro está activo) — para el chip "Tipo desayuno" de la cabecera de la
+    # ficha, que debe mostrar los que mezcla el hotel, no el filtro elegido.
+    desglose_tipo = repository.fetch_desayunos_por_tipo(fecha_inicio, fecha_fin).get(hotel_id, {})
+    tipos_activos = sorted(tipo for tipo, valores in desglose_tipo.items() if valores["cantidad_total"] > 0)
     fnb = repository.fetch_fnb_desayuno(fecha_inicio, fecha_fin).get(hotel_id, _FNB_VACIO)
     rango_valido = _rango_es_mes_natural(fecha_inicio, fecha_fin)
     presupuesto = (
@@ -336,7 +350,7 @@ def get_hotel_desayunos(
 
     turnos = repository.fetch_turnos_desayuno_hotel(hotel_id, fecha_inicio, fecha_fin)
 
-    return {"actual": actual, "serieMensual": serie, "turnos": turnos}
+    return {"actual": actual, "serieMensual": serie, "turnos": turnos, "tiposDesayuno": tipos_activos}
 
 
 # Ajustes editables de Desayunos (antes hardcodeados en el frontend,

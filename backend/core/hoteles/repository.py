@@ -843,7 +843,15 @@ def _combinar_presupuesto(odoo: dict, excel: dict) -> dict:
     (presupuestoIngresos/Gastos), pero se conservan también los dos valores
     por separado (…Odoo/…Excel, None si esa fuente no tiene dato) para
     poder compararlos en el frontend — pedido explícito 2026-09-02:
-    "vamos a poner los 2 presupuestos... para comparar"."""
+    "vamos a poner los 2 presupuestos... para comparar".
+
+    alojadosPrevistos/desayunosPrevistos (unidades, no €): solo existen en
+    la variante mensual por hotel del Excel (fetch_presupuesto_serie_mensual_
+    hotel_excel) — None en las demás llamadas (Odoo no tiene presupuesto en
+    unidades, solo en €) y también None cuando gana Odoo para esa clave,
+    aunque Excel sí tuviera unidades — de ahí para el gráfico "Alojados vs
+    ud desayunos" (unidades, no dinero) hace falta mirar siempre la fuente
+    Excel, gane o no la cifra en €."""
     resultado: dict = {}
     for clave in set(odoo) | set(excel):
         o, e = odoo.get(clave), excel.get(clave)
@@ -855,6 +863,8 @@ def _combinar_presupuesto(odoo: dict, excel: dict) -> dict:
             "presupuestoGastosOdoo": o["presupuestoGastos"] if o else None,
             "presupuestoIngresosExcel": e["presupuestoIngresos"] if e else None,
             "presupuestoGastosExcel": e["presupuestoGastos"] if e else None,
+            "alojadosPrevistos": e.get("alojadosPrevistos") if e else None,
+            "desayunosPrevistos": e.get("desayunosPrevistos") if e else None,
         }
     return resultado
 
@@ -1019,7 +1029,11 @@ def fetch_presupuesto_serie_mensual_hotel_odoo(
 def fetch_presupuesto_serie_mensual_hotel_excel(
     hotel_id: int, fecha_inicio: datetime.date, fecha_fin: datetime.date
 ) -> dict[str, dict]:
-    """Igual que fetch_presupuesto_desayuno_excel pero para un único hotel, mes a mes."""
+    """Igual que fetch_presupuesto_desayuno_excel pero para un único hotel, mes
+    a mes. Además de los importes, expone alojadosPrevistos/desayunosPrevistos
+    (unidades, no €) — antes se calculaban y se descartaban (solo se usaban
+    para llegar al importe); hacen falta tal cual para el gráfico "Alojados
+    vs ud desayunos" de la ficha de hotel (comparar unidades, no dinero)."""
     from ..models import PresupuestoDesayunoMensual
 
     property_code = next((h["property_code"] for h in fetch_hoteles() if h["id"] == hotel_id), None)
@@ -1034,6 +1048,8 @@ def fetch_presupuesto_serie_mensual_hotel_excel(
         resultado[fila["mes"].isoformat()] = {
             "presupuestoIngresos": unidades * fila["precio_interno"],
             "presupuestoGastos": unidades * fila["coste_interno"],
+            "alojadosPrevistos": fila["alojados_previstos"],
+            "desayunosPrevistos": unidades,
         }
     return resultado
 

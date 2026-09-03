@@ -13,6 +13,7 @@ import { SectionTitle } from "@/components/dashboard/section-title";
 import { SignedEuro, SignedPct } from "@/components/dashboard/signed-value";
 import { IngresosGastosChart } from "@/components/dashboard/ingresos-gastos-chart";
 import { PrecioCosteChart } from "@/components/dashboard/precio-coste-chart";
+import { AlojadosDesayunosChart } from "@/components/dashboard/alojados-desayunos-chart";
 import { TurnosPanel } from "@/components/dashboard/turnos-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DataLoading, LoadingOverlay } from "@/components/dashboard/loading-screen";
@@ -190,7 +191,16 @@ export default function HotelDesayunosPage() {
               className="text-[11px] text-muted-foreground bg-surface-muted border border-border rounded-full px-2.5 h-8 inline-flex items-center"
               title="Heredado de la tabla desde la que abriste este hotel"
             >
-              Producto: {tiposDesdeParam(tipoParam)!.map((t) => TIPOS_DESAYUNO.find((td) => td.value === t)?.label ?? t).join(", ")}
+              Filtro: {tiposDesdeParam(tipoParam)!.map((t) => TIPOS_DESAYUNO.find((td) => td.value === t)?.label ?? t).join(", ")}
+            </span>
+          )}
+          {/* Tipos que el hotel vende de verdad en el periodo (distinto del
+              filtro "Producto" heredado de arriba, que puede ser un
+              subconjunto) — spec: "Tipo desayuno (en caso de mezclar varios
+              mostrar)". */}
+          {data && data.tiposDesayuno.length > 0 && (
+            <span className="text-[11px] text-muted-foreground bg-surface-muted border border-border rounded-full px-2.5 h-8 inline-flex items-center">
+              Vende: {data.tiposDesayuno.map((t) => TIPOS_DESAYUNO.find((td) => td.value === t)?.label ?? t).join(", ")}
             </span>
           )}
         </div>
@@ -235,11 +245,12 @@ export default function HotelDesayunosPage() {
             </div>
 
             <SectionTitle title="Financiero F&B" subtitle="Contabilidad · ingresos, gastos, margen y presupuesto (excluye colaborador)" />
-            <section className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+            <section className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-7">
               <KpiCard label="Ingresos" value={fmtEuro(data.actual.ingresos)} tone="neutral" />
               <KpiCard label="Gastos" value={fmtEuro(data.actual.gastos)} tone="neutral" />
               <KpiCard label="Margen bruto" value={<SignedPct value={data.actual.margenBruto} />} tone="neutral" />
               <KpiCard label="Precio medio venta" value={`${data.actual.precioMedioVenta.toFixed(2)}€`} tone="neutral" />
+              <KpiCard label="Coste medio" value={`${data.actual.costeMedioGasto.toFixed(2)}€`} tone="neutral" />
               <KpiCard label="Resultado F&B" value={<SignedEuro value={data.actual.resultadoFB} />} tone="neutral" />
               <KpiCard
                 label="Presupuesto (ingresos)"
@@ -290,6 +301,7 @@ export default function HotelDesayunosPage() {
               <div className="grid gap-6 lg:grid-cols-2">
                 <IngresosGastosChart serie={data.serieMensual} />
                 <PrecioCosteChart serie={data.serieMensual} />
+                <AlojadosDesayunosChart serie={data.serieMensual} />
               </div>
             )}
 

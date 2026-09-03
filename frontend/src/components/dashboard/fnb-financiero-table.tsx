@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { useAjustesDesayuno } from "@/lib/ajustes-desayuno-context";
 import { hrefHotelDesayunos, type HotelReal } from "@/lib/hoteles-api";
 
-type Key = "name" | "ingresos" | "presupuestoIngresos" | "cumplimientoIngresos" | "gastos" | "margenBruto" | "precioMedioVenta" | "costeMedioGasto" | "resultadoFB" | "potencial";
+type Key = "name" | "zona" | "submarca" | "ingresos" | "presupuestoIngresos" | "cumplimientoIngresos" | "gastos" | "margenBruto" | "precioMedioVenta" | "costeMedioGasto" | "resultadoFB" | "potencial";
 
 function potencial(h: HotelReal, objetivoOportunidad: number) {
   return facturacionPotencial(h.alojados, h.penetracion, h.precioMedioVenta, objetivoOportunidad);
@@ -20,7 +20,9 @@ function potencial(h: HotelReal, objetivoOportunidad: number) {
 
 function buildCols(objetivoOportunidad: number): Array<{ key: Key; label: string; render: (h: HotelReal) => React.ReactNode }> {
   return [
-    { key: "name", label: "Hotel", render: (h) => h.name },
+    { key: "name", label: "Hotel", render: (h) => (h.codigo ? `${h.codigo} - ${h.name}` : h.name) },
+    { key: "zona", label: "Zona", render: (h) => h.zona },
+    { key: "submarca", label: "Submarca", render: (h) => h.submarca },
     { key: "ingresos", label: "Ingresos", render: (h) => fmtEuro(h.ingresos) },
     {
       key: "presupuestoIngresos",
@@ -79,9 +81,12 @@ function buildCols(objetivoOportunidad: number): Array<{ key: Key; label: string
 function exportar(hoteles: HotelReal[], objetivoOportunidad: number) {
   exportarCsv(
     `fnb-desayunos-${new Date().toISOString().slice(0, 10)}`,
-    ["Hotel", "Ingresos", "Presupuesto ingresos", "Origen presupuesto", "Presupuesto Odoo", "Presupuesto Excel", "Cumplimiento", "Gastos", "Margen bruto %", "Precio medio venta", "Coste medio", "Resultado F&B", "Facturación potencial"],
+    ["Hotel", "Código", "Zona", "Submarca", "Ingresos", "Presupuesto ingresos", "Origen presupuesto", "Presupuesto Odoo", "Presupuesto Excel", "Cumplimiento", "Gastos", "Margen bruto %", "Precio medio venta", "Coste medio", "Resultado F&B", "Facturación potencial"],
     hoteles.map((h) => [
       h.name,
+      h.codigo,
+      h.zona,
+      h.submarca,
       h.ingresos.toFixed(2),
       h.presupuestoIngresos > 0 ? h.presupuestoIngresos.toFixed(2) : "",
       h.presupuestoOrigen ? ORIGEN_PRESUPUESTO_LABEL[h.presupuestoOrigen] : "",
