@@ -40,8 +40,8 @@ Leyenda:
 | Filtro de etiqueta | 🔒 | No hay tag de Odoo en ninguna consulta. (Ojo: existe un concepto interno con el mismo nombre — el semáforo verde/naranja/rojo de penetración — que es otra cosa, no un tag). |
 | Filtro de estado del hotel | 🔒 | `_HOTELES_SQL` solo trae `id, name, código, company_id` — no hay columna de estado en ninguna consulta. |
 | Hotel (código + nombre) | ✅ *(añadido 2026-09-03)* | |
-| Zona | ✅ | |
-| Submarca | ✅ *(añadido 2026-09-03)* | Convive con "Sociedad", que ya estaba y no pedía el spec pero aporta información — no se ha quitado. |
+| Zona | ✅ | Desde el rediseño de tablas (2026-09-03), va como segunda línea bajo el nombre del hotel, no como columna propia — se quitaron columnas para eliminar el scroll horizontal. |
+| Submarca | ✅ *(añadido 2026-09-03)* | Misma segunda línea que Zona, junto con "Sociedad" (no pedida por el spec, se mantiene por aportar información). |
 | Alojados / Desayunos / Penetración / Precio medio, cada uno en 3 columnas (Actual, Presupuesto+%var, LY+%var) | 🟡 | Solo existe la columna "Actual". Ni presupuesto ni LY por hotel para estas 4 métricas hoy (el presupuesto en unidades del Excel existe desde 2026-09-03 pero solo en la serie mensual de la ficha de un hotel, no en esta tabla). |
 
 ---
@@ -54,10 +54,10 @@ No hay una tabla que se llame así — la más parecida es `FnbFinancieroTable` 
 |---|---|---|
 | Filtro de etiqueta / estado | 🔒 | Mismo motivo que la tabla de Producción. |
 | Hotel (código + nombre) | ✅ *(añadido 2026-09-03)* | |
-| Zona / Submarca | ✅ *(añadidas 2026-09-03)* | No existían como columnas, solo como filtro. |
-| Facturación (Actual/Presupuesto+%var/LY+%var) | 🟡 | Actual + Presupuesto sí (con origen Odoo/Excel visible); la "variación" se expresa como % de cumplimiento (100% = en objetivo), no como variación con signo. LY no existe. |
-| Coste medio (3 columnas) | 🟡 | Solo Actual. |
-| Margen bruto (3 columnas) | 🟡 | Solo Actual. |
+| Zona / Submarca | ✅ *(añadidas 2026-09-03)* | No existían ni como columna ni como dato visible, solo como filtro. Desde el rediseño de tablas van como segunda línea bajo el nombre del hotel, no como columnas propias. |
+| Facturación (Actual/Presupuesto+%var/LY+%var) | 🟡 | Actual + Presupuesto sí (con origen Odoo/Excel visible, y el cumplimiento como etiqueta junto al importe desde el rediseño). La "variación" se expresa como % de cumplimiento (100% = en objetivo), no como variación con signo. LY no existe. |
+| Coste medio (3 columnas) | 🟡 | Solo Actual (desde el rediseño, en la misma celda que Precio medio venta, en dos líneas). |
+| Margen bruto (3 columnas) | 🟡 | Solo Actual (desde el rediseño, en la misma celda que Resultado F&B). |
 | Oportunidad | ✅ | Facturación potencial vs objetivo de penetración, ya implementada y validada (con un bug histórico corregido — no simplificar la fórmula). |
 
 **Aviso de diseño pendiente de decidir**: el spec junta en una tabla métricas que en este código viven deliberadamente separadas — "Producción/Desayunos/Precio medio" (PMS, incluye colaborador) vs. "Ingresos/Gastos/Margen/Coste medio" (contable, excluye colaborador). Si se construye la tabla "Facturación" tal cual la pide el spec, hay que decidir explícitamente de qué fuente sale cada columna o los números no van a cuadrar entre sí.
