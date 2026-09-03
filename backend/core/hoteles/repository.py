@@ -275,6 +275,69 @@ _DESAYUNOS_MENSUAL_HOTEL_SQL = (
 """
 )
 
+# "Desglose por producto vendido": agrupa por NOMBRE real del producto de
+# Odoo (no por Tipo Desayuno) — producto_nombre es el mismo patrón que
+# producto_tipo (deduplicar product_id antes de unir con product_template,
+# o se multiplican las sumas), solo que agrupando por nombre en vez de
+# clasificar. Construida sobre folio_sale_line + el catálogo de régimen,
+# la misma fuente que el resto de este módulo — decisión explícita
+# 2026-09-03: NO reutilizar la consulta de kpis-definiciones.md
+# (pms_service_line + una lista fija de product_id), que es de una fuente
+# distinta y pondría una tercera cifra de "producción" en la ficha que no
+# reconciliaría con Producción/Desayunos ya mostrados ahí.
+_DESAYUNOS_POR_PRODUCTO_HOTEL_SQL = (
+    _CTES_DESAYUNO_CON_TIPO
+    + """,
+    producto_nombre AS (
+        SELECT pid.product_id, COALESCE(pt.name->>'es_ES', pt.name->>'en_US') AS nombre
+        FROM (SELECT DISTINCT product_id FROM productos_desayuno) pid
+        JOIN product_product pp ON pp.id = pid.product_id
+        JOIN product_template pt ON pt.id = pp.product_tmpl_id
+    )
+    SELECT
+        pn.nombre,
+        SUM(fsl.product_uom_qty) AS unidades,
+        SUM(COALESCE(f.monto_facturado, fsl.price_subtotal)) AS ventas
+    FROM folio_sale_line fsl
+    JOIN productos_desayuno pd ON pd.product_id = fsl.product_id
+    JOIN producto_tipo pty ON pty.product_id = fsl.product_id
+    JOIN producto_nombre pn ON pn.product_id = fsl.product_id
+    LEFT JOIN facturado f ON f.sale_line_id = fsl.id
+    WHERE fsl.pms_property_id = %(hotel_id)s AND fsl.date_order BETWEEN %(desde)s AND %(hasta)s
+      AND fsl.state NOT IN ('draft', 'cancel')
+      AND pty.tipo_desayuno = ANY(%(tipos)s)
+    GROUP BY pn.nombre
+    ORDER BY ventas DESC
+"""
+)
+
+
+@cache_result
+def fetch_desayunos_por_producto_hotel(
+    hotel_id: int,
+    fecha_inicio: datetime.date,
+    fecha_fin: datetime.date,
+    tipos_desayuno: tuple[str, ...] | None = None,
+) -> list[dict]:
+    """Unidades vendidas y ventas € por producto (nombre real de Odoo) de un
+    hotel — respeta el mismo filtro de Producto que "actual" (ver
+    get_hotel_desayunos), para que no vuelva a pasar lo de "las fichas no
+    muestran los mismos datos que la lista" con este desglose nuevo."""
+    tipos = tipos_desayuno if tipos_desayuno is not None else _TODOS_TIPOS_DESAYUNO
+    with connections["odoo"].cursor() as cur:
+        cur.execute(
+            _DESAYUNOS_POR_PRODUCTO_HOTEL_SQL,
+            {
+                "regimenes": list(_REGIMENES_DESAYUNO),
+                "hotel_id": hotel_id,
+                "desde": fecha_inicio,
+                "hasta": fecha_fin,
+                "tipos": list(tipos),
+            },
+        )
+        rows = cur.fetchall()
+    return [{"producto": r[0] or "Sin nombre", "unidades": float(r[1] or 0), "ventas": float(r[2] or 0)} for r in rows]
+
 
 @cache_result
 def fetch_hoteles() -> list[dict]:

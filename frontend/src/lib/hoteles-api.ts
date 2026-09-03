@@ -224,6 +224,17 @@ export type MesHotel = {
   precioMedio: number;
 };
 
+// Desglose de ventas por producto real de Odoo (no por Tipo Desayuno) —
+// construido sobre folio_sale_line, la misma fuente que el resto de la
+// ficha (ver backend/core/hoteles/repository.py::
+// fetch_desayunos_por_producto_hotel). Ya viene ordenado por ventas desc.
+export type DesgloseProducto = {
+  producto: string;
+  unidades: number;
+  ventas: number;
+  precioMedio: number;
+};
+
 export type HotelDesayunos = {
   actual: MesHotel & FnbFields & FacturacionFields;
   serieMensual: (MesHotel & FnbFields & FacturacionFields)[];
@@ -233,6 +244,7 @@ export type HotelDesayunos = {
   // filtro de Producto activo) — para el chip "mezcla varios tipos" de la
   // cabecera. Ver backend/core/hoteles/service.py::get_hotel_desayunos.
   tiposDesayuno: string[];
+  desglosePorProducto: DesgloseProducto[];
 };
 
 export async function fetchHotelDesayunos(
