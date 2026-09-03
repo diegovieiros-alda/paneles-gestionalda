@@ -5,6 +5,7 @@ import {
 } from "recharts";
 import { DashboardShell } from "@/components/dashboard/shell";
 import { KpiCard } from "@/components/dashboard/kpi-card";
+import { GaugeKpiCard } from "@/components/dashboard/gauge-kpi-card";
 import { RangeFilter } from "@/components/dashboard/range-filter";
 import { DataSourceBadge } from "@/components/dashboard/data-source-badge";
 import { DesayunosOrigenDatos } from "@/components/dashboard/desayunos-origen-datos";
@@ -22,14 +23,13 @@ import { Button } from "@/components/ui/button";
 import { fetchHotelInfo, fetchHotelDesayunos, TIPOS_DESAYUNO, type HotelDirectorio, type HotelDesayunos, type MesHotel, type FnbFields, type FacturacionFields } from "@/lib/hoteles-api";
 import { exportarCsv } from "@/lib/export-csv";
 import {
-  ETIQUETA_BADGE_CLASS, ETIQUETA_LABEL, ORIGEN_PRESUPUESTO_LABEL, etiqueta, etiquetaCumplimiento,
+  ORIGEN_PRESUPUESTO_LABEL, etiqueta, etiquetaCumplimiento,
   fmtEuro, fmtNum, fmtPct, type Etiqueta,
 } from "@/lib/mock-data";
 import { useAjustesDesayuno } from "@/lib/ajustes-desayuno-context";
 import { RANGE_PRESETS_DESAYUNOS, fmtRangoFechas } from "@/lib/date-range";
 import { useRangePreset } from "@/lib/use-range-preset";
 import { Download } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { type KpiTone } from "@/components/dashboard/kpi-card";
 
 function mesCorto(iso: string) {
@@ -123,6 +123,17 @@ const TONE_POR_ETIQUETA: Record<Etiqueta, KpiTone> = {
   naranja: "warning",
   rojo: "negative",
 };
+
+// Semáforo de Gastos vs presupuesto: al revés que Ingresos/Alojados/
+// Desayunos (donde más alto es mejor) — aquí gastar POR ENCIMA del
+// presupuesto es lo malo, no lo bueno, así que no se puede reutilizar
+// etiquetaCumplimiento (pensada para métricas donde más es mejor).
+function tonoGastos(ratio: number | null): KpiTone {
+  if (ratio === null) return "neutral";
+  if (ratio <= 1) return "positive";
+  if (ratio <= 1.1) return "warning";
+  return "negative";
+}
 
 export default function HotelDesayunosPage() {
   const { ajustes } = useAjustesDesayuno();
@@ -220,11 +231,32 @@ export default function HotelDesayunosPage() {
                 tone="neutral"
                 footer={`Facturado ${fmtEuro(data.actual.produccionFacturada)} (${fmtPct(data.actual.porcentajeFacturado, 0)}) · sin facturar ${fmtEuro(data.actual.produccionSinFacturar)}`}
               />
-              <KpiCard label="Alojados" value={fmtNum(data.actual.alojados)} tone="neutral" />
-              <KpiCard label="Desayunos" value={fmtNum(data.actual.desayunos)} tone="neutral" />
-              <KpiCard
+              <GaugeKpiCard
+                label="Alojados"
+                value={fmtNum(data.actual.alojados)}
+                actual={data.actual.alojados}
+                target={data.actual.alojadosPrevistos}
+                targetLabel={data.actual.alojadosPrevistos !== null ? `Previsto: ${fmtNum(data.actual.alojadosPrevistos)}` : "Sin previsión (Excel)"}
+                tone={data.actual.alojadosPrevistos
+                  ? TONE_POR_ETIQUETA[etiqueta(data.actual.alojados / data.actual.alojadosPrevistos, 0.9, 1)]
+                  : "neutral"}
+              />
+              <GaugeKpiCard
+                label="Desayunos"
+                value={fmtNum(data.actual.desayunos)}
+                actual={data.actual.desayunos}
+                target={data.actual.desayunosPrevistos}
+                targetLabel={data.actual.desayunosPrevistos !== null ? `Previsto: ${fmtNum(data.actual.desayunosPrevistos)}` : "Sin previsión (Excel)"}
+                tone={data.actual.desayunosPrevistos
+                  ? TONE_POR_ETIQUETA[etiqueta(data.actual.desayunos / data.actual.desayunosPrevistos, 0.9, 1)]
+                  : "neutral"}
+              />
+              <GaugeKpiCard
                 label="Penetración"
                 value={fmtPct(data.actual.penetracion)}
+                actual={data.actual.penetracion}
+                target={ajustes.objetivoPenetracion}
+                targetLabel={`Objetivo: ${fmtPct(ajustes.objetivoPenetracion, 0)}`}
                 tone={TONE_POR_ETIQUETA[etiqueta(data.actual.penetracion, ajustes.umbralPenetracion, ajustes.objetivoPenetracion)]}
               />
               <KpiCard label="Precio medio" value={`${data.actual.precioMedio.toFixed(2)}€`} tone="neutral" />
@@ -246,56 +278,45 @@ export default function HotelDesayunosPage() {
             </div>
 
             <SectionTitle title="Financiero F&B" subtitle="Contabilidad · ingresos, gastos, margen y presupuesto (excluye colaborador)" />
-            <section className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-7">
-              <KpiCard label="Ingresos" value={fmtEuro(data.actual.ingresos)} tone="neutral" />
-              <KpiCard label="Gastos" value={fmtEuro(data.actual.gastos)} tone="neutral" />
+            <section className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
+              <GaugeKpiCard
+                label="Ingresos"
+                value={fmtEuro(data.actual.ingresos)}
+                actual={data.actual.ingresos}
+                target={data.actual.presupuestoIngresos > 0 ? data.actual.presupuestoIngresos : null}
+                targetLabel={
+                  data.actual.presupuestoMotivo === "rango_no_es_mes_natural"
+                    ? "Elige un mes completo"
+                    : data.actual.presupuestoIngresos > 0
+                    ? `Presupuesto: ${fmtEuro(data.actual.presupuestoIngresos)}${data.actual.presupuestoOrigen ? ` (${ORIGEN_PRESUPUESTO_LABEL[data.actual.presupuestoOrigen]})` : ""}`
+                    : "Sin presupuesto confirmado"
+                }
+                tone={(() => {
+                  const e = etiquetaCumplimiento(data.actual.cumplimientoIngresos);
+                  return e ? TONE_POR_ETIQUETA[e] : "neutral";
+                })()}
+                footer={
+                  // La fuente que NO ganó, para comparar — pedido explícito 2026-09-02
+                  (data.actual.presupuestoOrigen === "odoo" && data.actual.presupuestoIngresosExcel !== null) ||
+                  (data.actual.presupuestoOrigen === "excel" && data.actual.presupuestoIngresosOdoo !== null)
+                    ? data.actual.presupuestoOrigen === "odoo"
+                      ? `Excel: ${fmtEuro(data.actual.presupuestoIngresosExcel!)}`
+                      : `Odoo: ${fmtEuro(data.actual.presupuestoIngresosOdoo!)}`
+                    : undefined
+                }
+              />
+              <GaugeKpiCard
+                label="Gastos"
+                value={fmtEuro(data.actual.gastos)}
+                actual={data.actual.gastos}
+                target={data.actual.presupuestoGastos > 0 ? data.actual.presupuestoGastos : null}
+                targetLabel={data.actual.presupuestoGastos > 0 ? `Presupuesto: ${fmtEuro(data.actual.presupuestoGastos)}` : "Sin presupuesto confirmado"}
+                tone={tonoGastos(data.actual.cumplimientoGastos)}
+              />
               <KpiCard label="Margen bruto" value={<SignedPct value={data.actual.margenBruto} />} tone="neutral" />
               <KpiCard label="Precio medio venta" value={`${data.actual.precioMedioVenta.toFixed(2)}€`} tone="neutral" />
               <KpiCard label="Coste medio" value={`${data.actual.costeMedioGasto.toFixed(2)}€`} tone="neutral" />
               <KpiCard label="Resultado F&B" value={<SignedEuro value={data.actual.resultadoFB} />} tone="neutral" />
-              <KpiCard
-                label="Presupuesto (ingresos)"
-                value={data.actual.presupuestoIngresos > 0 ? fmtEuro(data.actual.presupuestoIngresos) : "—"}
-                tone="neutral"
-                footer={
-                  data.actual.presupuestoMotivo === "rango_no_es_mes_natural" ? (
-                    "Elige un mes completo para ver el cumplimiento"
-                  ) : data.actual.cumplimientoIngresos !== null ? (
-                    (() => {
-                      const e = etiquetaCumplimiento(data.actual.cumplimientoIngresos);
-                      // La fuente que NO ganó, para comparar — pedido explícito 2026-09-02
-                      const otraFuenteLabel =
-                        data.actual.presupuestoOrigen === "odoo" && data.actual.presupuestoIngresosExcel !== null
-                          ? `Excel: ${fmtEuro(data.actual.presupuestoIngresosExcel)}`
-                          : data.actual.presupuestoOrigen === "excel" && data.actual.presupuestoIngresosOdoo !== null
-                          ? `Odoo: ${fmtEuro(data.actual.presupuestoIngresosOdoo)}`
-                          : null;
-                      return (
-                        <span className="flex flex-col items-start gap-0.5">
-                          <span className="inline-flex items-center gap-1.5">
-                            {e && (
-                              <span className={cn("inline-flex rounded-full px-2 py-0.5 text-[11px] font-medium", ETIQUETA_BADGE_CLASS[e])}>
-                                {fmtPct(data.actual.cumplimientoIngresos, 0)} · {ETIQUETA_LABEL[e]}
-                              </span>
-                            )}
-                            {data.actual.presupuestoOrigen && (
-                              <span
-                                className="text-[10px] uppercase tracking-wide text-muted-foreground/60 border border-border rounded px-1"
-                                title={`Presupuesto de ${ORIGEN_PRESUPUESTO_LABEL[data.actual.presupuestoOrigen]}`}
-                              >
-                                {ORIGEN_PRESUPUESTO_LABEL[data.actual.presupuestoOrigen]}
-                              </span>
-                            )}
-                          </span>
-                          {otraFuenteLabel && <span className="text-[10px] text-muted-foreground/50">{otraFuenteLabel}</span>}
-                        </span>
-                      );
-                    })()
-                  ) : (
-                    "Sin presupuesto confirmado"
-                  )
-                }
-              />
             </section>
 
             {data.serieMensual.length > 0 && (
