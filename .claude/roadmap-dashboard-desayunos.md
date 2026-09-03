@@ -1,0 +1,138 @@
+# Roadmap del dashboard de Desayunos — spec vs. estado real
+
+Este documento compara el documento de spec ("Dashboard Desayunos -
+Hoteles.pdf") con el código real del repositorio, sección por sección.
+Es un mapa de estado y prioridades, no una fuente de definiciones de
+negocio — para eso sigue mandando `kpis-definiciones.md`.
+
+Generado a partir de una auditoría del código (no del documento de spec en
+sí, que no vive en este repo) realizada el 2026-09-03, más el primer lote
+de implementación ("gaps rápidos") ya desplegado ese mismo día.
+
+Leyenda:
+- ✅ **Hecho** — coincide con el spec.
+- 🟡 **Parcial** — existe pero con diferencias, ver detalle.
+- ⬜ **Falta** — no existe, no requiere datos nuevos ni decisiones de negocio.
+- 🔒 **Bloqueado por datos** — el dato de origen no existe en Odoo (confirmado en el propio código, no es una suposición).
+- 🚫 **No se va a implementar** — motivo explícito (privacidad/conflicto de datos).
+
+---
+
+## 1. Filtros (aplican a todas las vistas)
+
+| Campo | Estado | Detalle |
+|---|---|---|
+| Fecha: Mes/Trimestre/Anual + personalizado | 🟡 | "Anual fiscal" (1 oct–30 sep) y "Personalizado" coinciden con el spec. "Mes" es un único botón (mes en curso), no "últimos 3 meses a elegir". "Trimestre" son los 4 trimestres naturales del año en curso (decisión ya confirmada con el usuario, no fiscal) — spec pide "últimos 2 trimestres". Por defecto arranca en "Día", el spec pide "último mes completo". |
+| Zona (RGM) | 🟡 | Funciona, pero es un diccionario Python hardcodeado (`bloqueos/engine.py::MAPEO_ZONAS`), copia de respaldo de una hoja de Google Sheets que este proyecto no puede leer — no viene de Odoo. Si "Zona RGM" del spec es otra cosa, esto no la cubre. |
+| Submarca | ✅ | Viene de Odoo (`res_brand`). 43% de los hoteles no tienen marca asignada (sale como "Sin submarca", no se oculta). |
+| Tipo Hotel (Urbano/Mix/Vacacional) | 🔒 | Declarado explícitamente en el código: "no existen en el PMS ni está previsto añadirlos". |
+| Segmento Hotel (Grupos/individual/empresa) | 🔒 | Mismo motivo. Ojo: podría ser un atributo de la *reserva*, no del *hotel* — aclarar con quien pidió el spec antes de tratarlo como "bloqueado". |
+| Tipo Desayuno (Producto) | 🟡 | Existen 4 valores (buffet/express/colaborador/**otros**), el spec solo menciona 3. "Otros" es una decisión ya tomada (agrupa lo que no encaja en los otros 3) — no repartirlo sin confirmar. |
+| Selector de hotel (uno o varios + buscador) | 🟡 | Buscador por nombre/código: sí. Selector real de uno o varios hoteles (checkboxes/multi-select): no existe, solo el buscador de texto. El backend ya soporta una lista de IDs de hotel (usado hoy solo por Turnos) — la mitad del contrato ya está. |
+| Filtros aplican a todas las vistas | 🟡 | Comparten estado entre Detalle/Oportunidades/Alertas. Tendencias solo hereda la fecha (su serie es un agregado de cadena, no filtrable por hotel). La ficha de hotel vive fuera de ese estado compartido a propósito (evita disparar el fetch pesado de toda la cadena) — hereda fecha y tipo por URL desde 2026-09-03. |
+
+---
+
+## 2. Tabla hoteles "Producción"
+
+| Campo | Estado | Detalle |
+|---|---|---|
+| Filtro de etiqueta | 🔒 | No hay tag de Odoo en ninguna consulta. (Ojo: existe un concepto interno con el mismo nombre — el semáforo verde/naranja/rojo de penetración — que es otra cosa, no un tag). |
+| Filtro de estado del hotel | 🔒 | `_HOTELES_SQL` solo trae `id, name, código, company_id` — no hay columna de estado en ninguna consulta. |
+| Hotel (código + nombre) | ✅ *(añadido 2026-09-03)* | |
+| Zona | ✅ | |
+| Submarca | ✅ *(añadido 2026-09-03)* | Convive con "Sociedad", que ya estaba y no pedía el spec pero aporta información — no se ha quitado. |
+| Alojados / Desayunos / Penetración / Precio medio, cada uno en 3 columnas (Actual, Presupuesto+%var, LY+%var) | 🟡 | Solo existe la columna "Actual". Ni presupuesto ni LY por hotel para estas 4 métricas hoy (el presupuesto en unidades del Excel existe desde 2026-09-03 pero solo en la serie mensual de la ficha de un hotel, no en esta tabla). |
+
+---
+
+## 3. Tabla hoteles "Facturación"
+
+No hay una tabla que se llame así — la más parecida es `FnbFinancieroTable` ("F&B · Ingresos, gastos y margen"), que mezcla fuente PMS y fuente contable de una forma que el spec no distingue.
+
+| Campo | Estado | Detalle |
+|---|---|---|
+| Filtro de etiqueta / estado | 🔒 | Mismo motivo que la tabla de Producción. |
+| Hotel (código + nombre) | ✅ *(añadido 2026-09-03)* | |
+| Zona / Submarca | ✅ *(añadidas 2026-09-03)* | No existían como columnas, solo como filtro. |
+| Facturación (Actual/Presupuesto+%var/LY+%var) | 🟡 | Actual + Presupuesto sí (con origen Odoo/Excel visible); la "variación" se expresa como % de cumplimiento (100% = en objetivo), no como variación con signo. LY no existe. |
+| Coste medio (3 columnas) | 🟡 | Solo Actual. |
+| Margen bruto (3 columnas) | 🟡 | Solo Actual. |
+| Oportunidad | ✅ | Facturación potencial vs objetivo de penetración, ya implementada y validada (con un bug histórico corregido — no simplificar la fórmula). |
+
+**Aviso de diseño pendiente de decidir**: el spec junta en una tabla métricas que en este código viven deliberadamente separadas — "Producción/Desayunos/Precio medio" (PMS, incluye colaborador) vs. "Ingresos/Gastos/Margen/Coste medio" (contable, excluye colaborador). Si se construye la tabla "Facturación" tal cual la pide el spec, hay que decidir explícitamente de qué fuente sale cada columna o los números no van a cuadrar entre sí.
+
+---
+
+## 4. Vista completa del hotel
+
+### 4.1 Datos del hotel
+
+| Campo | Estado |
+|---|---|
+| Código | ✅ *(añadido 2026-09-03, sustituye al id interno de Odoo en la cabecera)* |
+| Nombre | ✅ |
+| Zona | ✅ |
+| Submarca | ✅ *(añadido 2026-09-03)* |
+| Tipo hotel | 🔒 (ver §1) |
+| Tipo desayuno (mezcla) | ✅ *(añadido 2026-09-03 — chip "Vende: Buffet, Colaborador...")* |
+| Etiqueta (chip) | 🔒 (ver §2) |
+
+### 4.2 KPIs principales
+
+| Campo | Estado | Detalle |
+|---|---|---|
+| Gráfico de medidor circular 360° | ⬜ | No existe ningún gauge en la app (ni en el prototipo de referencia). `recharts` (ya instalado) trae `RadialBarChart` — no hace falta ninguna dependencia nueva. |
+| Facturación (vs presupuesto, vs LY) | 🟡 | vs presupuesto sí (como % de cumplimiento). vs LY no existe. |
+| Alojados (vs presupuesto, vs LY) | 🟡 | Solo Actual. Presupuesto en unidades ya existe en la serie mensual (2026-09-03) pero no en el KPI del periodo actual. LY no existe. |
+| Ud. desayunos (vs presupuesto, vs LY) | 🟡 | Igual que Alojados. |
+| Penetración (vs objetivo, vs LY) | 🟡 | vs un objetivo *editable* (ajuste del dashboard), no vs presupuesto real. LY no existe. |
+| Precio medio (vs LY, vs presupuesto) | 🟡 | Solo Actual (hay dos "precio medio" en la misma ficha: uno de PMS —incluye colaborador— y otro contable —no lo incluye—, a propósito). |
+| Coste medio (vs LY, vs presupuesto) | 🟡 | KPI añadido 2026-09-03 (antes no estaba ni el Actual en la ficha). Sin comparativas. |
+| Margen bruto (vs LY, vs presupuesto) | 🟡 | Solo Actual. |
+
+### 4.3 Gráficos
+
+| Gráfico | Estado | Detalle |
+|---|---|---|
+| Evolución (igual que el de "¿Dónde actuar hoy?", con los mismos botones) | 🟡 | Existe un gráfico de barras de Producción de 12 meses, pero sin selector de métrica y es una implementación duplicada de la de Tendencias (candidato a unificar). La serie de 12 meses es fija (no se puede acortar/alargar con botones) y no se filtra por tipo de desayuno. |
+| Precio medio vs coste (2 líneas) | ✅ | Ya existe tal cual, reutilizado en Tendencias y en la ficha de hotel. |
+| Alojados vs ud. desayunos (4 líneas) | ✅ *(añadido 2026-09-03)* | Antes solo existían 2 de las 4 líneas (los actuales); las de presupuesto (alojados/desayunos previstos del Excel) se calculaban y se descartaban — ahora se exponen y el gráfico ya está en la ficha de hotel. Sin equivalente a nivel de cadena completa todavía. |
+
+### 4.4 Histórico mensual
+
+| Campo | Estado | Detalle |
+|---|---|---|
+| Columnas Mes/Actual/LY/Variación/Presupuesto/Variación presupuesto | 🟡 | Hoy son 3 tablas separadas (Producción, Facturados, Financiero F&B) con columnas fijas por tema, no una tabla con selector de métrica. Ninguna tiene LY. Solo la de Financiero F&B tiene Presupuesto (como % de cumplimiento, no como variación con signo), y solo para Ingresos. |
+| Selector de métrica (Facturación/Penetración/Precio medio/Margen bruto/Coste medio) | ⬜ | No existe. **Pendiente de decisión antes de construirlo**: el spec pide comparar cada una de esas 5 métricas contra su propio presupuesto, pero hoy solo hay presupuesto en € para Ingresos/Gastos — "Penetración presupuestada", "Precio medio presupuestado" y "Coste medio presupuestado" no están definidos en `kpis-definiciones.md`. Se pueden derivar (ej. precio medio presupuestado = ingresos presupuestados / desayunos previstos, cuando hay dato de Excel) pero es una fórmula nueva que alguien tiene que confirmar, no algo que se pueda inventar dentro de una tarea de "UI". |
+
+### 4.5 Desglose por producto vendido
+
+⬜ **Falta.** No existe en el código de producción. Hay una consulta SQL ya escrita en `kpis-definiciones.md`, pero usa una fuente de datos (`pms_service_line` + una lista fija de productos) distinta a la que usa el resto del dashboard (`folio_sale_line`) — implementarla tal cual pondría una tercera cifra de "producción" en pantalla que no cuadraría con las otras dos. **Decisión ya tomada con el usuario**: construir la consulta de cero sobre la fuente actual (`folio_sale_line` + catálogo de régimen), no reutilizar la documentada. Pendiente de implementar.
+
+### 4.6 "Vendedores turnos" (nombre de usuario + unidades)
+
+🚫 **No se va a implementar tal como está en el spec.** El 2026-08-28 se tomó la decisión explícita (documentada en 4 sitios distintos del código: `repository.py`, `turnos-panel.tsx`, `hoteles-api.ts`, `desayunos-origen-datos.tsx`) de eliminar el nombre de la persona que registra cada venta por ser un dato personal/laboral de un empleado, siguiendo las instrucciones de confidencialidad de la organización sobre datos de trabajadores. En su lugar existe un desglose anónimo por turno (franja horaria) y canal de venta (`TurnosPanel`), ya implementado y en producción.
+
+Si de verdad hace falta un análisis por persona, es una petición distinta que necesita pasar por una autorización de RRHH/legal — no es una columna de dashboard que se pueda añadir sin más.
+
+---
+
+## 5. Resumen de prioridad sugerida
+
+1. **Hecho (2026-09-03, "gaps rápidos")**: código+zona+submarca en tablas y cabecera, tipo de desayuno mixto, KPI Coste medio en la ficha, gráfico Alojados vs desayunos con presupuesto en unidades.
+2. **Pendiente de decidir contigo, no de programar directamente**:
+   - Fórmulas de "presupuesto" para Penetración/Precio medio/Coste medio (necesarias para el histórico mensual con selector y para completar los gauges).
+   - Qué fuente (PMS vs. contable) usa cada columna de la tabla "Facturación" si se construye tal cual el spec.
+   - Si "Tipo Hotel"/"Segmento Hotel"/"Etiqueta"/"Estado del hotel" merecen una tabla propia en este proyecto (mismo patrón que `PresupuestoDesayunoMensual`) o se dejan pendientes hasta que existan en Odoo.
+3. **Trabajo grande, sin bloqueos de decisión, a programar cuando se priorice**:
+   - LY (comparativa año anterior) — la pieza más grande que falta, no existe en ningún sitio de la app. Requiere cuidado de rendimiento (duplica consultas contra una base sin índices de fecha ni `statement_timeout`).
+   - Gauges circulares 360° (visual, `recharts` ya lo soporta).
+   - Selector multi-hotel real (hoy solo hay buscador de texto).
+   - Desglose por producto vendido (consulta nueva sobre la fuente actual, ya decidido cómo).
+   - Consolidar el histórico mensual en una tabla con selector de métrica (una vez resueltas las fórmulas de presupuesto del punto 2).
+4. **No se va a hacer**: "Vendedores" con nombre de usuario (conflicto de privacidad, ver §4.6).
+
+---
+
+*Última actualización: 2026-09-03. Mantener este documento cuando se cierre cada punto — moverlo de la sección correspondiente a "Hecho" con la fecha, igual que el historial de cambios de `kpis-definiciones.md`.*
