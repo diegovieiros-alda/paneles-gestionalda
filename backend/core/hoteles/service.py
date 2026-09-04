@@ -211,6 +211,13 @@ def get_hoteles(
     desayunos_ly = repository.fetch_desayunos(desde_ly, hasta_ly, tipos_desayuno)
     fnb_ly = repository.fetch_fnb_desayuno(desde_ly, hasta_ly)
 
+    # Objetivos/umbrales por hotel (2026-09-04, "Objetivos configurarlo por
+    # hotel") — resueltos aquí y devueltos como parte de cada hotel, para
+    # que las tablas/tarjetas los usen directamente sin un contexto global
+    # aparte que había que mantener sincronizado.
+    ids_incluidos = [h["id"] for h in hoteles if not es_hotel_excluido(h["id"], h["property_code"])]
+    ajustes_por_hotel = get_ajustes_desayunos_por_hoteles(ids_incluidos)
+
     resultado = []
     for h in hoteles:
         if es_hotel_excluido(h["id"], h["property_code"]):
@@ -251,6 +258,7 @@ def get_hoteles(
                     {"alojados": a_ly, "desayunos": d_ly["cantidad_total"], "penetracion": penetracion_ly, "precioMedio": precio_medio_ly, "produccion": d_ly["produccion"], **fnb_json_ly},
                 ),
                 "calidadCheckin": calidad_checkin.get(h["id"], _CALIDAD_CHECKIN_VACIO),
+                **ajustes_por_hotel.get(h["id"], AJUSTES_DESAYUNOS_DEFECTO),
             }
         )
 
@@ -463,6 +471,7 @@ def get_hotel_desayunos(
         "turnos": turnos,
         "tiposDesayuno": tipos_activos,
         "desglosePorProducto": desglose_producto_json,
+        "ajustes": get_ajustes_desayunos(hotel_id),
     }
 
 
@@ -479,41 +488,141 @@ AJUSTES_DESAYUNOS_DEFECTO = {
 }
 
 
-def get_ajustes_desayunos() -> dict:
+def get_ajustes_desayunos(hotel_id: int | None = None) -> dict:
+    """Ajustes resueltos: valor propio del hotel si existe, si no el global
+    (fila con hotel_id NULL en DashboardSetting), si no el valor por
+    defecto de arriba. hotel_id=None (comportamiento de siempre, todas las
+    llamadas anteriores a 2026-09-04 "Objetivos por hotel") devuelve solo
+    el global — el override por hotel es una capa que se añade encima."""
     from ..models import DashboardSetting
 
-    guardados = dict(
+    global_vals = dict(
         DashboardSetting.objects.filter(
-            dashboard="desayunos", clave__in=AJUSTES_DESAYUNOS_DEFECTO
+            dashboard="desayunos", clave__in=AJUSTES_DESAYUNOS_DEFECTO, hotel_id__isnull=True
         ).values_list("clave", "valor")
     )
-    return {**AJUSTES_DESAYUNOS_DEFECTO, **guardados}
+    resultado = {**AJUSTES_DESAYUNOS_DEFECTO, **global_vals}
+    if hotel_id is not None:
+        propios = dict(
+            DashboardSetting.objects.filter(
+                dashboard="desayunos", clave__in=AJUSTES_DESAYUNOS_DEFECTO, hotel_id=hotel_id
+            ).values_list("clave", "valor")
+        )
+        resultado.update(propios)
+    return resultado
 
 
-def set_ajustes_desayunos(cambios: dict, usuario) -> dict:
+def get_ajustes_desayunos_por_hoteles(hotel_ids: list[int]) -> dict[int, dict]:
+    """Igual que llamar a get_ajustes_desayunos(hotel_id) para cada hotel de
+    la lista, pero en 2 consultas en vez de N — para las vistas que
+    necesitan los ajustes de muchos hoteles a la vez (tablas de Detalle/
+    Financiero, Oportunidades, Alertas, panel de administración)."""
+    from ..models import DashboardSetting
+
+    if not hotel_ids:
+        return {}
+    base = get_ajustes_desayunos()
+    resultado = {hotel_id: dict(base) for hotel_id in hotel_ids}
+    filas = DashboardSetting.objects.filter(
+        dashboard="desayunos", clave__in=AJUSTES_DESAYUNOS_DEFECTO, hotel_id__in=hotel_ids
+    ).values_list("hotel_id", "clave", "valor")
+    for hotel_id, clave, valor in filas:
+        resultado[hotel_id][clave] = valor
+    return resultado
+
+
+_RANGOS_AJUSTES_DESAYUNOS = {  # (mínimo excluido, máximo incluido) — todos fracción 0-1 por ahora
+    "objetivoPenetracion": (0, 1),
+    "umbralPenetracion": (0, 1),
+    "objetivoOportunidad": (0, 1),
+}
+
+
+def set_ajustes_desayunos(cambios: dict, usuario, hotel_id: int | None = None) -> dict:
+    """hotel_id=None edita el valor global (comportamiento de siempre); un
+    hotel_id concreto edita el override de ese hotel — o lo borra (vuelve a
+    heredar el global) si el valor recibido es None/vacío, solo válido
+    cuando hotel_id no es None (el global siempre tiene que tener un valor)."""
     from ..models import DashboardSetting
 
     desconocidas = set(cambios) - set(AJUSTES_DESAYUNOS_DEFECTO)
     if desconocidas:
         raise ValueError(f"Ajuste desconocido: {', '.join(sorted(desconocidas))}")
 
-    valores = {}
+    valores: dict[str, float | None] = {}
     for clave, bruto in cambios.items():
+        if hotel_id is not None and (bruto is None or bruto == ""):
+            valores[clave] = None
+            continue
         try:
             valor = float(bruto)
         except (TypeError, ValueError):
             raise ValueError(f"'{clave}' debe ser un número")
-        if not (0 < valor <= 1):
+        minimo, maximo = _RANGOS_AJUSTES_DESAYUNOS[clave]
+        if not (minimo < valor <= maximo):
             raise ValueError(f"'{clave}' debe estar entre 0 y 100% (recibido {bruto})")
         valores[clave] = valor
 
     for clave, valor in valores.items():
+        if valor is None:
+            DashboardSetting.objects.filter(dashboard="desayunos", clave=clave, hotel_id=hotel_id).delete()
+            continue
         DashboardSetting.objects.update_or_create(
             dashboard="desayunos",
             clave=clave,
+            hotel_id=hotel_id,
             defaults={
                 "valor": valor,
                 "actualizado_por": usuario if getattr(usuario, "is_authenticated", False) else None,
             },
         )
-    return get_ajustes_desayunos()
+    return get_ajustes_desayunos(hotel_id)
+
+
+def get_hoteles_directorio() -> list[dict]:
+    """Identidad de todos los hoteles (id/nombre/código/zona/submarca), sin
+    ninguna métrica dependiente de fecha — para el panel de administración
+    de Ajustes por hotel, que necesita listar los ~89 hoteles pero no
+    calcular producción/ingresos para poder mostrarlos."""
+    hoteles = repository.fetch_hoteles()
+    companies = repository.fetch_companies()
+    submarcas = repository.fetch_submarcas()
+    return [
+        {
+            "id": h["id"],
+            "name": h["name"],
+            "codigo": h["property_code"] or "",
+            "zona": zona_de(h["property_code"]),
+            "sociedad": companies.get(h["company_id"], "—"),
+            "submarca": submarcas.get(h["id"]) or "Sin submarca",
+        }
+        for h in hoteles
+        if not es_hotel_excluido(h["id"], h["property_code"])
+    ]
+
+
+def get_ajustes_desayunos_hoteles_admin() -> dict:
+    """Para la página de administración de Ajustes: el valor global de
+    cadena + cada hotel con su valor ya resuelto y qué claves tiene
+    personalizadas (para poder mostrar "usa el valor por defecto" vs. un
+    override propio, y permitir borrarlo)."""
+    from ..models import DashboardSetting
+
+    directorio = get_hoteles_directorio()
+    hotel_ids = [h["id"] for h in directorio]
+    resueltos = get_ajustes_desayunos_por_hoteles(hotel_ids)
+    overrides_por_hotel: dict[int, list[str]] = {}
+    for hotel_id, clave in DashboardSetting.objects.filter(
+        dashboard="desayunos", clave__in=AJUSTES_DESAYUNOS_DEFECTO, hotel_id__in=hotel_ids
+    ).values_list("hotel_id", "clave"):
+        overrides_por_hotel.setdefault(hotel_id, []).append(clave)
+
+    hoteles = [
+        {
+            **h,
+            "valores": resueltos.get(h["id"], AJUSTES_DESAYUNOS_DEFECTO),
+            "overrides": overrides_por_hotel.get(h["id"], []),
+        }
+        for h in directorio
+    ]
+    return {"global": get_ajustes_desayunos(), "hoteles": hoteles}

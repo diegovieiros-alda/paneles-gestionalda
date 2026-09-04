@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { ArrowUpDown, ChevronRight, Download, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { facturacionPotencial, fmtEuro, fmtNum, fmtPct } from "@/lib/mock-data";
-import { useAjustesDesayuno } from "@/lib/ajustes-desayuno-context";
 import { exportarCsv } from "@/lib/export-csv";
 import { Button } from "@/components/ui/button";
 import { hrefHotelDesayunos, type HotelReal } from "@/lib/hoteles-api";
@@ -16,15 +15,18 @@ type Key = "name" | "alojados" | "desayunos" | "penetracion" | "produccion" | "p
 // (incluye colaborador) mezclaría dos cifras con numerador distinto y daría
 // una oportunidad artificialmente baja en hoteles con fuerte venta a
 // colaborador, aunque su penetración directa sea crítica.
-function oportunidad(h: HotelReal, objetivoOportunidad: number) {
-  return facturacionPotencial(h.alojados, h.penetracion, h.precioMedioVenta, objetivoOportunidad);
+//
+// h.objetivoOportunidad (no un valor global): desde 2026-09-04 cada hotel
+// puede tener su propio objetivo — el backend ya resuelve cuál usar
+// (propio, si no el global de la cadena) antes de que llegue aquí.
+function oportunidad(h: HotelReal) {
+  return facturacionPotencial(h.alojados, h.penetracion, h.precioMedioVenta, h.objetivoOportunidad);
 }
 
 // Zona/Sociedad/Submarca eran 3 columnas propias — bastante para forzar
 // scroll horizontal por sí solas. Se leen igual de bien como segunda línea
 // bajo el nombre del hotel, y liberan sitio para las métricas.
-function buildCols(objetivoOportunidad: number): Array<{ key: Key; label: string; render: (h: HotelReal) => React.ReactNode; sticky?: boolean }> {
-  return [
+const COLS: Array<{ key: Key; label: string; render: (h: HotelReal) => React.ReactNode; sticky?: boolean }> = [
     {
       key: "name",
       label: "Hotel",
@@ -86,11 +88,10 @@ function buildCols(objetivoOportunidad: number): Array<{ key: Key; label: string
         </div>
       ),
     },
-    { key: "oportunidad", label: "Oportunidad", render: (h) => fmtEuro(oportunidad(h, objetivoOportunidad)) },
-  ];
-}
+    { key: "oportunidad", label: "Oportunidad", render: (h) => fmtEuro(oportunidad(h)) },
+];
 
-function exportar(hoteles: HotelReal[], objetivoOportunidad: number) {
+function exportar(hoteles: HotelReal[]) {
   exportarCsv(
     `desayunos-hoteles-${new Date().toISOString().slice(0, 10)}`,
     [
@@ -105,7 +106,7 @@ function exportar(hoteles: HotelReal[], objetivoOportunidad: number) {
       (h.penetracion * 100).toFixed(1), (h.penetracionLY * 100).toFixed(1),
       h.produccion.toFixed(2), h.produccionLY.toFixed(2),
       h.precioMedio.toFixed(2), h.precioMedioLY.toFixed(2),
-      oportunidad(h, objetivoOportunidad).toFixed(2),
+      oportunidad(h).toFixed(2),
     ])
   );
 }
@@ -113,8 +114,6 @@ function exportar(hoteles: HotelReal[], objetivoOportunidad: number) {
 export function HotelsTableReal({
   hoteles, desde, hasta, tipos,
 }: { hoteles: HotelReal[]; desde: string; hasta: string; tipos: string[] }) {
-  const { ajustes } = useAjustesDesayuno();
-  const cols = useMemo(() => buildCols(ajustes.objetivoOportunidad), [ajustes.objetivoOportunidad]);
   const [sort, setSort] = useState<{ key: Key; dir: "asc" | "desc" }>({ key: "produccion", dir: "desc" });
   const [q, setQ] = useState("");
 
@@ -125,13 +124,13 @@ export function HotelsTableReal({
       return h.name.toLowerCase().includes(s) || h.zona.toLowerCase().includes(s) || h.sociedad.toLowerCase().includes(s);
     });
     return filtered.sort((a, b) => {
-      const get = (h: HotelReal) => (sort.key === "oportunidad" ? oportunidad(h, ajustes.objetivoOportunidad) : h[sort.key]);
+      const get = (h: HotelReal) => (sort.key === "oportunidad" ? oportunidad(h) : h[sort.key]);
       const av = get(a);
       const bv = get(b);
       if (typeof av === "string") return sort.dir === "asc" ? av.localeCompare(bv as string) : (bv as string).localeCompare(av);
       return sort.dir === "asc" ? (av as number) - (bv as number) : (bv as number) - (av as number);
     });
-  }, [hoteles, sort, q, ajustes.objetivoOportunidad]);
+  }, [hoteles, sort, q]);
 
   return (
     <section className="rounded-xl border border-border bg-surface shadow-soft overflow-hidden">
@@ -151,7 +150,7 @@ export function HotelsTableReal({
               className="bg-transparent outline-none flex-1"
             />
           </div>
-          <Button variant="outline" size="sm" onClick={() => exportar(rows, ajustes.objetivoOportunidad)}>
+          <Button variant="outline" size="sm" onClick={() => exportar(rows)}>
             <Download className="h-3.5 w-3.5" /> Exportar
           </Button>
         </div>
@@ -161,7 +160,7 @@ export function HotelsTableReal({
         <table className="w-full text-sm">
           <thead className="bg-surface-muted/60">
             <tr>
-              {cols.map((c) => (
+              {COLS.map((c) => (
                 <th
                   key={c.key}
                   onClick={() => setSort((s) => ({ key: c.key, dir: s.key === c.key && s.dir === "desc" ? "asc" : "desc" }))}
@@ -182,7 +181,7 @@ export function HotelsTableReal({
           <tbody>
             {rows.map((h) => (
               <tr key={h.id} className="border-t border-border hover:bg-accent/30 transition-colors group">
-                {cols.map((c) => (
+                {COLS.map((c) => (
                   <td
                     key={c.key}
                     className={cn(

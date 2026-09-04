@@ -27,7 +27,6 @@ import {
   ORIGEN_PRESUPUESTO_LABEL, etiqueta, etiquetaCumplimiento,
   fmtEuro, fmtNum, fmtPct, type Etiqueta,
 } from "@/lib/mock-data";
-import { useAjustesDesayuno } from "@/lib/ajustes-desayuno-context";
 import { RANGE_PRESETS_DESAYUNOS, fmtRangoFechas } from "@/lib/date-range";
 import { useRangePreset } from "@/lib/use-range-preset";
 import { Download } from "lucide-react";
@@ -137,7 +136,6 @@ function tonoGastos(ratio: number | null): KpiTone {
 }
 
 export default function HotelDesayunosPage() {
-  const { ajustes } = useAjustesDesayuno();
   const { hotelId } = useParams<{ hotelId: string }>();
   const [hotel, setHotel] = useState<HotelDirectorio | null>(null);
   const [hotelError, setHotelError] = useState<string | null>(null);
@@ -260,9 +258,9 @@ export default function HotelDesayunosPage() {
                 label="Penetración"
                 value={fmtPct(data.actual.penetracion)}
                 actual={data.actual.penetracion}
-                target={ajustes.objetivoPenetracion}
-                targetLabel={`Objetivo: ${fmtPct(ajustes.objetivoPenetracion, 0)}`}
-                tone={TONE_POR_ETIQUETA[etiqueta(data.actual.penetracion, ajustes.umbralPenetracion, ajustes.objetivoPenetracion)]}
+                target={data.ajustes.objetivoPenetracion}
+                targetLabel={`Objetivo: ${fmtPct(data.ajustes.objetivoPenetracion, 0)}`}
+                tone={TONE_POR_ETIQUETA[etiqueta(data.actual.penetracion, data.ajustes.umbralPenetracion, data.ajustes.objetivoPenetracion)]}
                 footer={<LyComparison valorLY={data.actual.penetracionLY} variacion={data.actual.penetracionVarLY} formatear={(n) => fmtPct(n)} />}
               />
               <KpiCard

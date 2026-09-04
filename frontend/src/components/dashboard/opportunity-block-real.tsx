@@ -2,39 +2,42 @@ import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight, Sparkles, Target, TrendingUp } from "lucide-react";
 import { facturacionPotencial, fmtEuro, fmtNum, fmtPct } from "@/lib/mock-data";
-import { useAjustesDesayuno } from "@/lib/ajustes-desayuno-context";
 import { TargetProgressBar } from "@/components/dashboard/target-progress-bar";
 import { hrefHotelDesayunos, type HotelReal } from "@/lib/hoteles-api";
 
 // Facturación potencial por hotel, no sobre agregados de la cadena: usa la
-// penetración directa y el precio contable de cada hotel (misma base que
-// "Oportunidad" en la tabla de Desayunos), para no mezclar desayunos con
-// colaborador con el objetivo de penetración directa.
-function potencialHotel(h: HotelReal, objetivoOportunidad: number) {
-  const potenciales = Math.max(0, Math.round(h.alojados * (objetivoOportunidad - h.penetracion)));
-  const valor = facturacionPotencial(h.alojados, h.penetracion, h.precioMedioVenta, objetivoOportunidad);
+// penetración directa, el precio contable y el objetivo de oportunidad de
+// cada hotel (desde 2026-09-04 puede ser propio, ya resuelto por el
+// backend) — misma base que "Oportunidad" en la tabla de Desayunos, para
+// no mezclar desayunos con colaborador con el objetivo de penetración
+// directa.
+function potencialHotel(h: HotelReal) {
+  const potenciales = Math.max(0, Math.round(h.alojados * (h.objetivoOportunidad - h.penetracion)));
+  const valor = facturacionPotencial(h.alojados, h.penetracion, h.precioMedioVenta, h.objetivoOportunidad);
   return { potenciales, valor };
 }
 
 export function OpportunityBlockReal({
   hoteles, desde, hasta, tipos,
 }: { hoteles: HotelReal[]; desde: string; hasta: string; tipos: string[] }) {
-  const { ajustes } = useAjustesDesayuno();
-  const { facturacionPotencialTotal, potencialesTotal, penetracionMedia, produccionTotal, topHoteles } = useMemo(() => {
+  const { facturacionPotencialTotal, potencialesTotal, penetracionMedia, objetivoPonderado, produccionTotal, topHoteles } = useMemo(() => {
     const alojados = hoteles.reduce((a, h) => a + h.alojados, 0);
     const desayunosDirectos = hoteles.reduce((a, h) => a + h.alojados * h.penetracion, 0);
     const produccion = hoteles.reduce((a, h) => a + h.produccion, 0);
 
-    const porHotel = hoteles.map((h) => ({ h, ...potencialHotel(h, ajustes.objetivoOportunidad) }));
+    const porHotel = hoteles.map((h) => ({ h, ...potencialHotel(h) }));
 
     return {
       facturacionPotencialTotal: porHotel.reduce((a, p) => a + p.valor, 0),
       potencialesTotal: porHotel.reduce((a, p) => a + p.potenciales, 0),
       penetracionMedia: alojados > 0 ? desayunosDirectos / alojados : 0,
+      // Media ponderada por alojados de cada objetivo propio — con un solo
+      // objetivo global (sin overrides) da ese mismo valor.
+      objetivoPonderado: alojados > 0 ? hoteles.reduce((a, h) => a + h.alojados * h.objetivoOportunidad, 0) / alojados : 0,
       produccionTotal: produccion,
       topHoteles: [...porHotel].sort((a, b) => b.valor - a.valor).slice(0, 5),
     };
-  }, [hoteles, ajustes.objetivoOportunidad]);
+  }, [hoteles]);
 
   return (
     <section className="relative rounded-xl border border-border overflow-hidden bg-gradient-to-br from-primary/8 via-surface to-surface p-6 shadow-soft">
@@ -55,14 +58,14 @@ export function OpportunityBlockReal({
           )}
 
           <p className="mt-4 text-sm text-muted-foreground max-w-lg">
-            Si elevamos la penetración directa al <b className="text-foreground">{fmtPct(ajustes.objetivoOportunidad, 0)}</b>, convertiríamos{" "}
+            Si elevamos la penetración directa al <b className="text-foreground">{fmtPct(objetivoPonderado, 0)}</b>, convertiríamos{" "}
             <b className="num text-foreground">{fmtNum(potencialesTotal)}</b> alojados en desayunos.
           </p>
 
-          <TargetProgressBar actual={penetracionMedia} objetivo={ajustes.objetivoOportunidad} className="mt-4 max-w-md" />
+          <TargetProgressBar actual={penetracionMedia} objetivo={objetivoPonderado} className="mt-4 max-w-md" />
           <div className="mt-2 flex justify-between text-[11px] text-muted-foreground max-w-md">
             <span>Actual {fmtPct(penetracionMedia)}</span>
-            <span>Objetivo {fmtPct(ajustes.objetivoOportunidad, 0)}</span>
+            <span>Objetivo {fmtPct(objetivoPonderado, 0)}</span>
           </div>
         </div>
 

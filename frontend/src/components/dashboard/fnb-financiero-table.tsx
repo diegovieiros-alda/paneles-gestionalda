@@ -9,14 +9,15 @@ import {
 import { exportarCsv } from "@/lib/export-csv";
 import { SignedEuro, SignedPct } from "@/components/dashboard/signed-value";
 import { Button } from "@/components/ui/button";
-import { useAjustesDesayuno } from "@/lib/ajustes-desayuno-context";
 import { hrefHotelDesayunos, type HotelReal } from "@/lib/hoteles-api";
 import { LyComparison } from "@/components/dashboard/ly-comparison";
 
 type Key = "name" | "ingresos" | "presupuestoIngresos" | "gastos" | "precioMedioVenta" | "margenBruto" | "potencial";
 
-function potencial(h: HotelReal, objetivoOportunidad: number) {
-  return facturacionPotencial(h.alojados, h.penetracion, h.precioMedioVenta, objetivoOportunidad);
+// h.objetivoOportunidad: desde 2026-09-04 cada hotel puede tener su propio
+// objetivo, ya resuelto por el backend (propio, si no el global).
+function potencial(h: HotelReal) {
+  return facturacionPotencial(h.alojados, h.penetracion, h.precioMedioVenta, h.objetivoOportunidad);
 }
 
 // Cada columna ancha se merece su propio espacio, pero 5 métricas sueltas
@@ -25,8 +26,7 @@ function potencial(h: HotelReal, objetivoOportunidad: number) {
 // leen juntos en la práctica (precio de venta y su coste; margen y el
 // resultado que produce), en dos líneas dentro de la misma celda, en vez
 // de una columna por cada número.
-function buildCols(objetivoOportunidad: number): Array<{ key: Key; label: string; render: (h: HotelReal) => React.ReactNode }> {
-  return [
+const COLS: Array<{ key: Key; label: string; render: (h: HotelReal) => React.ReactNode }> = [
     {
       key: "name",
       label: "Hotel",
@@ -120,11 +120,10 @@ function buildCols(objetivoOportunidad: number): Array<{ key: Key; label: string
         </div>
       ),
     },
-    { key: "potencial", label: "Oportunidad", render: (h) => fmtEuro(potencial(h, objetivoOportunidad)) },
-  ];
-}
+    { key: "potencial", label: "Oportunidad", render: (h) => fmtEuro(potencial(h)) },
+];
 
-function exportar(hoteles: HotelReal[], objetivoOportunidad: number) {
+function exportar(hoteles: HotelReal[]) {
   exportarCsv(
     `fnb-desayunos-${new Date().toISOString().slice(0, 10)}`,
     [
@@ -153,7 +152,7 @@ function exportar(hoteles: HotelReal[], objetivoOportunidad: number) {
       h.costeMedioGasto.toFixed(2),
       h.costeMedioGastoLY.toFixed(2),
       h.resultadoFB.toFixed(2),
-      potencial(h, objetivoOportunidad).toFixed(2),
+      potencial(h).toFixed(2),
     ])
   );
 }
@@ -161,22 +160,19 @@ function exportar(hoteles: HotelReal[], objetivoOportunidad: number) {
 export function FnbFinancieroTable({
   hoteles, desde, hasta, tipos,
 }: { hoteles: HotelReal[]; desde: string; hasta: string; tipos: string[] }) {
-  const { ajustes } = useAjustesDesayuno();
   const [sort, setSort] = useState<{ key: Key; dir: "asc" | "desc" }>({ key: "ingresos", dir: "desc" });
   const [q, setQ] = useState("");
-
-  const cols = useMemo(() => buildCols(ajustes.objetivoOportunidad), [ajustes.objetivoOportunidad]);
 
   const rows = useMemo(() => {
     const filtered = hoteles.filter((h) => !q || h.name.toLowerCase().includes(q.toLowerCase()));
     return filtered.sort((a, b) => {
-      const get = (h: HotelReal) => (sort.key === "potencial" ? potencial(h, ajustes.objetivoOportunidad) : sort.key === "name" ? h.name : h[sort.key] ?? 0);
+      const get = (h: HotelReal) => (sort.key === "potencial" ? potencial(h) : sort.key === "name" ? h.name : h[sort.key] ?? 0);
       const av = get(a);
       const bv = get(b);
       if (typeof av === "string") return sort.dir === "asc" ? av.localeCompare(bv as string) : (bv as string).localeCompare(av);
       return sort.dir === "asc" ? (av as number) - (bv as number) : (bv as number) - (av as number);
     });
-  }, [hoteles, sort, q, ajustes.objetivoOportunidad]);
+  }, [hoteles, sort, q]);
 
   return (
     <section className="rounded-xl border border-border bg-surface shadow-soft overflow-hidden">
@@ -198,7 +194,7 @@ export function FnbFinancieroTable({
               className="bg-transparent outline-none flex-1"
             />
           </div>
-          <Button variant="outline" size="sm" onClick={() => exportar(rows, ajustes.objetivoOportunidad)}>
+          <Button variant="outline" size="sm" onClick={() => exportar(rows)}>
             <Download className="h-3.5 w-3.5" /> Exportar
           </Button>
         </div>
@@ -208,7 +204,7 @@ export function FnbFinancieroTable({
         <table className="w-full text-sm border-separate border-spacing-0">
           <thead className="bg-surface-muted/60">
             <tr>
-              {cols.map((c) => (
+              {COLS.map((c) => (
                 <th
                   key={c.label}
                   onClick={() => setSort((s) => ({ key: c.key, dir: s.key === c.key && s.dir === "desc" ? "asc" : "desc" }))}
@@ -231,10 +227,10 @@ export function FnbFinancieroTable({
           </thead>
           <tbody>
             {rows.map((h) => {
-              const e = etiqueta(h.penetracion, ajustes.umbralPenetracion, ajustes.objetivoPenetracion);
+              const e = etiqueta(h.penetracion, h.umbralPenetracion, h.objetivoPenetracion);
               return (
                 <tr key={h.id} className="border-t border-border hover:bg-accent/30 transition-colors group">
-                  {cols.map((c) => (
+                  {COLS.map((c) => (
                     <td
                       key={c.label}
                       className={cn(
