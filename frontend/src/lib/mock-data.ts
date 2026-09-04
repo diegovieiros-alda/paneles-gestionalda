@@ -4,8 +4,10 @@
 // TARGET_OPORTUNIDAD) de las páginas globales "Oportunidades"/"Tendencias"/
 // "Alertas" — esas páginas y sus datos de ejemplo se eliminaron (2026-08-27,
 // cada dashboard tiene ahora sus propias secciones con datos reales); los
-// objetivos de Desayunos pasaron a ser ajustes editables de verdad, ver
-// @/lib/ajustes-desayuno-context.
+// objetivos de Desayunos pasaron a ser ajustes editables de verdad — desde
+// 2026-09-04 resueltos por hotel en el backend (ver
+// backend/core/hoteles/service.py::get_ajustes_desayunos), no un contexto
+// global en el frontend.
 
 export type Etiqueta = "verde" | "naranja" | "rojo";
 
@@ -63,8 +65,8 @@ export function conSigno(n: number, texto: string): string {
  * absurdos cuando la penetración actual es casi cero (bug real encontrado 2026-08-21: un
  * hotel con penetración directa ~0% pero desayunos totales >0 por colaborador daba una
  * "facturación potencial" de millones). `objetivo` ya no tiene un valor por defecto
- * hardcodeado — viene de los ajustes editables del dashboard (ver
- * @/lib/ajustes-desayuno-context).
+ * hardcodeado — viene de los ajustes editables del dashboard, resueltos por hotel
+ * (ver HotelReal.objetivoOportunidad en @/lib/hoteles-api).
  */
 export function facturacionPotencial(
   alojados: number,

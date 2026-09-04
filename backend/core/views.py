@@ -22,6 +22,7 @@ from .bloqueos.service import get_report
 from .cache import origen_datos, tracking
 from .hoteles.service import (
     get_ajustes_desayunos,
+    get_ajustes_desayunos_hoteles_admin,
     get_hotel_desayunos,
     get_hotel_info,
     get_resumen,
@@ -378,6 +379,37 @@ def desayunos_ajustes(request):
             return JsonResponse({"error": "JSON inválido"}, status=400)
         try:
             return JsonResponse(set_ajustes_desayunos(cambios, request.user))
+        except ValueError as e:
+            return JsonResponse({"error": str(e)}, status=400)
+
+    return JsonResponse({"error": "Método no permitido"}, status=405)
+
+
+@requiere_dashboard("desayunos")
+def desayunos_ajustes_hoteles(request):
+    """Para el panel de administración de Ajustes (2026-09-04, "Objetivos
+    por hotel"): valor global + cada hotel con su valor ya resuelto y qué
+    claves tiene personalizadas."""
+    if request.method != "GET":
+        return JsonResponse({"error": "Método no permitido"}, status=405)
+    return JsonResponse(get_ajustes_desayunos_hoteles_admin())
+
+
+@requiere_dashboard("desayunos")
+def desayunos_ajustes_hotel(request, hotel_id):
+    """Ajustes de un hotel concreto — GET el valor resuelto (propio o
+    heredado del global), PATCH para fijar un override o borrarlo (valor
+    null/vacío en el cambio vuelve a heredar el global)."""
+    if request.method == "GET":
+        return JsonResponse(get_ajustes_desayunos(hotel_id))
+
+    if request.method in ("PATCH", "POST"):
+        try:
+            cambios = json.loads(request.body or b"{}")
+        except json.JSONDecodeError:
+            return JsonResponse({"error": "JSON inválido"}, status=400)
+        try:
+            return JsonResponse(set_ajustes_desayunos(cambios, request.user, hotel_id))
         except ValueError as e:
             return JsonResponse({"error": str(e)}, status=400)
 

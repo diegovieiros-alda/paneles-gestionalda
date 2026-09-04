@@ -1,7 +1,6 @@
 import { lazy, Suspense, type ReactNode } from "react";
 import { BrowserRouter, Routes, Route, Link, Navigate, Outlet } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
-import { AjustesDesayunoProvider } from "@/lib/ajustes-desayuno-context";
 import { DesayunosFiltrosProvider } from "@/lib/desayunos-filtros-context";
 import { ProtectedRoute, SuperuserRoute } from "@/components/dashboard/protected-route";
 import { LoadingScreen } from "@/components/dashboard/loading-screen";
@@ -29,33 +28,30 @@ const RegistroPage = lazy(() => import("@/pages/registro"));
 const LoginPage = lazy(() => import("@/pages/login"));
 const UsuariosPage = lazy(() => import("@/pages/usuarios"));
 
-// Todas las rutas de Desayunos comparten los ajustes editables (objetivo de
-// penetración, umbral de alerta, objetivo de oportunidad) — un solo fetch
-// para todas, no uno por página.
 function DesayunosRoute({ children }: { children: ReactNode }) {
-  return (
-    <ProtectedRoute dashboard="desayunos">
-      <AjustesDesayunoProvider>{children}</AjustesDesayunoProvider>
-    </ProtectedRoute>
-  );
+  return <ProtectedRoute dashboard="desayunos">{children}</ProtectedRoute>;
 }
 
-// Detalle/Oportunidades/Tendencias/Alertas comparten además Periodo/Hotel/
-// Producto (DesayunosFiltrosProvider) — son las 4 "secciones" entre las que
-// se navega con las mismas pestañas, y antes cada una montaba su propio
+// Detalle/Oportunidades/Tendencias/Alertas comparten Periodo/Hotel/Producto
+// (DesayunosFiltrosProvider) — son las 4 "secciones" entre las que se
+// navega con las mismas pestañas, y antes cada una montaba su propio
 // useDesayunosData() desde cero, reseteando los filtros al cambiar de
 // pestaña (reportado explícitamente). Un solo <Outlet/> como hijo hace que
 // el Provider no se desmonte al navegar entre ellas. La portada, Ajustes y
 // la ficha de un hotel se quedan fuera a propósito: no consumen esos
 // filtros y no tiene sentido pagar ese fetch en esas páginas.
+//
+// Los objetivos/umbrales (antes AjustesDesayunoProvider, un contexto
+// global compartido) ya no viajan así desde 2026-09-04 ("Objetivos
+// configurarlo por hotel"): cada hotel resuelve su propio valor en el
+// backend y viaja YA en su fila (get_hoteles/get_hotel_desayunos), así que
+// no hace falta un fetch ni un contexto aparte que mantener sincronizado.
 function DesayunosSeccionesLayout() {
   return (
     <ProtectedRoute dashboard="desayunos">
-      <AjustesDesayunoProvider>
-        <DesayunosFiltrosProvider>
-          <Outlet />
-        </DesayunosFiltrosProvider>
-      </AjustesDesayunoProvider>
+      <DesayunosFiltrosProvider>
+        <Outlet />
+      </DesayunosFiltrosProvider>
     </ProtectedRoute>
   );
 }

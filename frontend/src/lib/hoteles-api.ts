@@ -172,7 +172,18 @@ export type LyFields = {
   resultadoFBLY: number; resultadoFBVarLY: number | null;
 };
 
-export type HotelReal = HotelDirectorio & FnbFields & FacturacionFields & LyFields & {
+// Objetivos/umbrales ya resueltos para ESTE hotel (2026-09-04, "Objetivos
+// configurarlo por hotel") — el backend devuelve el override propio si
+// existe, si no el global de la cadena, si no el valor por defecto; el
+// frontend no necesita saber cuál de los tres es, solo usar el número.
+// Editar los propios/el global vive en desayunos-ajustes.tsx, no aquí.
+export type AjustesResueltos = {
+  objetivoPenetracion: number;
+  umbralPenetracion: number;
+  objetivoOportunidad: number;
+};
+
+export type HotelReal = HotelDirectorio & FnbFields & FacturacionFields & LyFields & AjustesResueltos & {
   alojados: number;
   desayunos: number;
   penetracion: number;
@@ -284,6 +295,7 @@ export type HotelDesayunos = {
   // cabecera. Ver backend/core/hoteles/service.py::get_hotel_desayunos.
   tiposDesayuno: string[];
   desglosePorProducto: DesgloseProducto[];
+  ajustes: AjustesResueltos;
 };
 
 export async function fetchHotelDesayunos(

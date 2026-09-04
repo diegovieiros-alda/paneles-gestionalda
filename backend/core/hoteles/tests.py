@@ -154,6 +154,13 @@ class GetHotelesTests(SimpleTestCase):
             p = mock.patch.object(repository, nombre, return_value=valor)
             mocks[nombre] = p.start()
             self.addCleanup(p.stop)
+        # get_ajustes_desayunos_por_hoteles toca DashboardSetting (BD
+        # "default", no Odoo) — sin mockearla, SimpleTestCase la rechaza.
+        # {} = todos los hoteles con AJUSTES_DESAYUNOS_DEFECTO, igual que
+        # antes de que existiera "por hotel".
+        p_ajustes = mock.patch.object(service, "get_ajustes_desayunos_por_hoteles", return_value={})
+        mocks["get_ajustes_desayunos_por_hoteles"] = p_ajustes.start()
+        self.addCleanup(p_ajustes.stop)
         return mocks
 
     def test_excluye_hotel_fuera_de_cadena_por_id_fijo(self):
@@ -279,6 +286,11 @@ class GetHotelDesayunosTests(SimpleTestCase):
             p = mock.patch.object(repository, nombre, return_value=valor)
             mocks[nombre] = p.start()
             self.addCleanup(p.stop)
+        # get_ajustes_desayunos toca DashboardSetting (BD "default", no
+        # Odoo) — sin mockearla, SimpleTestCase la rechaza.
+        p_ajustes = mock.patch.object(service, "get_ajustes_desayunos", return_value=dict(service.AJUSTES_DESAYUNOS_DEFECTO))
+        mocks["get_ajustes_desayunos"] = p_ajustes.start()
+        self.addCleanup(p_ajustes.stop)
         return mocks
 
     def test_reenvia_tipos_desayuno_a_fetch_desayunos(self):
@@ -593,3 +605,123 @@ class PresupuestoDesayunoExcelFormulaTests(SimpleTestCase):
             )
         # Solo el hotel 1 (property_code "999"): 100 × 0.5 × 6€ = 300€
         self.assertAlmostEqual(resultado["2026-10-01"]["presupuestoIngresos"], 300.0)
+
+
+class _FakeDashboardSettingObjects:
+    """Sustituye a DashboardSetting.objects para probar get_ajustes_desayunos/
+    set_ajustes_desayunos (2026-09-04, "Objetivos por hotel") sin tocar la
+    BD real — mismo motivo que el resto de este fichero: SimpleTestCase no
+    permite consultas reales, y estas funciones hacen varios .filter()
+    encadenados con distintos kwargs, no una única forma mockeable con
+    return_value."""
+
+    def __init__(self, filas=None):
+        # cada fila: {"dashboard","clave","hotel_id","valor"}
+        self.filas = filas if filas is not None else []
+
+    def filter(self, **kwargs):
+        hotel_id_kw = "hotel_id" in kwargs
+        isnull_kw = kwargs.get("hotel_id__isnull")
+        hotel_id_in = kwargs.get("hotel_id__in")
+
+        def coincide(fila):
+            if fila["dashboard"] != kwargs.get("dashboard", fila["dashboard"]):
+                return False
+            claves = kwargs.get("clave__in")
+            if claves is not None and fila["clave"] not in claves:
+                return False
+            if isnull_kw is True and fila["hotel_id"] is not None:
+                return False
+            if isnull_kw is False and fila["hotel_id"] is None:
+                return False
+            if hotel_id_kw and fila["hotel_id"] != kwargs["hotel_id"]:
+                return False
+            if hotel_id_in is not None and fila["hotel_id"] not in hotel_id_in:
+                return False
+            return True
+
+        return _FakeQuerySet([f for f in self.filas if coincide(f)], self)
+
+    def update_or_create(self, dashboard, clave, hotel_id=None, defaults=None):
+        for fila in self.filas:
+            if fila["dashboard"] == dashboard and fila["clave"] == clave and fila["hotel_id"] == hotel_id:
+                fila["valor"] = defaults["valor"]
+                return
+        self.filas.append({"dashboard": dashboard, "clave": clave, "hotel_id": hotel_id, "valor": defaults["valor"]})
+
+
+class _FakeQuerySet:
+    def __init__(self, filas, store):
+        self.filas = filas
+        self.store = store
+
+    def values_list(self, *campos):
+        return [tuple(f[c] for c in campos) for f in self.filas]
+
+    def delete(self):
+        for f in self.filas:
+            self.store.filas.remove(f)
+
+
+class AjustesPorHotelTests(SimpleTestCase):
+    """get_ajustes_desayunos/get_ajustes_desayunos_por_hoteles/
+    set_ajustes_desayunos ganan un hotel_id opcional (2026-09-04,
+    "Objetivos configurarlo por hotel", ver roadmap §5) — el valor propio
+    del hotel gana al global, que gana al valor por defecto. Las filas ya
+    existentes (todas con hotel_id NULL) siguen siendo el global — nadie
+    pierde el criterio actual al desplegar esto."""
+
+    def _store(self, filas=None):
+        fake = _FakeDashboardSettingObjects(filas)
+        p = mock.patch("core.models.DashboardSetting.objects", fake)
+        p.start()
+        self.addCleanup(p.stop)
+        return fake
+
+    def test_sin_hotel_id_devuelve_solo_el_global(self):
+        self._store([{"dashboard": "desayunos", "clave": "objetivoPenetracion", "hotel_id": None, "valor": 0.6}])
+        resultado = service.get_ajustes_desayunos()
+        self.assertEqual(resultado["objetivoPenetracion"], 0.6)
+        self.assertEqual(resultado["umbralPenetracion"], service.AJUSTES_DESAYUNOS_DEFECTO["umbralPenetracion"])
+
+    def test_override_del_hotel_gana_al_global(self):
+        self._store([
+            {"dashboard": "desayunos", "clave": "objetivoPenetracion", "hotel_id": None, "valor": 0.6},
+            {"dashboard": "desayunos", "clave": "objetivoPenetracion", "hotel_id": 42, "valor": 0.7},
+        ])
+        self.assertEqual(service.get_ajustes_desayunos(hotel_id=42)["objetivoPenetracion"], 0.7)
+        # otro hotel sin override propio hereda el global, no el del 42
+        self.assertEqual(service.get_ajustes_desayunos(hotel_id=99)["objetivoPenetracion"], 0.6)
+
+    def test_hotel_sin_ningun_ajuste_hereda_el_valor_por_defecto(self):
+        self._store([])
+        resultado = service.get_ajustes_desayunos(hotel_id=1)
+        self.assertEqual(resultado, service.AJUSTES_DESAYUNOS_DEFECTO)
+
+    def test_por_hoteles_resuelve_varios_a_la_vez(self):
+        self._store([
+            {"dashboard": "desayunos", "clave": "objetivoPenetracion", "hotel_id": None, "valor": 0.6},
+            {"dashboard": "desayunos", "clave": "objetivoPenetracion", "hotel_id": 1, "valor": 0.7},
+        ])
+        resultado = service.get_ajustes_desayunos_por_hoteles([1, 2])
+        self.assertEqual(resultado[1]["objetivoPenetracion"], 0.7)  # override propio
+        self.assertEqual(resultado[2]["objetivoPenetracion"], 0.6)  # hereda el global
+
+    def test_set_con_hotel_id_no_toca_el_global(self):
+        fake = self._store([{"dashboard": "desayunos", "clave": "objetivoPenetracion", "hotel_id": None, "valor": 0.6}])
+        service.set_ajustes_desayunos({"objetivoPenetracion": 0.7}, usuario=None, hotel_id=42)
+        self.assertEqual(service.get_ajustes_desayunos()["objetivoPenetracion"], 0.6)  # global intacto
+        self.assertEqual(service.get_ajustes_desayunos(hotel_id=42)["objetivoPenetracion"], 0.7)
+
+    def test_set_con_valor_none_borra_el_override_y_vuelve_al_global(self):
+        self._store([
+            {"dashboard": "desayunos", "clave": "objetivoPenetracion", "hotel_id": None, "valor": 0.6},
+            {"dashboard": "desayunos", "clave": "objetivoPenetracion", "hotel_id": 42, "valor": 0.7},
+        ])
+        service.set_ajustes_desayunos({"objetivoPenetracion": None}, usuario=None, hotel_id=42)
+        self.assertEqual(service.get_ajustes_desayunos(hotel_id=42)["objetivoPenetracion"], 0.6)
+
+    def test_set_valida_rango_igual_que_antes(self):
+        self._store([])
+        with self.assertRaises(ValueError):
+            service.set_ajustes_desayunos({"objetivoPenetracion": 1.5}, usuario=None, hotel_id=1)

@@ -45,10 +45,20 @@ class DashboardSetting(models.Model):
     simple: no hace falta más estructura mientras solo Desayunos tenga
     ajustes reales — ver hoteles/service.py::get_ajustes_desayunos.
     Editar requiere el mismo permiso que ver el dashboard (no hay un nivel
-    de permiso "editar" propio todavía)."""
+    de permiso "editar" propio todavía).
+
+    hotel_id (2026-09-04, pedido explícito: "Objetivos configurarlo por
+    hotel" en vez de un único valor para toda la cadena): NULL = valor
+    global/por defecto (lo que había antes de este cambio — las filas ya
+    existentes no se tocan, siguen siendo el valor global); un id concreto
+    = override de ese hotel para esa clave, que gana sobre el global si
+    existe (ver hoteles/service.py::get_ajustes_desayunos). No es una FK a
+    ningún modelo (los hoteles viven en Odoo, otra base de datos) — mismo
+    criterio que el resto del proyecto para pms_property_id."""
 
     dashboard = models.CharField(max_length=50)
     clave = models.CharField(max_length=100)
+    hotel_id = models.IntegerField(null=True, blank=True)
     valor = models.FloatField()
     actualizado_en = models.DateTimeField(auto_now=True)
     actualizado_por = models.ForeignKey(
@@ -56,10 +66,24 @@ class DashboardSetting(models.Model):
     )
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=["dashboard", "clave"], name="unico_ajuste_por_dashboard")]
+        constraints = [
+            # Dos constraints en vez de una sobre (dashboard, clave, hotel_id):
+            # un UniqueConstraint normal no evita dos filas con hotel_id=NULL
+            # para la misma clave (NULL nunca es igual a NULL en SQL/Postgres),
+            # así que el caso "valor global" necesita su propio índice parcial.
+            models.UniqueConstraint(
+                fields=["dashboard", "clave"], condition=models.Q(hotel_id__isnull=True),
+                name="unico_ajuste_global_por_dashboard",
+            ),
+            models.UniqueConstraint(
+                fields=["dashboard", "clave", "hotel_id"], condition=models.Q(hotel_id__isnull=False),
+                name="unico_ajuste_por_dashboard_y_hotel",
+            ),
+        ]
 
     def __str__(self):
-        return f"{self.dashboard}.{self.clave} = {self.valor}"
+        objetivo = f"hotel {self.hotel_id}" if self.hotel_id is not None else "global"
+        return f"{self.dashboard}.{self.clave} ({objetivo}) = {self.valor}"
 
 
 class MapeoRolPuesto(models.Model):

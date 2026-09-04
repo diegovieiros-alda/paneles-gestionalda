@@ -1,15 +1,15 @@
 import { AlertTriangle, ChevronRight, Percent } from "lucide-react";
 import { Link } from "react-router-dom";
 import { fmtPct } from "@/lib/mock-data";
-import { useAjustesDesayuno } from "@/lib/ajustes-desayuno-context";
 import { hrefHotelDesayunos, type HotelReal } from "@/lib/hoteles-api";
 
 export function AlertsBlockReal({
   hoteles, desde, hasta, tipos,
 }: { hoteles: HotelReal[]; desde: string; hasta: string; tipos: string[] }) {
-  const { ajustes } = useAjustesDesayuno();
+  // h.umbralPenetracion/h.objetivoPenetracion: desde 2026-09-04 cada hotel
+  // puede tener su propio umbral/objetivo, ya resuelto por el backend.
   const alerts = hoteles
-    .filter((h) => h.alojados > 0 && h.penetracion < ajustes.umbralPenetracion)
+    .filter((h) => h.alojados > 0 && h.penetracion < h.umbralPenetracion)
     .sort((a, b) => a.penetracion - b.penetracion)
     .slice(0, 8);
 
@@ -45,7 +45,7 @@ export function AlertsBlockReal({
                 <div className="text-[11px] text-muted-foreground truncate">
                   {h.zona} · Penetración baja ·{" "}
                   <span className="text-foreground/70 num">
-                    {fmtPct(h.penetracion)} · objetivo {fmtPct(ajustes.objetivoPenetracion, 0)}
+                    {fmtPct(h.penetracion)} · objetivo {fmtPct(h.objetivoPenetracion, 0)}
                   </span>
                 </div>
               </div>
