@@ -134,7 +134,7 @@ Existe (`frontend/src/pages/desayunos-ajustes.tsx`, ruta `/desayunos/ajustes`). 
 | Alerta de precio medio bajo € | ⬜ | No existe. |
 | Alerta de caída vs año anterior % | ⬜ | No existe — pese a que LY ya está calculado en el resto de la app desde 2026-09-03, no hay ningún umbral configurable que lo use. |
 | Alerta de margen bruto bajo % | ⬜ | No existe. |
-| "Por hotel" (título de la sección en el spec) | 🔒 conceptual | El modelo real, `DashboardSetting` (`backend/core/models.py`), es clave-valor **global por dashboard** (constraint única en `(dashboard, clave)`), sin columna de hotel — los 3 ajustes que existen aplican igual a los ~89 hoteles de la cadena, no un objetivo distinto por hotel. Migrar a "por hotel" es un cambio de modelo de datos (nueva tabla u otra estrategia), no una tarea de UI — cae dentro de la regla de oro del CLAUDE.md (no cerrar decisiones de negocio en silencio): **necesita decisión explícita antes de tocar código**. |
+| "Por hotel" (título de la sección en el spec) | ✅ *(cerrado 2026-09-04)* | Decisión explícita del usuario: migrar a "por hotel" (frente a mantener global). `DashboardSetting` gana un `hotel_id` opcional (NULL = global, como antes; un id = override de ese hotel, que gana sobre el global) — cambio aditivo, las filas ya existentes siguen siendo el global. `get_hoteles`/`get_hotel_desayunos` devuelven ya los 3 ajustes resueltos por hotel; nueva sección "Por hotel" en la página Ajustes (tabla con buscador, override por fila, botón para volver al global). Verificado con 7 tests nuevos + comprobación directa contra producción (fijar/leer/borrar un override real). Las tarjetas que agregan varios hoteles (`ObjetivoPenetracionCard`, `OpportunityBlockReal`) usan la media ponderada por alojados de cada objetivo propio. |
 
 ---
 
@@ -144,7 +144,7 @@ Existe (`frontend/src/pages/desayunos-alertas.tsx`, ruta `/desayunos/alertas`). 
 
 Contenido real: un único bloque (`AlertsBlockReal`) que lista (máx. 8) los hoteles con `penetracion < ajustes.umbralPenetracion`, ordenados de menor a mayor penetración, cada uno con enlace a su ficha. Es exactamente el mismo criterio (`umbralPenetracion`) que ya alimenta el semáforo verde/naranja/rojo visible en la tabla de Detalle y en la ficha de cada hotel — el propio spec anticipa este solapamiento.
 
-**Pendiente de decidir**: si esta página se mantiene tal cual, se amplía con las alertas que faltan (precio medio, margen bruto, caída vs LY — bloqueadas a su vez por §5), o se elimina en favor del semáforo ya existente en Detalle, tal como el spec sugiere como posibilidad. No es una decisión técnica.
+**Decidido 2026-09-04**: se amplía (no se retira ni se deja igual) con las alertas que faltan — precio medio bajo, margen bruto bajo, caída vs LY. Ya no bloqueadas por Ajustes (§5, resuelto): faltan añadir los 2 campos objetivo nuevos (precio medio objetivo €, margen bruto mínimo aceptable %) y decidir contra qué métrica se mide "caída vs año anterior" (el spec no lo especifica — LY ya existe para producción/ingresos/gastos/etc., candidato razonable: Producción, la métrica de volumen principal, a confirmar). Pendiente de implementar.
 
 ---
 
@@ -160,6 +160,8 @@ Existe (`frontend/src/pages/desayunos-oportunidades.tsx`). El spec pide: Total o
 | Tabla ranking fija (Alojados/Desayunos/Penetración/Facturación/Oportunidad/Facturación potencial %dif), ordenada por facturación potencial | 🟡 | Hoy son dos componentes distintos, ninguno igual al del spec: `RankingListReal` es una lista top-8 con un selector de 3 métricas (Producción/Penetración/Precio medio) que el usuario puede cambiar — no muestra todas las columnas a la vez ni está fijo a "facturación potencial"; `OpportunityBlockReal.topHoteles` sí ordena por oportunidad descendente pero es un top-5 con menos columnas, no una tabla completa de todos los hoteles. |
 | Columna "Acción sugerida" | ⬜ (no definible) | El propio spec la deja sin definir ("ver cómo enfocar esto") — no hay una fórmula o texto que implementar; no se puede construir sin que alguien la defina primero. |
 
+**Decidido 2026-09-04**: sustituir el ranking actual (lista de 1 métrica + top-5) por la tabla fija del spec, sin la columna "Acción sugerida" (no definible). Pendiente de implementar.
+
 ---
 
 ## 8. Página Tendencias
@@ -174,25 +176,27 @@ Existe (`frontend/src/pages/desayunos-tendencias.tsx`). El spec pide un único g
 | Proyección 3 meses a futuro con IA | ⬜ | No existe ninguna mención a proyección ni a IA en ningún componente de Tendencias. Requeriría un modelo de forecasting — **no es una tarea de UI**, necesita decisión explícita sobre alcance y método antes de construirse. |
 | Filtros heredados (Zona/Submarca/Producto/Hotel) | ✅ *(añadido 2026-09-03)* | Tendencias ya muestra el panel de filtros completo. Endpoint nuevo `get_serie_mensual`/`/api/desayunos/serie-mensual/` (mismo patrón que Turnos, separado de `/api/desayunos/` para no arrastrar el recálculo de la tabla de hoteles) con variantes filtradas de las 3 consultas que arman la serie (PMS, FNB, presupuesto Odoo/Excel) — verificadas contra producción para un hotel de referencia. Sin ningún filtro de hotel activo, `get_resumen` sigue usando exactamente la consulta de siempre (mismo resultado, sin cambios). Producto sí afecta a la parte PMS (desayunos/producción) de la serie; Ingresos/Gastos/Margen (contable) nunca se filtran por Producto en ningún sitio de la app, tampoco aquí — mismo comportamiento que la ficha de hotel. |
 
-**Pendiente de decidir**: si el selector de métrica + tooltip con LY es una ampliación que se quiere abordar ahora (factible reutilizando el mismo patrón de LY ya construido, pero exige tocar `fetch_serie_mensual`), y si la proyección con IA entra en el alcance de este proyecto o se descarta explícitamente.
+**Decidido 2026-09-04**: construir el selector de métrica + tooltip con Actual+LY ya, reutilizando el patrón de LY existente. Presupuesto en el tooltip solo donde ya existe (Facturación/Ingresos) — las otras 4 métricas lo suman cuando se resuelvan sus fórmulas de presupuesto (§9.2). La proyección "3 meses con IA" queda fuera de este alcance por ahora (no descartada, solo no incluida en esta ronda). Pendiente de implementar.
 
 ---
 
 ## 9. Resumen de prioridad sugerida
 
 1. **Hecho (2026-09-03)**: código+zona+submarca en tablas y cabecera, tipo de desayuno mixto, KPI Coste medio en la ficha, gráfico Alojados vs desayunos con presupuesto en unidades, rediseño de las 3 tablas (sin scroll horizontal), desglose por producto vendido, selector real de uno o varios hoteles, gauges circulares 360° (Alojados/Desayunos/Penetración/Ingresos/Gastos, donde ya hay un objetivo real), **LY (comparativa año anterior)** en la tabla Producción, la tabla Financiero F&B y en todos los KPIs de la ficha de hotel (alojados, desayunos, penetración, precio medio ×2, producción, ingresos, gastos, margen bruto, coste medio, resultado F&B) — verificado con tests y con medición real de rendimiento en producción (el cron horario de precalentado ya absorbe el coste marginal para las vistas más comunes); **filtros completos (Periodo/Hotel/Zona/Submarca/Producto) extendidos a Oportunidades, Alertas y Tendencias** (§1, §7, §8), con la consulta nueva `get_serie_mensual` para la serie de Tendencias, verificada contra producción; **barra de progreso de dos colores en Oportunidades** (§7).
-2. **Pendiente de decidir contigo, no de programar directamente**:
-   - Fórmulas de "presupuesto" para Precio medio/Coste medio/Margen bruto (necesarias para el histórico mensual con selector y para dar gauge a esos 3 KPIs, que hoy se quedan sin él a propósito).
+2. **Hecho (2026-09-04)**: **Ajustes "por hotel"** (§5) — `DashboardSetting` gana `hotel_id` opcional, override por hotel > global > valor por defecto, nueva tabla de administración en la página Ajustes. Cambio aditivo, verificado con tests y contra producción (fijar/leer/borrar un override real en un hotel de referencia).
+3. **Decidido con el usuario 2026-09-04, pendiente de implementar** (ver el detalle de cada una en su sección):
+   - **Alertas adicionales** (§6): precio medio bajo, margen bruto bajo, caída vs año anterior — ya no bloqueadas por Ajustes (resuelto en el punto 2), faltan los 2 campos objetivo nuevos (precio medio objetivo €, margen bruto mínimo aceptable %) y decidir contra qué métrica se mide "caída vs LY" (candidato: Producción, a confirmar).
+   - **Tabla de ranking de Oportunidades** (§7): sustituir el ranking actual (lista de 1 métrica + top-5) por la tabla fija del spec (Alojados/Desayunos/Penetración/Facturación/Oportunidad/Facturación potencial), sin la columna "Acción sugerida" (no definible).
+   - **Selector de métrica en Tendencias** (§8): ampliar `fetch_serie_mensual` para las 4 métricas que faltan (penetración/precio medio/margen bruto/coste medio) + su LY, con tooltip Actual+LY (+presupuesto solo donde ya existe). La proyección "3 meses con IA" queda fuera de esta ronda.
+4. **Pendiente de decidir contigo, no de programar directamente**:
+   - Fórmulas de "presupuesto" para Precio medio/Coste medio/Margen bruto (necesarias para el histórico mensual con selector y para dar gauge a esos 3 KPIs, que hoy se quedan sin él a propósito, y para completar el tooltip de presupuesto del punto 3).
    - Qué fuente (PMS vs. contable) usa cada columna de la tabla "Facturación" si se construye tal cual el spec.
    - Si "Tipo Hotel"/"Segmento Hotel"/"Etiqueta"/"Estado del hotel" merecen una tabla propia en este proyecto (mismo patrón que `PresupuestoDesayunoMensual`) o se dejan pendientes hasta que existan en Odoo. La misma falta de "Estado del hotel" es lo que bloquea el texto "hoteles abiertos hoy" de Oportunidades (§7).
-   - **Ajustes "por hotel" (§5)**: hoy los 3 ajustes existentes son globales para toda la cadena, no por hotel como pide el spec — es un cambio de modelo de datos, no de UI. Ligado a esto: si se añaden Precio medio objetivo € y Margen bruto mínimo aceptable %, y si el umbral de alerta de penetración pasa a calcularse como offset del objetivo en vez de un valor absoluto independiente.
-   - **Alertas adicionales (§5/§6)**: precio medio bajo, caída vs LY, margen bruto bajo — no existen hoy, y si se añaden dependen de que existan sus objetivos (punto anterior). También si la página "Alertas" se mantiene, se amplía, o se retira en favor del semáforo ya visible en Detalle (el propio spec la pone en duda).
-   - **Tabla de ranking de Oportunidades (§7)**: si se sustituye el ranking actual (lista de una sola métrica + top-5 de oportunidad) por la tabla fija de columnas que pide el spec (Alojados/Desayunos/Penetración/Facturación/Oportunidad/Facturación potencial), ordenada por facturación potencial. La columna "Acción sugerida" no se puede construir — el propio spec la deja sin definir.
-   - **Selector de métrica en Tendencias (§8)**: si se amplía `fetch_serie_mensual` para devolver también penetración/precio medio/margen bruto/coste medio (y su LY, ya calculado en el resto de la app) para dar el selector de métrica + tooltip que pide el spec. La proyección "3 meses a futuro con IA" es una decisión de alcance aparte (requiere un modelo de forecasting, no es una tarea de UI) — decidir si entra en este proyecto o se descarta.
-3. **Trabajo grande, sin bloqueos de decisión, a programar cuando se priorice**:
-   - Consolidar el histórico mensual en una tabla con selector de métrica y con LY/presupuesto por mes (una vez resueltas las fórmulas de presupuesto del punto 2).
-4. **No se va a hacer**: "Vendedores" con nombre de usuario (conflicto de privacidad, ver §4.6).
+   - Si el umbral de alerta de penetración pasa a calcularse como offset del objetivo (como sugiere la letra del spec) en vez de un valor absoluto independiente (como hoy, y como se ha implementado para las alertas nuevas del punto 3 por consistencia).
+5. **Trabajo grande, sin bloqueos de decisión, a programar cuando se priorice**:
+   - Consolidar el histórico mensual en una tabla con selector de métrica y con LY/presupuesto por mes (una vez resueltas las fórmulas de presupuesto del punto 4).
+6. **No se va a hacer**: "Vendedores" con nombre de usuario (conflicto de privacidad, ver §4.6).
 
 ---
 
-*Última actualización: 2026-09-03. Mantener este documento cuando se cierre cada punto — moverlo de la sección correspondiente a "Hecho" con la fecha, igual que el historial de cambios de `kpis-definiciones.md`.*
+*Última actualización: 2026-09-04. Mantener este documento cuando se cierre cada punto — moverlo de la sección correspondiente a "Hecho" con la fecha, igual que el historial de cambios de `kpis-definiciones.md`.*
