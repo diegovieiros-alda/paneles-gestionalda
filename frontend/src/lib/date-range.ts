@@ -49,7 +49,7 @@ const FMT_FECHA = new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "sho
 
 // "T00:00:00" (sin "Z"): que Date la interprete en hora local, no UTC —
 // si no, en UTC+1/+2 el formateo puede saltar al día siguiente.
-function fechaLocal(iso: string): Date {
+export function fechaLocal(iso: string): Date {
   return new Date(`${iso}T00:00:00`);
 }
 
@@ -72,6 +72,31 @@ export function fmtRangoSerieMensual(serie: { mes: string }[]): string {
   const desde = FMT_MES_ANIO.format(fechaLocal(serie[0].mes));
   const hasta = FMT_MES_ANIO.format(fechaLocal(serie[serie.length - 1].mes));
   return desde === hasta ? desde : `${desde} – ${hasta}`;
+}
+
+const FMT_MES_LARGO = new Intl.DateTimeFormat("es-ES", { month: "long" });
+
+// Los 12 meses del año en curso, para el desplegable de "Mes" (2026-09-04:
+// "el selector de mes debe ser un desplegable que permita elegir cada mes
+// del año" — antes "Mes" era un único botón, siempre el mes en curso).
+export const MESES_DEL_ANIO: Array<{ value: number; label: string }> = Array.from({ length: 12 }, (_, i) => {
+  const nombre = FMT_MES_LARGO.format(new Date(2000, i, 1));
+  return { value: i, label: nombre.charAt(0).toUpperCase() + nombre.slice(1) };
+});
+
+// Rango de un mes concreto, recortado a "ayer" si el mes está en curso o
+// es futuro (mismo criterio que el resto de presets con fin conocido —
+// ver hastaDe más abajo). anio fijo al actual desde el desplegable (elegir
+// "cada mes del año" no pedía navegar a años anteriores; para eso ya está
+// "Personalizado").
+export function rangoDelMes(anio: number, mes0: number): { desde: string; hasta: string } {
+  const hoy = new Date();
+  const desde = new Date(anio, mes0, 1);
+  const fin = new Date(anio, mes0 + 1, 0);
+  if (fin < hoy) return { desde: iso(desde), hasta: iso(fin) };
+  const ayer = new Date(hoy);
+  ayer.setDate(ayer.getDate() - 1);
+  return { desde: iso(desde), hasta: iso(ayer < desde ? desde : ayer) };
 }
 
 // Backend ya admite rangos de hasta 370 días para Desayunos (ver
@@ -107,11 +132,8 @@ export function rangeForPreset(preset: Exclude<RangePreset, "custom">): { desde:
       desde.setDate(desde.getDate() - 29);
       return { desde: iso(desde), hasta: iso(ayer) };
     }
-    case "mes": {
-      const desde = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-      const fin = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
-      return { desde: iso(desde), hasta: hastaDe(desde, fin) };
-    }
+    case "mes":
+      return rangoDelMes(hoy.getFullYear(), hoy.getMonth());
     // A partir de aquí, presets propios de Desayunos.
     case "dia":
       // A diferencia de "hoy" (Bloqueos): mismo cálculo, nombre distinto

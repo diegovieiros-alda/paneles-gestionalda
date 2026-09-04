@@ -8,7 +8,11 @@ import { rangeForPreset, type RangePreset } from "@/lib/date-range";
 export function useRangePreset(inicial: RangePreset, customInicial?: { desde: string; hasta: string }) {
   const [preset, setPreset] = useState<RangePreset>(inicial);
   const [custom, setCustom] = useState(() => customInicial ?? rangeForPreset(inicial === "custom" ? "30d" : inicial));
-  const { desde, hasta } = preset === "custom" ? custom : rangeForPreset(preset);
+  // "mes" también lee de `custom` (no de rangeForPreset directamente):
+  // desde que es un desplegable con los 12 meses del año (2026-09-04), el
+  // mes elegido es un valor que cambia, igual que "Personalizado" — solo
+  // que con su propio control en vez de dos campos de fecha libres.
+  const { desde, hasta } = preset === "custom" || preset === "mes" ? custom : rangeForPreset(preset);
   return {
     desde,
     hasta,
