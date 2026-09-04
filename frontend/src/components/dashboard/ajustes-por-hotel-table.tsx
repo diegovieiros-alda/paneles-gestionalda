@@ -118,15 +118,17 @@ export function AjustesPorHotelTable() {
       </div>
       {error && <p className="text-sm text-danger">{error}</p>}
 
-      <div className="overflow-x-auto rounded-xl border border-border">
+      {/* max-h + overflow-auto: cabecera fija (sticky top-0) al bajar por
+          los ~89 hoteles — mismo criterio que las tablas de Detalle. */}
+      <div className="overflow-auto max-h-[70vh] rounded-xl border border-border">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border bg-surface-muted/40 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
-              <th className="px-4 py-2.5 font-medium">Hotel</th>
+              <th className="px-4 py-2.5 font-medium sticky top-0 bg-surface-muted z-10">Hotel</th>
               {CAMPOS.map((c) => (
-                <th key={c.clave} className="px-4 py-2.5 font-medium text-right">{c.label}</th>
+                <th key={c.clave} className="px-4 py-2.5 font-medium text-right sticky top-0 bg-surface-muted z-10">{c.label}</th>
               ))}
-              <th className="px-4 py-2.5 font-medium w-10" />
+              <th className="px-4 py-2.5 font-medium w-10 sticky top-0 bg-surface-muted z-10" />
             </tr>
           </thead>
           <tbody className="divide-y divide-border">

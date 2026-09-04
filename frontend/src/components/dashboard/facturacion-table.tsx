@@ -103,7 +103,9 @@ export function FacturacionTable({
         </div>
       </header>
 
-      <div className="overflow-x-auto">
+      {/* max-h + overflow-auto: cabecera fija (sticky top-0) mientras se
+          baja por la tabla — ver mismo comentario en hotels-table-real.tsx. */}
+      <div className="overflow-auto max-h-[70vh]">
         <table className="w-full text-sm">
           <thead className="bg-surface-muted/60">
             <tr>
@@ -112,8 +114,8 @@ export function FacturacionTable({
                   key={c.key}
                   onClick={() => setSort((s) => ({ key: c.key, dir: s.key === c.key && s.dir === "desc" ? "asc" : "desc" }))}
                   className={cn(
-                    "text-[11px] font-medium text-muted-foreground uppercase tracking-wide px-5 py-3.5 cursor-pointer select-none whitespace-nowrap",
-                    c.sticky ? "text-left sticky left-0 bg-surface-muted/95 z-10" : "text-right"
+                    "text-[11px] font-medium text-muted-foreground uppercase tracking-wide px-5 py-3.5 cursor-pointer select-none whitespace-nowrap sticky top-0 bg-surface-muted/95 z-10",
+                    c.sticky ? "text-left left-0 z-20" : "text-right"
                   )}
                 >
                   <span className={cn("inline-flex items-center gap-1", !c.sticky && "flex-row-reverse")}>
@@ -122,7 +124,7 @@ export function FacturacionTable({
                   </span>
                 </th>
               ))}
-              <th className="w-8" />
+              <th className="w-8 sticky top-0 bg-surface-muted/95 z-10" />
             </tr>
           </thead>
           <tbody>
