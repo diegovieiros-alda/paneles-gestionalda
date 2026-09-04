@@ -55,7 +55,10 @@ export function useDesayunosData() {
   const [q, setQ] = useState("");
   const [hotelIds, setHotelIds] = useState<number[]>([]);
 
-  const { desde, hasta } = preset === "custom" ? custom : rangeForPreset(preset);
+  // "mes" también lee de `custom` (no de rangeForPreset directamente): es
+  // un desplegable con los 12 meses del año (2026-09-04), el mes elegido
+  // es un valor que cambia, igual que "Personalizado".
+  const { desde, hasta } = preset === "custom" || preset === "mes" ? custom : rangeForPreset(preset);
 
   useEffect(() => {
     let vivo = true;
