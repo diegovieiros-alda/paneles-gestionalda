@@ -156,7 +156,12 @@ export function HotelsTableReal({
         </div>
       </header>
 
-      <div className="overflow-x-auto">
+      {/* max-h + overflow-auto (no solo overflow-x-auto): la tabla gana su
+          propio scroll, acotado, para que la cabecera pueda quedarse fija
+          (sticky top-0) mientras se baja por hasta ~89 filas — antes la
+          página entera hacía scroll y la cabecera desaparecía, "se pierde
+          lo que es cada columna" (reportado 2026-09-04). */}
+      <div className="overflow-auto max-h-[70vh]">
         <table className="w-full text-sm">
           <thead className="bg-surface-muted/60">
             <tr>
@@ -165,8 +170,8 @@ export function HotelsTableReal({
                   key={c.key}
                   onClick={() => setSort((s) => ({ key: c.key, dir: s.key === c.key && s.dir === "desc" ? "asc" : "desc" }))}
                   className={cn(
-                    "text-[11px] font-medium text-muted-foreground uppercase tracking-wide px-5 py-3.5 cursor-pointer select-none whitespace-nowrap",
-                    c.sticky ? "text-left sticky left-0 bg-surface-muted/95 z-10" : "text-right"
+                    "text-[11px] font-medium text-muted-foreground uppercase tracking-wide px-5 py-3.5 cursor-pointer select-none whitespace-nowrap sticky top-0 bg-surface-muted/95 z-10",
+                    c.sticky ? "text-left left-0 z-20" : "text-right"
                   )}
                 >
                   <span className={cn("inline-flex items-center gap-1", !c.sticky && "flex-row-reverse")}>
@@ -175,7 +180,7 @@ export function HotelsTableReal({
                   </span>
                 </th>
               ))}
-              <th className="w-8" />
+              <th className="w-8 sticky top-0 bg-surface-muted/95 z-10" />
             </tr>
           </thead>
           <tbody>
